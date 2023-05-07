@@ -1,0 +1,9 @@
+[submodule "lib/glm"]
+	path = lib/glm
+	url = https://github.com/g-truc/glm.git
+[submodule "lib/winchroma"]
+	path = lib/winchroma
+	url = https://github.com/vanjac/winchroma.git
+[submodule "lib/immer"]
+	path = lib/immer
+	url = https://github.com/arximboldi/immer.git
