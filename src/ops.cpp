@@ -281,20 +281,20 @@ Surface mergeFaces(Surface surf, edge_id e) {
     surf = assignFaceEdges(std::move(surf), delFace.second, keepFace.first);
     eraseAll(&surf.faces, {delFace.first});
 
-    // find the first edge bordering both faces
+    // find the first edge in chain
     edge_pair edge = given;
-    edge_pair prev;
+    edge_pair twin, prev;
     while (1) {
+        twin = edge.second.twin.pair(surf);
         prev = edge.second.prev.pair(surf);
-        if (prev.second.twin.in(surf).face != keepFace.first)
-            break;
+        if (prev.second.twin != twin.second.next)
+            break; // more than two edges on vertex
         edge = prev;
         if (edge.second.prev == given.first)
             throw winged_error(L"Can't merge the two sides of a plane!");
     }
 
     // first bordering edge
-    edge_pair twin = edge.second.twin.pair(surf);
     {
         edge_pair twinNext = twin.second.next.pair(surf);
         vert_pair vert = edge.second.vert.pair(surf);
@@ -319,8 +319,7 @@ Surface mergeFaces(Surface surf, edge_id e) {
         eraseAll(&surf.edges, {edge.first, twin.first});
         {
             edge_pair next = edge.second.next.pair(surf);
-            edge_pair nextTwin = next.second.twin.pair(surf);
-            if (nextTwin.second.face != keepFace.first) {
+            if (next.second.twin != twin.second.prev) {
                 // this is the last bordering edge
                 edge_pair twinPrev = twin.second.prev.pair(surf);
                 vert_pair twinVert = twin.second.vert.pair(surf);
@@ -338,7 +337,7 @@ Surface mergeFaces(Surface surf, edge_id e) {
                 break;
             }
             edge = next;
-            twin = nextTwin;
+            twin = next.second.twin.pair(surf);
         }
         eraseAll(&surf.verts, {edge.second.vert});
     }
