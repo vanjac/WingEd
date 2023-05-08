@@ -61,6 +61,8 @@ static bool g_flyCam = false;
 static glm::mat4 g_projMat, g_mvMat;
 static glm::vec2 g_windowDim;
 
+static HCURSOR g_curArrow, g_curKnife;
+
 static GLUtesselator *g_tess;
 static GLenum g_tess_error;
 
@@ -251,6 +253,14 @@ static EditorState knifeToVert(EditorState state, vert_id vert) {
     state.selType = Surface::VERT;
     state.selVert = vert;
     return state;
+}
+
+static bool onSetCursor(HWND wnd, HWND cursorWnd, UINT hitTest, UINT msg) {
+    if (msg && hitTest == HTCLIENT) {
+        SetCursor(g_tool == TOOL_KNIFE ? g_curKnife : g_curArrow);
+        return true;
+    }
+    return FORWARD_WM_SETCURSOR(wnd, cursorWnd, hitTest, msg, DefWindowProc);
 }
 
 static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
@@ -713,6 +723,7 @@ static LRESULT CALLBACK MainWindowProc(HWND wnd, UINT msg, WPARAM wParam, LPARAM
         HANDLE_MSG(wnd, WM_CREATE, onCreate);
         HANDLE_MSG(wnd, WM_DESTROY, onDestroy);
         HANDLE_MSG(wnd, WM_NCDESTROY, onNCDestroy);
+        HANDLE_MSG(wnd, WM_SETCURSOR, onSetCursor);
         HANDLE_MSG(wnd, WM_LBUTTONDOWN, onLButtonDown);
         HANDLE_MSG(wnd, WM_RBUTTONDOWN, onRButtonDown);
         HANDLE_MSG(wnd, WM_MBUTTONDOWN, onMButtonDown);
@@ -733,7 +744,10 @@ int APIENTRY WinMain(HINSTANCE instance, HINSTANCE, LPSTR, int showCmd) {
     WNDCLASSEX wndClass = makeClass(APP_NAME, MainWindowProc);
     wndClass.style = CS_HREDRAW | CS_VREDRAW;
     wndClass.lpszMenuName = APP_NAME;
+    wndClass.hCursor = NULL;
     RegisterClassEx(&wndClass);
+    g_curArrow = LoadCursor(NULL, IDC_ARROW);
+    g_curKnife = LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_KNIFE));
     HWND wnd = createWindow(APP_NAME, APP_NAME,
         defaultWindowRect(640, 480, WS_OVERLAPPEDWINDOW, true));
     if (!wnd) return -1;
