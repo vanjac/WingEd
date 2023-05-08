@@ -138,9 +138,11 @@ static void updateStatus(HWND wnd) {
         _stprintf_s(gridBuf, _countof(gridBuf), L"%f", g_state.gridSize);
     else
         _stprintf_s(gridBuf, _countof(gridBuf), L"Off");
-    _stprintf_s(buf, _countof(buf), L"%s  \t\t%s \tGrid: %s",
-        APP_NAME, toolNames[g_tool], gridBuf);
-    SetWindowText(wnd, buf);
+    _stprintf_s(buf, _countof(buf), L"%s    Grid: %s", toolNames[g_tool], gridBuf);
+    MENUITEMINFO info = {sizeof(info), 0x40}; // TODO requires Win2000?
+    info.dwTypeData = buf;
+    SetMenuItemInfo(GetMenu(wnd), IDM_STATUS, false, &info);
+    DrawMenuBar(wnd);
 }
 
 static void showError(HWND wnd, winged_error err) {
