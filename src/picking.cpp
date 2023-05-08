@@ -2,6 +2,7 @@
 #include <glm/vec4.hpp>
 #include "winchroma.h"
 #include <glm/gtx/norm.hpp>
+#include <glm/gtx/associated_min_max.hpp>
 
 namespace winged {
 
@@ -16,7 +17,7 @@ glm::vec3 projectPoint(glm::vec3 point, const glm::mat4 &project) {
 }
 
 PickResult pickElement(const Surface &surf, Surface::ElementType types,
-        glm::vec2 cursor, glm::vec2 windowDim, const glm::mat4 &project) {
+        glm::vec2 cursor, glm::vec2 windowDim, const glm::mat4 &project, float grid) {
     glm::vec2 normCur = cursor / windowDim * 2.0f - 1.0f; // range -1 to 1
     normCur.y *= -1; // opengl convention
 
@@ -62,18 +63,31 @@ PickResult pickElement(const Surface &surf, Surface::ElementType types,
                 glm::vec3 oDiff = v1 - rayOrg;
                 glm::vec3 projection = glm::dot(oDiff, rayDir) * rayDir;
                 glm::vec3 rejection = oDiff - projection - glm::dot(oDiff, cDir) * cDir;
-                if (glm::length2(rejection) != 0) {
-                    float t = -glm::length(rejection) / glm::dot(v2-v1, glm::normalize(rejection));
-                    t = glm::clamp(t, 0.0f, 1.0f);
-                    glm::vec3 point = v1 + t * (v2 - v1);
-                    glm::vec3 normPoint = projectPoint(point, project);
-                    normPoint.z += EDGE_Z_OFFSET;
-                    if (normPoint.z < closestZ
-                            && glm::abs(normPoint.x - normCur.x) < normEdgeDist.x
-                            && glm::abs(normPoint.y - normCur.y) < normEdgeDist.y) {
-                        result = PickResult(Surface::EDGE, edge.first, point);
-                        closestZ = normPoint.z;
+                if (glm::length2(rejection) == 0)
+                    continue;
+                glm::vec3 vDiff = v2 - v1;
+                float t = -glm::length(rejection) / glm::dot(vDiff, glm::normalize(rejection));
+                t = glm::clamp(t, 0.0f, 1.0f);
+                glm::vec3 point = v1 + t * vDiff;
+                glm::vec3 normPoint = projectPoint(point, project);
+                normPoint.z += EDGE_Z_OFFSET;
+                if (normPoint.z < closestZ
+                        && glm::abs(normPoint.x - normCur.x) < normEdgeDist.x
+                        && glm::abs(normPoint.y - normCur.y) < normEdgeDist.y) {
+                    if (grid != 0) {
+                        glm::vec3 absVDiff = glm::abs(vDiff);
+                        int maxAxis = glm::associatedMax(absVDiff.x,0, absVDiff.y,1, absVDiff.z,2);
+                        float rounded = glm::round(point[maxAxis] / grid) * grid;
+                        t = glm::clamp((rounded - v1[maxAxis]) / vDiff[maxAxis], 0.0f, 1.0f);
+                        point = v1 + t * vDiff; // DON'T update normPoint
                     }
+                    if (t == 0 && (types & Surface::VERT))
+                        result = PickResult(Surface::VERT, edge.second.vert, point);
+                    else if (t == 1 && (types & Surface::VERT))
+                        result = PickResult(Surface::VERT, edge.second.twin.in(surf).vert, point);
+                    else
+                        result = PickResult(Surface::EDGE, edge.first, point);
+                    closestZ = normPoint.z;
                 }
             }
         }

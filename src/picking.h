@@ -26,6 +26,6 @@ struct PickResult {
 };
 
 PickResult pickElement(const Surface &surf, Surface::ElementType types,
-    glm::vec2 cursor, glm::vec2 windowDim, const glm::mat4 &project);
+    glm::vec2 cursor, glm::vec2 windowDim, const glm::mat4 &project, float grid = 0);
 
 } // namespace

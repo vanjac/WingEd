@@ -362,7 +362,8 @@ static void toolAdjust(HWND, SIZE delta, UINT) {
 static void onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
     if (g_mouseMode == MOUSE_NONE) {
         auto result = pickElement(g_state.surf, Surface::ALL,
-            {x, y}, g_windowDim, g_projMat * g_mvMat);
+            {x, y}, g_windowDim, g_projMat * g_mvMat,
+            (g_state.gridOn && g_tool == TOOL_KNIFE) ? g_state.gridSize : 0);
         if (result.id != g_hover.id || result.point != g_hover.point) {
             g_hover = result;
             if (g_hover.type == Surface::FACE)
