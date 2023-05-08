@@ -39,6 +39,8 @@ struct EditorState {
         face_id selFace;
         edge_id selEdge;
     };
+    bool gridOn = true;
+    float gridSize = 0.25f;
 };
 static EditorState g_state;
 static std::stack<EditorState> g_undoStack;
@@ -49,6 +51,7 @@ PickResult g_hover;
 static face_id g_hoverFace;
 static MouseMode g_mouseMode = MOUSE_NONE;
 static POINT g_curLockPos;
+static glm::vec3 g_moveAccum;
 static bool g_flashSel = false;
 
 static glm::vec3 g_camPivot = {};
@@ -112,8 +115,13 @@ static void refresh(HWND wnd) {
 }
 
 static void updateStatus(HWND wnd) {
-    TCHAR buf[64];
-    _stprintf_s(buf, _countof(buf), L"%s\t\t%s", APP_NAME, toolNames[g_tool]);
+    TCHAR buf[64], gridBuf[16];
+    if (g_state.gridOn)
+        _stprintf_s(gridBuf, _countof(gridBuf), L"%f", g_state.gridSize);
+    else
+        _stprintf_s(gridBuf, _countof(gridBuf), L"Off");
+    _stprintf_s(buf, _countof(buf), L"%s  \t\t%s \tGrid: %s",
+        APP_NAME, toolNames[g_tool], gridBuf);
     SetWindowText(wnd, buf);
 }
 
@@ -250,6 +258,7 @@ static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
             if (g_tool == TOOL_SELECT || g_tool == TOOL_SCALE)
                 pushUndo();
             lockMouse(wnd, {x, y}, MOUSE_ADJUST);
+            g_moveAccum = {};
         } else if (!g_hover.type) {
             g_state.selType = Surface::NONE;
             g_state.sel = {};
@@ -297,18 +306,25 @@ static void toolAdjust(HWND, SIZE delta, UINT) {
             else { right = snapAxis(invMV[0]), down = snapAxis(-invMV[1]); }
             glm::vec3 deltaPos = right * (float)delta.cx + down * (float)delta.cy;
             deltaPos *= g_zoom / 600.0f;
+            glm::vec3 adjustAmt;
+            if (g_state.gridOn) {
+                g_moveAccum = glm::modf(g_moveAccum + (deltaPos / g_state.gridSize), adjustAmt);
+                adjustAmt *= g_state.gridSize;
+            } else {
+                adjustAmt = deltaPos;
+            }
             if (g_state.selType == Surface::VERT && g_state.selVert.find(g_state.surf)) {
-                g_state.surf = moveVertex(g_state.surf, g_state.selVert, deltaPos);
+                g_state.surf = moveVertex(g_state.surf, g_state.selVert, adjustAmt);
             } else if (g_state.selType == Surface::EDGE) {
                 if (auto edge = g_state.selEdge.find(g_state.surf)) {
-                    g_state.surf = moveVertex(g_state.surf, edge->vert, deltaPos);
+                    g_state.surf = moveVertex(g_state.surf, edge->vert, adjustAmt);
                     vert_id twinVert = edge->twin.in(g_state.surf).vert;
-                    g_state.surf = moveVertex(g_state.surf, twinVert, deltaPos);
+                    g_state.surf = moveVertex(g_state.surf, twinVert, adjustAmt);
                 }
             } else if (g_state.selType == Surface::FACE) {
                 if (auto face = g_state.selFace.find(g_state.surf)) {
                     for (auto &faceEdge : FaceEdges(g_state.surf, *face))
-                        g_state.surf = moveVertex(g_state.surf, faceEdge.second.vert, deltaPos);
+                        g_state.surf = moveVertex(g_state.surf, faceEdge.second.vert, adjustAmt);
                 }
             }
             break;
@@ -393,6 +409,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                     g_redoStack.push(g_state);
                     g_state = g_undoStack.top();
                     g_undoStack.pop();
+                    updateStatus(wnd);
                 }
                 break;
             case IDM_REDO:
@@ -400,6 +417,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                     g_undoStack.push(g_state);
                     g_state = g_redoStack.top();
                     g_redoStack.pop();
+                    updateStatus(wnd);
                 }
                 break;
             /* tools */
@@ -428,6 +446,18 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 break;
             case IDM_PREV_FACE_EDGE:
                 g_state.selEdge = expectSelEdge().prev;
+                break;
+            case IDM_TOGGLE_GRID:
+                g_state.gridOn ^= true;
+                updateStatus(wnd);
+                break;
+            case IDM_GRID_DOUBLE:
+                g_state.gridSize *= 2;
+                updateStatus(wnd);
+                break;
+            case IDM_GRID_HALF:
+                g_state.gridSize /= 2;
+                updateStatus(wnd);
                 break;
             case IDM_DEBUG_INFO:
                 for (auto &edge : g_state.surf.edges) {
@@ -480,6 +510,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
 static void onInitMenu(HWND, HMENU menu) {
     EnableMenuItem(menu, IDM_UNDO, g_undoStack.empty() ? MF_GRAYED : MF_ENABLED);
     EnableMenuItem(menu, IDM_REDO, g_redoStack.empty() ? MF_GRAYED : MF_ENABLED);
+    CheckMenuItem(menu, IDM_TOGGLE_GRID, g_state.gridOn ? MF_CHECKED : MF_UNCHECKED);
     EnableMenuItem(menu, IDM_EXTRUDE, g_state.selFace.find(g_state.surf) ? MF_ENABLED : MF_GRAYED);
     CheckMenuRadioItem(menu, toolCommands[0], toolCommands[_countof(toolCommands) - 1],
         toolCommands[g_tool], MF_BYCOMMAND);
