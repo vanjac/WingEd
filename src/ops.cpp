@@ -432,6 +432,39 @@ Surface extrudeFace(Surface surf, face_id f) {
     return surf;
 }
 
+Surface joinEdgeLoops(Surface surf, edge_id e1, edge_id e2) {
+    edge_pair edge1 = e1.pair(surf);
+    edge_pair edge2 = e2.pair(surf);
+    do {
+        edge_pair twin2 = edge2.second.twin.pair(surf);
+        vert_pair vert1 = edge1.second.vert.pair(surf);
+        vert_pair vert2 = twin2.second.vert.pair(surf);
+        surf = assignVertEdges(std::move(surf), vert2.second, vert1.first);
+        vert1.second.edge = twin2.first;
+        insertAll(&surf.verts, {vert1});
+        eraseAll(&surf.verts, {vert2.first});
+        edge1 = edge1.second.next.pair(surf); edge2 = edge2.second.prev.pair(surf);
+    } while (edge1.first != e1 && edge2.first != e2);
+
+    if (edge1.first != e1 || edge2.first != e2)
+        throw winged_error(L"Faces have different number of sides!");
+
+    while (1) {
+        edge_pair twin1 = edge1.second.twin.pair(surf);
+        edge_pair twin2 = edge2.second.twin.pair(surf);
+        if (twin1.second.face == edge2.second.face || twin2.second.face == edge1.second.face)
+            throw winged_error(L"Faces share an edge!");
+        linkTwins(&twin1, &twin2);
+        insertAll(&surf.edges, {twin1, twin2});
+        eraseAll(&surf.edges, {edge1.first, edge2.first});
+        if (edge1.second.next == e1)
+            break;
+        edge1 = edge1.second.next.pair(surf); edge2 = edge2.second.prev.pair(surf);
+    }
+    eraseAll(&surf.faces, {edge1.second.face, edge2.second.face});
+    return surf;
+}
+
 Surface moveVertex(Surface surf, vert_id v, glm::vec3 amount) {
     vert_pair vert = v.pair(surf);
     vert.second.pos += amount;

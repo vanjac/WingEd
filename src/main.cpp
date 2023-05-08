@@ -81,11 +81,6 @@ static const HEdge expectSelEdge() {
     throw winged_error(L"No selected edge");
 }
 
-static void expectSelVert() {
-    if (!g_state.selVert.find(g_state.surf))
-        throw winged_error(L"No selected vertex");
-}
-
 static void expectSelFace() {
     if (!g_state.selFace.find(g_state.surf))
         throw winged_error(L"No selected face");
@@ -470,14 +465,24 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 break;
             /* undoable operations */
             case IDM_JOIN: {
-                expectSelVert();
-                expectHoverVert();
-                edge_id e1 = edgeOnHoverFace(g_state.surf, g_state.selVert).first;
-                edge_id e2 = edgeOnHoverFace(g_state.surf, g_hover.vert).first;
-                EditorState newState = g_state;
-                newState.surf = mergeVerts(g_state.surf, e1, e2);
-                pushUndo(newState);
-                flashSel(wnd);
+                if (g_state.selVert.find(g_state.surf)) {
+                    expectHoverVert();
+                    edge_id e1 = edgeOnHoverFace(g_state.surf, g_state.selVert).first;
+                    edge_id e2 = edgeOnHoverFace(g_state.surf, g_hover.vert).first;
+                    EditorState newState = g_state;
+                    newState.surf = mergeVerts(g_state.surf, e1, e2);
+                    pushUndo(newState);
+                    flashSel(wnd);
+                } else if (g_state.selEdge.find(g_state.surf)) {
+                    expectHoverVert();
+                    edge_id e2 = edgeOnHoverFace(g_state.surf, g_hover.vert).first;
+                    EditorState newState = g_state;
+                    newState.surf = joinEdgeLoops(g_state.surf, g_state.selEdge, e2);
+                    pushUndo(newState);
+                    flashSel(wnd);
+                } else {
+                    throw winged_error();
+                }
                 break;
             }
             case IDM_MERGE_FACES: {

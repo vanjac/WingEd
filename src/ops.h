@@ -28,6 +28,7 @@ Surface splitFace(Surface surf, edge_id e1, edge_id e2);
 Surface mergeFaces(Surface surf, edge_id e);
 // Creates new quad faces for each side of the given face
 Surface extrudeFace(Surface surf, face_id f);
+Surface joinEdgeLoops(Surface surf, edge_id e1, edge_id e2);
 
 Surface moveVertex(Surface surf, vert_id v, glm::vec3 amount);
 Surface scaleVertex(Surface surf, vert_id v, glm::vec3 center, glm::vec3 factor);
