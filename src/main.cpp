@@ -445,6 +445,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 EditorState newState = g_state;
                 newState.surf = mergeVerts(g_state.surf, e1, e2);
                 pushUndo(newState);
+                flashSel(wnd);
                 break;
             }
             case IDM_MERGE_FACES: {
@@ -542,14 +543,15 @@ static void drawState(const EditorState &state) {
         glEnd();
     }
 
-    glPointSize(PICK_POINT_SIZE);
+    glPointSize(PICK_POINT_SIZE - 2);
     glBegin(GL_POINTS);
     for (auto &pair : state.surf.verts) {
-        if (pair.first == state.selVert || (selEdge && pair.first == selEdge->vert))
-            glColor3f(1, 0, 0);
-        else if (pair.first == g_hover.vert)
-            glColor3f(1, 1, 1);
-        else
+        if (pair.first == state.selVert || (selEdge && pair.first == selEdge->vert)) {
+            if (g_flashSel)
+                glColor3f(1, 0.8f, 0.8f);
+            else
+                glColor3f(1, 0, 0);
+        } else
             glColor3f(0, 1, 0);
         glVertex3fv(glm::value_ptr(pair.second.pos));
     }
@@ -558,6 +560,13 @@ static void drawState(const EditorState &state) {
         glVertex3fv(glm::value_ptr(g_hover.point));
     }
     glEnd();
+    if (auto hoverVert = g_hover.vert.find(g_state.surf)) {
+        glPointSize(PICK_POINT_SIZE + 2);
+        glColor3f(1, 1, 1);
+        glBegin(GL_POINTS);
+        glVertex3fv(glm::value_ptr(hoverVert->pos));
+        glEnd();
+    }
     
     if (g_tool == TOOL_KNIFE && g_hover.type) {
         if (auto kVert = g_state.selVert.find(state.surf)) {
