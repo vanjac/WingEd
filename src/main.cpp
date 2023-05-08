@@ -437,7 +437,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 LOG("Selected: %08X", name(g_state.sel));
                 break;
             /* undoable operations */
-            case IDM_MERGE_VERTS: {
+            case IDM_JOIN: {
                 expectSelVert();
                 expectHoverVert();
                 edge_id e1 = edgeOnHoverFace(g_state.surf, g_state.selVert).first;

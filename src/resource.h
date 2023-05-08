@@ -9,7 +9,7 @@
 #define IDM_UNDO                            107
 #define IDM_REDO                            108
 #define IDM_MERGE_FACES                     110
-#define IDM_MERGE_VERTS                     112
+#define IDM_JOIN                            112
 #define IDM_DEBUG_INFO                      114
 #define IDM_EXTRUDE                         115
 #define IDM_FLIP_NORMALS                    116
