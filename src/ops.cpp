@@ -291,7 +291,7 @@ Surface mergeFaces(Surface surf, edge_id e) {
         if (prev.second.twin != twin.second.next)
             break; // more than two edges on vertex
         edge = prev;
-        if (edge.second.prev == given.first)
+        if (edge.first == given.first)
             throw winged_error(L"Can't merge the two sides of a plane!");
     }
 
@@ -308,10 +308,8 @@ Surface mergeFaces(Surface surf, edge_id e) {
         //      ╰
         linkNext(&prev, &twinNext);
         vert.second.edge = twinNext.first;
-        keepFace.second.edge = prev.first;
         insertAll(&surf.edges, {prev, twinNext});
         insertAll(&surf.verts, {vert});
-        insertAll(&surf.faces, {keepFace});
     }
 
     // iterate all edges bordering both faces
@@ -333,8 +331,10 @@ Surface mergeFaces(Surface surf, edge_id e) {
                 //           ╰
                 linkNext(&twinPrev, &next);
                 twinVert.second.edge = next.first;
+                keepFace.second.edge = next.first;
                 insertAll(&surf.edges, {twinPrev, next});
                 insertAll(&surf.verts, {twinVert});
+                insertAll(&surf.faces, {keepFace});
                 break;
             }
             edge = next;
