@@ -48,6 +48,7 @@ PickResult g_hover;
 static face_id g_hoverFace;
 static MouseMode g_mouseMode = MOUSE_NONE;
 static POINT g_curLockPos;
+static bool g_flashSel = false;
 
 static glm::vec3 g_camPivot = {};
 static float g_rotX = 0, g_rotY = 0;
@@ -123,6 +124,14 @@ static void showError(HWND wnd, winged_error err) {
         SetCursor(LoadCursor(NULL, IDC_NO));
         Sleep(300);
     }
+}
+
+static void flashSel(HWND wnd) {
+    g_flashSel = true;
+    RedrawWindow(wnd, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
+    Sleep(200);
+    g_flashSel = false;
+    refresh(wnd);
 }
 
 static void lockMouse(HWND wnd, POINT clientPos, MouseMode mode) {
@@ -450,7 +459,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 EditorState newState = g_state;
                 newState.surf = extrudeFace(g_state.surf, g_state.selFace);
                 pushUndo(newState);
-                // TODO: notify success
+                flashSel(wnd);
                 break;
             }
             case IDM_FLIP_NORMALS: {
@@ -562,12 +571,16 @@ static void drawState(const EditorState &state) {
     }
 
     for (auto &pair : state.surf.faces) {
-        if (pair.first == state.selFace)
-            glColor3f(0, 0.5, 1);
-        else if (g_hover.type && pair.first == g_hoverFace)
+        if (pair.first == state.selFace) {
+            if (g_flashSel)
+                glColor3f(0, 1, 0.5);
+            else
+                glColor3f(0, 0.5, 1);
+        } else if (g_hover.type && pair.first == g_hoverFace) {
             glColor3f(0.25, 0.25, 1);
-        else
+        } else {
             glColor3f(0, 0, 1);
+        }
         drawFace(state.surf, pair.second);
     }
 }
