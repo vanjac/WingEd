@@ -178,7 +178,7 @@ Surface mergeVerts(Surface surf, edge_id e1, edge_id e2) {
     vert_pair keepVert = edge1.second.vert.pair(surf);
     vert_pair delVert = edge2.second.vert.pair(surf);
     if (edge1.first == edge2.first)
-        throw winged_error(L"Can't merge vertex with itself!");
+        throw winged_error();
     if (edge1.second.face != edge2.second.face)
         throw winged_error(L"Vertices must share a common face!");
     surf = assignVertEdges(std::move(surf), delVert.second, keepVert.first);
@@ -238,7 +238,8 @@ Surface splitFace(Surface surf, edge_id e1, edge_id e2) {
         throw winged_error(L"Edges must share a common face!");
     } else if (edge1.first == edge2.first
             || edge1.second.next == edge2.first || edge2.second.next == edge1.first) {
-        throw winged_error(L"Edge already exists between vertices!");
+        // edge already exists between vertices
+        return surf; // just do nothing
     }
     // AFTER:
     // ╮     face      ╮
