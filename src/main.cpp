@@ -21,9 +21,10 @@ using namespace winged;
 
 const TCHAR APP_NAME[] = _T("WingEd");
 enum Tool {
-    TOOL_SELECT, TOOL_SCALE, TOOL_KNIFE
+    TOOL_SELECT, TOOL_SCALE, TOOL_KNIFE, NUM_TOOLS
 };
 const TCHAR * const toolNames[] = {L"Select", L"Scale", L"Knife"};
+const UINT toolCommands[] = {IDM_TOOL_SELECT, IDM_TOOL_SCALE, IDM_TOOL_KNIFE};
 enum MouseMode {
     MOUSE_NONE = 0, MOUSE_ADJUST, MOUSE_CAM_ROTATE, MOUSE_CAM_PAN
 };
@@ -476,6 +477,14 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
     refresh(wnd);
 }
 
+static void onInitMenu(HWND, HMENU menu) {
+    EnableMenuItem(menu, IDM_UNDO, g_undoStack.empty() ? MF_GRAYED : MF_ENABLED);
+    EnableMenuItem(menu, IDM_REDO, g_redoStack.empty() ? MF_GRAYED : MF_ENABLED);
+    EnableMenuItem(menu, IDM_EXTRUDE, g_state.selFace.find(g_state.surf) ? MF_ENABLED : MF_GRAYED);
+    CheckMenuRadioItem(menu, toolCommands[0], toolCommands[_countof(toolCommands) - 1],
+        toolCommands[g_tool], MF_BYCOMMAND);
+}
+
 static void onSize(HWND, UINT, int cx, int cy) {
     g_windowDim = {cx, cy};
     glViewport(0, 0, cx, cy);
@@ -627,6 +636,7 @@ static LRESULT CALLBACK MainWindowProc(HWND wnd, UINT msg, WPARAM wParam, LPARAM
         HANDLE_MSG(wnd, WM_MOUSEMOVE, onMouseMove);
         HANDLE_MSG(wnd, WM_MOUSEWHEEL, onMouseWheel);
         HANDLE_MSG(wnd, WM_COMMAND, onCommand);
+        HANDLE_MSG(wnd, WM_INITMENU, onInitMenu);
         HANDLE_MSG(wnd, WM_SIZE, onSize);
         HANDLE_MSG(wnd, WM_PAINT, onPaint);
     }
@@ -636,8 +646,10 @@ static LRESULT CALLBACK MainWindowProc(HWND wnd, UINT msg, WPARAM wParam, LPARAM
 int APIENTRY WinMain(HINSTANCE instance, HINSTANCE, LPSTR, int showCmd) {
     WNDCLASSEX wndClass = makeClass(APP_NAME, MainWindowProc);
     wndClass.style = CS_HREDRAW | CS_VREDRAW;
+    wndClass.lpszMenuName = APP_NAME;
     RegisterClassEx(&wndClass);
-    HWND wnd = createWindow(APP_NAME, APP_NAME, defaultWindowRect(640, 480));
+    HWND wnd = createWindow(APP_NAME, APP_NAME,
+        defaultWindowRect(640, 480, WS_OVERLAPPEDWINDOW, true));
     if (!wnd) return -1;
     ShowWindow(wnd, showCmd);
     return simpleMessageLoop(wnd, LoadAccelerators(instance, L"Accel"));
