@@ -46,6 +46,7 @@ PickResult pickElement(const Surface &surf, Surface::ElementType types,
     if (types & Surface::EDGE) {
         const glm::vec2 normEdgeDist = PICK_EDGE_SIZE / windowDim;
         for (auto &edge : surf.edges) {
+            if (!isPrimary(edge)) continue;
             glm::vec3 v1 = edge.second.vert.in(surf).pos;
             glm::vec3 v2 = edge.second.twin.in(surf).vert.in(surf).pos;
             glm::vec3 normV1 = projectPoint(v1, project), normV2 = projectPoint(v2, project);
