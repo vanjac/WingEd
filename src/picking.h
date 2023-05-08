@@ -8,8 +8,8 @@
 
 namespace winged {
 
-const float PICK_POINT_SIZE = 9;
-const float PICK_EDGE_SIZE = 7;
+const float PICK_POINT_SIZE = 15;
+const float PICK_EDGE_SIZE = 15;
 
 struct PickResult {
     Surface::ElementType type = Surface::NONE;

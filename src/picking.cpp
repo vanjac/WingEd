@@ -5,8 +5,8 @@
 
 namespace winged {
 
-const float FACE_Z_OFFSET = .0001f;
-const float VERT_Z_OFFSET = -.0002f;
+const float EDGE_Z_OFFSET = -.001f;
+const float VERT_Z_OFFSET = -.002f;
 
 // returns normalized device coords
 glm::vec3 projectPoint(glm::vec3 point, const glm::mat4 &project) {
@@ -66,6 +66,7 @@ PickResult pickElement(const Surface &surf, Surface::ElementType types,
                     t = glm::clamp(t, 0.0f, 1.0f);
                     glm::vec3 point = v1 + t * (v2 - v1);
                     glm::vec3 normPoint = projectPoint(point, project);
+                    normPoint.z += EDGE_Z_OFFSET;
                     if (normPoint.z < closestZ
                             && glm::abs(normPoint.x - normCur.x) < normEdgeDist.x
                             && glm::abs(normPoint.y - normCur.y) < normEdgeDist.y) {
@@ -104,7 +105,6 @@ PickResult pickElement(const Surface &surf, Surface::ElementType types,
                 float t = glm::dot(prevVertPos - rayOrg, normal) / glm::dot(normal, rayDir);
                 glm::vec3 point = rayOrg + t * rayDir;
                 glm::vec3 normPoint = projectPoint(point, project);
-                normPoint.z += FACE_Z_OFFSET;
                 if (normPoint.z < closestZ) {
                     result = PickResult(Surface::FACE, face.first, point);
                     closestZ = normPoint.z;

@@ -543,7 +543,7 @@ static void drawState(const EditorState &state) {
         glEnd();
     }
 
-    glPointSize(PICK_POINT_SIZE - 2);
+    glPointSize(7);
     glBegin(GL_POINTS);
     for (auto &pair : state.surf.verts) {
         if (pair.first == state.selVert || (selEdge && pair.first == selEdge->vert)) {
@@ -561,7 +561,7 @@ static void drawState(const EditorState &state) {
     }
     glEnd();
     if (auto hoverVert = g_hover.vert.find(g_state.surf)) {
-        glPointSize(PICK_POINT_SIZE + 2);
+        glPointSize(11);
         glColor3f(1, 1, 1);
         glBegin(GL_POINTS);
         glVertex3fv(glm::value_ptr(hoverVert->pos));
