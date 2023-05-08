@@ -47,7 +47,7 @@ static std::stack<EditorState> g_undoStack;
 static std::stack<EditorState> g_redoStack;
 
 static Tool g_tool = TOOL_SELECT;
-PickResult g_hover;
+static PickResult g_hover;
 static face_id g_hoverFace;
 static MouseMode g_mouseMode = MOUSE_NONE;
 static POINT g_curLockPos;
@@ -57,6 +57,7 @@ static bool g_flashSel = false;
 static glm::vec3 g_camPivot = {};
 static float g_rotX = 0, g_rotY = 0;
 static float g_zoom = 4;
+static bool g_flyCam = false;
 static glm::mat4 g_projMat, g_mvMat;
 static glm::vec2 g_windowDim;
 
@@ -139,10 +140,12 @@ static void flashSel(HWND wnd) {
 }
 
 static void lockMouse(HWND wnd, POINT clientPos, MouseMode mode) {
+    if (!g_mouseMode) {
+        SetCapture(wnd);
+        ShowCursor(false);
+    }
     g_curLockPos = clientToScreen(wnd, clientPos);
     g_mouseMode = mode;
-    SetCapture(wnd);
-    ShowCursor(false);
 }
 
 
@@ -154,6 +157,15 @@ static void tessErrorCallback(GLenum error) {
     g_tess_error = error;
 }
 
+
+static void updateProjMat() {
+    glMatrixMode(GL_PROJECTION);
+    float aspect = g_windowDim.x / g_windowDim.y;
+    g_projMat = glm::perspective(glm::radians(g_flyCam ? 90.0f : 60.0f), aspect, 0.1f, 100.0f);
+    glLoadMatrixf(glm::value_ptr(g_projMat));
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+}
 
 static BOOL onCreate(HWND wnd, LPCREATESTRUCT) {
     PIXELFORMATDESCRIPTOR formatDesc = {sizeof(formatDesc)};
@@ -381,7 +393,14 @@ static void onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
             g_rotY += glm::radians((float)delta.cx) * 0.5f;
             break;
         case MOUSE_CAM_PAN: {
-            glm::vec3 deltaPos = {delta.cx, -delta.cy, 0};
+            bool shift = GetKeyState(VK_SHIFT) < 0;
+            glm::vec3 deltaPos;
+            if (g_flyCam) {
+                deltaPos = shift ? glm::vec3(-delta.cx, delta.cy, 0)
+                    : glm::vec3(-delta.cx, 0, -delta.cy);
+            } else {
+                deltaPos = shift ? glm::vec3(0, 0, -delta.cy) : glm::vec3(delta.cx, -delta.cy, 0);
+            }
             deltaPos = glm::inverse(g_mvMat) * glm::vec4(deltaPos, 0);
             g_camPivot += deltaPos * g_zoom / 600.0f;
         }
@@ -391,7 +410,7 @@ static void onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
 }
 
 void onMouseWheel(HWND wnd, int, int, int delta, UINT) {
-    g_zoom *= glm::pow(1.001f, -delta);
+    g_zoom *= glm::pow(1.001f, g_flyCam ? delta : -delta);
     refresh(wnd);
 }
 
@@ -454,6 +473,10 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
             case IDM_GRID_HALF:
                 g_state.gridSize /= 2;
                 updateStatus(wnd);
+                break;
+            case IDM_FLY_CAM:
+                g_flyCam ^= true;
+                updateProjMat();
                 break;
             case IDM_DEBUG_INFO:
                 for (auto &edge : g_state.surf.edges) {
@@ -525,11 +548,7 @@ static void onInitMenu(HWND, HMENU menu) {
 static void onSize(HWND, UINT, int cx, int cy) {
     g_windowDim = {cx, cy};
     glViewport(0, 0, cx, cy);
-    glMatrixMode(GL_PROJECTION);
-    g_projMat = glm::perspective(glm::radians(60.0f), (float)cx / cy, 0.1f, 100.0f);
-    glLoadMatrixf(glm::value_ptr(g_projMat));
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
+    updateProjMat();
 }
 
 static void drawFace(const Surface &surf, const Face &face) {
@@ -647,7 +666,8 @@ static void onPaint(HWND wnd) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     g_mvMat = glm::mat4(1);
-    g_mvMat = glm::translate(g_mvMat, glm::vec3(0, 0, -g_zoom));
+    if (!g_flyCam)
+        g_mvMat = glm::translate(g_mvMat, glm::vec3(0, 0, -g_zoom));
     g_mvMat = glm::rotate(g_mvMat, g_rotX, glm::vec3(1, 0, 0));
     g_mvMat = glm::rotate(g_mvMat, g_rotY, glm::vec3(0, 1, 0));
     g_mvMat = glm::translate(g_mvMat, g_camPivot);

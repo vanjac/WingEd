@@ -65,6 +65,7 @@ ACCEL ACCELERATORS
     VK_OEM_6, IDM_GRID_DOUBLE, VIRTKEY
     VK_OEM_4, IDM_GRID_HALF, VIRTKEY
     "G", IDM_TOGGLE_GRID, VIRTKEY
+    "Z", IDM_FLY_CAM, VIRTKEY
 }
 
 //////////////////////////////////////////////////////////////////////////////
