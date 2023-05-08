@@ -76,6 +76,15 @@ static void pushUndo(const EditorState &newState) {
     g_state = newState;
 }
 
+static bool anySelection() {
+    switch (g_state.selType) {
+        case Surface::VERT: return g_state.selVert.find(g_state.surf);
+        case Surface::FACE: return g_state.selFace.find(g_state.surf);
+        case Surface::EDGE: return g_state.selEdge.find(g_state.surf);
+        default: return false;
+    }
+}
+
 static const HEdge expectSelEdge() {
     if (auto sel = g_state.selEdge.find(g_state.surf))
         return *sel;
@@ -110,6 +119,10 @@ static void refresh(HWND wnd) {
     InvalidateRect(wnd, NULL, false);
 }
 
+static void refreshImmediate(HWND wnd) {
+    RedrawWindow(wnd, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
+}
+
 static void updateStatus(HWND wnd) {
     TCHAR buf[64], gridBuf[16];
     if (g_state.gridOn)
@@ -133,7 +146,7 @@ static void showError(HWND wnd, winged_error err) {
 
 static void flashSel(HWND wnd) {
     g_flashSel = true;
-    RedrawWindow(wnd, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
+    refreshImmediate(wnd);
     Sleep(200);
     g_flashSel = false;
     refresh(wnd);
@@ -256,19 +269,19 @@ static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
             showError(wnd, err);
         }
     } else {
-        if (g_hover.type) {
+        if (!anySelection()) {
             g_state.selType = g_hover.type;
             g_state.sel = g_hover.id;
-            refresh(wnd);
+            refreshImmediate(wnd);
         }
         if (DragDetect(wnd, clientToScreen(wnd, {x, y}))) {
             if (g_tool == TOOL_SELECT || g_tool == TOOL_SCALE)
                 pushUndo();
             lockMouse(wnd, {x, y}, MOUSE_ADJUST);
             g_moveAccum = {};
-        } else if (!g_hover.type) {
-            g_state.selType = Surface::NONE;
-            g_state.sel = {};
+        } else {
+            g_state.selType = g_hover.type;
+            g_state.sel = g_hover.id;
         }
     }
     refresh(wnd);
@@ -504,7 +517,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                     pushUndo(newState);
                     flashSel(wnd);
                 } else {
-                    throw winged_error();
+                    throw winged_error(L"No selected vertex or edge");
                 }
                 break;
             }
@@ -539,6 +552,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
 static void onInitMenu(HWND, HMENU menu) {
     EnableMenuItem(menu, IDM_UNDO, g_undoStack.empty() ? MF_GRAYED : MF_ENABLED);
     EnableMenuItem(menu, IDM_REDO, g_redoStack.empty() ? MF_GRAYED : MF_ENABLED);
+    EnableMenuItem(menu, IDM_CLEAR_SELECT, anySelection() ? MF_ENABLED : MF_GRAYED);
     CheckMenuItem(menu, IDM_TOGGLE_GRID, g_state.gridOn ? MF_CHECKED : MF_UNCHECKED);
     EnableMenuItem(menu, IDM_EXTRUDE, g_state.selFace.find(g_state.surf) ? MF_ENABLED : MF_GRAYED);
     CheckMenuRadioItem(menu, toolCommands[0], toolCommands[_countof(toolCommands) - 1],
