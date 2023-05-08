@@ -85,6 +85,15 @@ static bool anySelection() {
     }
 }
 
+static bool anyHover() {
+    switch (g_hover.type) {
+        case Surface::VERT: return g_hover.vert.find(g_state.surf);
+        case Surface::FACE: return g_hover.face.find(g_state.surf);
+        case Surface::EDGE: return g_hover.edge.find(g_state.surf);
+        default: return false;
+    }
+}
+
 static const HEdge expectSelEdge() {
     if (auto sel = g_state.selEdge.find(g_state.surf))
         return *sel;
@@ -554,7 +563,11 @@ static void onInitMenu(HWND, HMENU menu) {
     EnableMenuItem(menu, IDM_REDO, g_redoStack.empty() ? MF_GRAYED : MF_ENABLED);
     EnableMenuItem(menu, IDM_CLEAR_SELECT, anySelection() ? MF_ENABLED : MF_GRAYED);
     CheckMenuItem(menu, IDM_TOGGLE_GRID, g_state.gridOn ? MF_CHECKED : MF_UNCHECKED);
+    EnableMenuItem(menu, IDM_JOIN, (anySelection() && anyHover()) ? MF_ENABLED : MF_DISABLED);
+    EnableMenuItem(menu, IDM_MERGE_FACES,
+        g_hover.edge.find(g_state.surf) ? MF_ENABLED : MF_DISABLED);
     EnableMenuItem(menu, IDM_EXTRUDE, g_state.selFace.find(g_state.surf) ? MF_ENABLED : MF_GRAYED);
+    CheckMenuItem(menu, IDM_FLY_CAM, g_flyCam ? MF_CHECKED : MF_UNCHECKED);
     CheckMenuRadioItem(menu, toolCommands[0], toolCommands[_countof(toolCommands) - 1],
         toolCommands[g_tool], MF_BYCOMMAND);
 }
