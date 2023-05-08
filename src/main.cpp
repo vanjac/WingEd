@@ -20,11 +20,21 @@ using namespace chroma;
 using namespace winged;
 
 const TCHAR APP_NAME[] = _T("WingEd");
+
 enum Tool {
     TOOL_SELECT, TOOL_SCALE, TOOL_KNIFE, NUM_TOOLS
 };
-const TCHAR * const toolNames[] = {L"Select", L"Scale", L"Knife"};
-const UINT toolCommands[] = {IDM_TOOL_SELECT, IDM_TOOL_SCALE, IDM_TOOL_KNIFE};
+struct ToolInfo {
+    const TCHAR *name;
+    UINT command;
+    HCURSOR cursor;
+};
+const ToolInfo tools[] = {
+    {L"Select", IDM_TOOL_SELECT, LoadCursor(NULL, IDC_ARROW)},
+    {L"Scale", IDM_TOOL_SCALE, LoadCursor(NULL, IDC_SIZEWE)},
+    {L"Knife", IDM_TOOL_KNIFE, LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_KNIFE))},
+};
+
 enum MouseMode {
     MOUSE_NONE = 0, MOUSE_ADJUST, MOUSE_CAM_ROTATE, MOUSE_CAM_PAN
 };
@@ -60,8 +70,6 @@ static float g_zoom = 4;
 static bool g_flyCam = false;
 static glm::mat4 g_projMat, g_mvMat;
 static glm::vec2 g_windowDim;
-
-static HCURSOR g_curArrow, g_curKnife;
 
 static GLUtesselator *g_tess;
 static GLenum g_tess_error;
@@ -140,7 +148,7 @@ static void updateStatus(HWND wnd) {
         _stprintf_s(gridBuf, _countof(gridBuf), L"%f", g_state.gridSize);
     else
         _stprintf_s(gridBuf, _countof(gridBuf), L"Off");
-    _stprintf_s(buf, _countof(buf), L"%s    Grid: %s", toolNames[g_tool], gridBuf);
+    _stprintf_s(buf, _countof(buf), L"%s    Grid: %s", tools[g_tool].name, gridBuf);
     MENUITEMINFO info = {sizeof(info), 0x40}; // TODO requires Win2000?
     info.dwTypeData = buf;
     SetMenuItemInfo(GetMenu(wnd), IDM_STATUS, false, &info);
@@ -257,7 +265,7 @@ static EditorState knifeToVert(EditorState state, vert_id vert) {
 
 static bool onSetCursor(HWND wnd, HWND cursorWnd, UINT hitTest, UINT msg) {
     if (msg && hitTest == HTCLIENT) {
-        SetCursor(g_tool == TOOL_KNIFE ? g_curKnife : g_curArrow);
+        SetCursor(tools[g_tool].cursor);
         return true;
     }
     return FORWARD_WM_SETCURSOR(wnd, cursorWnd, hitTest, msg, DefWindowProc);
@@ -580,8 +588,8 @@ static void onInitMenu(HWND, HMENU menu) {
         g_hover.edge.find(g_state.surf) ? MF_ENABLED : MF_DISABLED);
     EnableMenuItem(menu, IDM_EXTRUDE, g_state.selFace.find(g_state.surf) ? MF_ENABLED : MF_GRAYED);
     CheckMenuItem(menu, IDM_FLY_CAM, g_flyCam ? MF_CHECKED : MF_UNCHECKED);
-    CheckMenuRadioItem(menu, toolCommands[0], toolCommands[_countof(toolCommands) - 1],
-        toolCommands[g_tool], MF_BYCOMMAND);
+    CheckMenuRadioItem(menu, tools[0].command, tools[NUM_TOOLS - 1].command,
+        tools[g_tool].command, MF_BYCOMMAND);
 }
 
 static void onSize(HWND, UINT, int cx, int cy) {
@@ -746,8 +754,6 @@ int APIENTRY WinMain(HINSTANCE instance, HINSTANCE, LPSTR, int showCmd) {
     wndClass.lpszMenuName = APP_NAME;
     wndClass.hCursor = NULL;
     RegisterClassEx(&wndClass);
-    g_curArrow = LoadCursor(NULL, IDC_ARROW);
-    g_curKnife = LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_KNIFE));
     HWND wnd = createWindow(APP_NAME, APP_NAME,
         defaultWindowRect(640, 480, WS_OVERLAPPEDWINDOW, true));
     if (!wnd) return -1;
