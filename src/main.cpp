@@ -276,10 +276,15 @@ static void toolAdjust(HWND, SIZE delta, UINT) {
     switch (g_tool) {
         case TOOL_SELECT: {
             glm::mat4 invMV = glm::inverse(g_mvMat);
-            glm::vec3 right = snapAxis(invMV[0]), down = snapAxis(-invMV[1]);
-            if (GetKeyState(VK_SHIFT) < 0) right = {};
-            if (GetKeyState(VK_MENU) < 0) down = {};
-            if (GetKeyState(VK_SHIFT) < 0 && GetKeyState(VK_MENU) < 0) down = snapAxis(invMV[2]);
+            glm::vec3 right = {}, down = {};
+            if (GetKeyState(VK_CONTROL) < 0) {
+                if (auto face = g_state.selFace.find(g_state.surf))
+                    down = faceNormal(g_state.surf, *face);
+            } else if (GetKeyState(VK_SHIFT) < 0 && GetKeyState(VK_MENU) < 0)
+                down = snapAxis(invMV[2]);
+            else if (GetKeyState(VK_SHIFT) < 0) down = snapAxis(-invMV[1]);
+            else if (GetKeyState(VK_MENU) < 0) right = snapAxis(invMV[0]);
+            else { right = snapAxis(invMV[0]), down = snapAxis(-invMV[1]); }
             glm::vec3 deltaPos = right * (float)delta.cx + down * (float)delta.cy;
             deltaPos *= g_zoom / 600.0f;
             if (g_state.selType == Surface::VERT && g_state.selVert.find(g_state.surf)) {
@@ -445,6 +450,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 EditorState newState = g_state;
                 newState.surf = extrudeFace(g_state.surf, g_state.selFace);
                 pushUndo(newState);
+                // TODO: notify success
                 break;
             }
             case IDM_FLIP_NORMALS: {
