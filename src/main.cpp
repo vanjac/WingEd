@@ -108,11 +108,6 @@ static void expectHoverVert() {
         throw winged_error();
 }
 
-static void expectHoverEdge() {
-    if (!g_hover.type || !g_hover.edge.find(g_state.surf))
-        throw winged_error();
-}
-
 static edge_pair edgeOnHoverFace(const Surface &surf, vert_id v) {
     for (auto &edge : VertEdges(surf, v.in(surf))) {
         if (edge.second.face == g_hoverFace)
