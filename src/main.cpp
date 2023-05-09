@@ -530,30 +530,37 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 break;
             /* undoable operations */
             case IDM_JOIN: {
+                EditorState newState = g_state;
                 if (g_state.selVert.find(g_state.surf)) {
                     expectHoverVert();
                     edge_id e1 = edgeOnHoverFace(g_state.surf, g_state.selVert).first;
                     edge_id e2 = edgeOnHoverFace(g_state.surf, g_hover.vert).first;
-                    EditorState newState = g_state;
                     newState.surf = mergeVerts(g_state.surf, e1, e2);
-                    pushUndo(newState);
-                    flashSel(wnd);
                 } else if (g_state.selEdge.find(g_state.surf)) {
                     expectHoverVert();
                     edge_id e2 = edgeOnHoverFace(g_state.surf, g_hover.vert).first;
-                    EditorState newState = g_state;
                     newState.surf = joinEdgeLoops(g_state.surf, g_state.selEdge, e2);
-                    pushUndo(newState);
-                    flashSel(wnd);
                 } else {
                     throw winged_error(L"No selected vertex or edge");
                 }
+                pushUndo(newState);
+                flashSel(wnd);
                 break;
             }
-            case IDM_MERGE_FACES: {
-                expectHoverEdge();
+            case IDM_ERASE: {
                 EditorState newState = g_state;
-                newState.surf = mergeFaces(g_state.surf, g_hover.edge);
+                if (g_hover.edge.find(g_state.surf)) {
+                    newState.surf = mergeFaces(g_state.surf, g_hover.edge);
+                } else if (auto vert = g_hover.vert.find(g_state.surf)) {
+                    // make sure vert has only two edges
+                    const HEdge &edge = vert->edge.in(g_state.surf);
+                    const HEdge &twinNext = edge.twin.in(g_state.surf).next.in(g_state.surf);
+                    if (twinNext.twin.in(g_state.surf).next != vert->edge)
+                        throw winged_error();
+                    newState.surf = mergeVerts(g_state.surf, edge.prev, vert->edge);
+                } else {
+                    throw winged_error();
+                }
                 pushUndo(newState);
                 break;
             }
@@ -587,7 +594,7 @@ static void onInitMenu(HWND, HMENU menu) {
     EnableMenuItem(menu, IDM_CLEAR_SELECT, selType ? MF_ENABLED : MF_GRAYED);
     CheckMenuItem(menu, IDM_TOGGLE_GRID, g_state.gridOn ? MF_CHECKED : MF_UNCHECKED);
     EnableMenuItem(menu, IDM_JOIN, (selType && hovType) ? MF_ENABLED : MF_DISABLED);
-    EnableMenuItem(menu, IDM_MERGE_FACES, hovType ? MF_ENABLED : MF_DISABLED);
+    EnableMenuItem(menu, IDM_ERASE, hovType ? MF_ENABLED : MF_DISABLED);
     EnableMenuItem(menu, IDM_EXTRUDE, g_state.selFace.find(g_state.surf) ? MF_ENABLED : MF_GRAYED);
     CheckMenuItem(menu, IDM_FLY_CAM, g_flyCam ? MF_CHECKED : MF_UNCHECKED);
     CheckMenuRadioItem(menu, tools[0].command, tools[NUM_TOOLS - 1].command,

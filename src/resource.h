@@ -10,7 +10,7 @@
 #define IDM_PREV_FACE_EDGE                  102
 #define IDM_UNDO                            107
 #define IDM_REDO                            108
-#define IDM_MERGE_FACES                     110
+#define IDM_ERASE                           110
 #define IDM_JOIN                            112
 #define IDM_DEBUG_INFO                      114
 #define IDM_EXTRUDE                         115
