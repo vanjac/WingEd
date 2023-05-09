@@ -587,13 +587,13 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
 
 static void onInitMenu(HWND, HMENU menu) {
     auto selType = selectedType();
+    auto hovType = hoverType();
     EnableMenuItem(menu, IDM_UNDO, g_undoStack.empty() ? MF_GRAYED : MF_ENABLED);
     EnableMenuItem(menu, IDM_REDO, g_redoStack.empty() ? MF_GRAYED : MF_ENABLED);
     EnableMenuItem(menu, IDM_CLEAR_SELECT, selType ? MF_ENABLED : MF_GRAYED);
     CheckMenuItem(menu, IDM_TOGGLE_GRID, g_state.gridOn ? MF_CHECKED : MF_UNCHECKED);
-    EnableMenuItem(menu, IDM_JOIN, (selType && hoverType()) ? MF_ENABLED : MF_DISABLED);
-    EnableMenuItem(menu, IDM_MERGE_FACES,
-        g_hover.edge.find(g_state.surf) ? MF_ENABLED : MF_DISABLED);
+    EnableMenuItem(menu, IDM_JOIN, (selType && hovType) ? MF_ENABLED : MF_DISABLED);
+    EnableMenuItem(menu, IDM_MERGE_FACES, hovType ? MF_ENABLED : MF_DISABLED);
     EnableMenuItem(menu, IDM_EXTRUDE, g_state.selFace.find(g_state.surf) ? MF_ENABLED : MF_GRAYED);
     CheckMenuItem(menu, IDM_FLY_CAM, g_flyCam ? MF_CHECKED : MF_UNCHECKED);
     CheckMenuRadioItem(menu, tools[0].command, tools[NUM_TOOLS - 1].command,
