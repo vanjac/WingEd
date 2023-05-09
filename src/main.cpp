@@ -10,6 +10,7 @@
 #include "surface.h"
 #include "ops.h"
 #include "picking.h"
+#include "file.h"
 #include "resource.h"
 
 #pragma comment(lib, "Rpcrt4.lib")
@@ -55,6 +56,7 @@ struct EditorState {
 static EditorState g_state;
 static std::stack<EditorState> g_undoStack;
 static std::stack<EditorState> g_redoStack;
+static TCHAR g_fileName[MAX_PATH] = {0};
 
 static Tool g_tool = TOOL_SELECT;
 static PickResult g_hover;
@@ -456,6 +458,16 @@ void onMouseWheel(HWND wnd, int, int, int delta, UINT) {
     refresh(wnd);
 }
 
+static void saveAs(HWND wnd) {
+    TCHAR fileName[MAX_PATH];
+    fileName[0] = 0;
+    const TCHAR filters[] = L"WingEd File (.wing)\0*.wing\0All Files\0*.*\0\0";
+    if (GetSaveFileName(tempPtr(makeOpenFileName(fileName, wnd, filters, L"wing")))) {
+        writeFile(fileName, g_state.surf);
+        memcpy(g_fileName, fileName, sizeof(g_fileName));
+    }
+}
+
 static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
     if (ctl) return;
 
@@ -476,6 +488,27 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                     g_redoStack.pop();
                     updateStatus(wnd);
                 }
+                break;
+            case IDM_OPEN: {
+                TCHAR fileName[MAX_PATH];
+                fileName[0] = 0;
+                const TCHAR filters[] = L"WingEd File (.wing)\0*.wing\0\0";
+                if (GetOpenFileName(tempPtr(makeOpenFileName(fileName, wnd, filters, L"wing")))) {
+                    g_state.surf = readFile(fileName);
+                    g_undoStack = {};
+                    g_redoStack = {};
+                    memcpy(g_fileName, fileName, sizeof(g_fileName));
+                }
+                break;
+            }
+            case IDM_SAVE_AS:
+                saveAs(wnd);
+                break;
+            case IDM_SAVE:
+                if (!g_fileName[0])
+                    saveAs(wnd);
+                else
+                    writeFile(g_fileName, g_state.surf);
                 break;
             /* tools */
             case IDM_TOOL_SELECT:

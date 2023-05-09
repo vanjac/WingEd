@@ -1,16 +1,9 @@
 #pragma once
 #include "common.h"
 
-#include <exception>
 #include "surface.h"
 
 namespace winged {
-
-struct winged_error : std::exception {
-    const wchar_t *message = NULL;
-    winged_error() = default;
-    winged_error(const wchar_t *message) : message(message) {}
-};
 
 uint32_t name(id_t id); // for debugging
 template<typename T, typename V>

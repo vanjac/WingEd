@@ -1,5 +1,7 @@
 #pragma once
 
+#include <exception>
+
 // win32
 #define UNICODE
 #define _UNICODE
@@ -8,3 +10,9 @@
 
 #define CHROMA_DEBUG
 #pragma warning(disable: 4201) // for glm
+
+struct winged_error : std::exception {
+    const wchar_t *message = nullptr;
+    winged_error() = default;
+    winged_error(const wchar_t *message) : message(message) {}
+};

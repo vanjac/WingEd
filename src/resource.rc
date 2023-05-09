@@ -20,6 +20,12 @@ LANGUAGE LANG_ENGLISH, SUBLANG_DEFAULT
 
 WINGED MENUEX
 {
+    POPUP "&File"
+    {
+        MENUITEM "&Open\tCtrl+O", IDM_OPEN
+        MENUITEM "&Save\tCtrl+S", IDM_SAVE
+        MENUITEM "Save &as...\tCtrl+Shift+S", IDM_SAVE_AS
+    }
     POPUP "&Edit"
     {
         MENUITEM "&Undo\tCtrl+Z", IDM_UNDO
@@ -73,6 +79,9 @@ ACCEL ACCELERATORS
     VK_OEM_4, IDM_GRID_HALF, VIRTKEY
     "G", IDM_TOGGLE_GRID, VIRTKEY
     "Z", IDM_FLY_CAM, VIRTKEY
+    "O", IDM_OPEN, CONTROL, VIRTKEY
+    "S", IDM_SAVE_AS, CONTROL, SHIFT, VIRTKEY
+    "S", IDM_SAVE, CONTROL, VIRTKEY
 }
 
 //////////////////////////////////////////////////////////////////////////////
