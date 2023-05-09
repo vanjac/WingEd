@@ -8,6 +8,7 @@ namespace winged {
 struct EditorState {
     Surface surf;
     union {
+        struct{} START_DATA;
         id_t sel = {};
         vert_id selVert;
         face_id selFace;

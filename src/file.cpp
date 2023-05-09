@@ -30,7 +30,7 @@ void writeFile(TCHAR *file, const EditorState &state) {
     writeMap(handle, state.surf.verts);
     writeMap(handle, state.surf.faces);
     writeMap(handle, state.surf.edges);
-    write(handle, &state.sel, sizeof(EditorState) - offsetof(EditorState, sel));
+    write(handle, &state.START_DATA, sizeof(EditorState) - offsetof(EditorState, START_DATA));
 }
 
 static void read(HANDLE handle, void *buf, DWORD size) {
@@ -70,7 +70,7 @@ EditorState readFile(TCHAR *file) {
     state.surf.verts = readMap<vert_id, Vertex>(handle);
     state.surf.faces = readMap<face_id, Face>(handle);
     state.surf.edges = readMap<edge_id, HEdge>(handle);
-    read(handle, &state.sel, sizeof(EditorState) - offsetof(EditorState, sel));
+    read(handle, &state.START_DATA, sizeof(EditorState) - offsetof(EditorState, START_DATA));
     return state;
 }
 
