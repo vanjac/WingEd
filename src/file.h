@@ -1,11 +1,11 @@
 #pragma once
 #include "common.h"
 
-#include "surface.h"
+#include "editor.h"
 
 namespace winged {
 
-void writeFile(wchar_t *file, const Surface &surf);
-Surface readFile(wchar_t *file);
+void writeFile(wchar_t *file, const EditorState &state);
+EditorState readFile(wchar_t *file);
 
 } // namespace

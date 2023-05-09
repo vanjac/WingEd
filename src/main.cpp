@@ -7,7 +7,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/associated_min_max.hpp>
-#include "surface.h"
+#include "editor.h"
 #include "ops.h"
 #include "picking.h"
 #include "file.h"
@@ -41,17 +41,6 @@ enum MouseMode {
 };
 
 
-struct EditorState {
-    Surface surf;
-    union {
-        id_t sel;
-        vert_id selVert;
-        face_id selFace;
-        edge_id selEdge;
-    };
-    bool gridOn = true;
-    float gridSize = 0.25f;
-};
 static EditorState g_state;
 static std::stack<EditorState> g_undoStack;
 static std::stack<EditorState> g_redoStack;
@@ -448,7 +437,7 @@ static void saveAs(HWND wnd) {
     fileName[0] = 0;
     const TCHAR filters[] = L"WingEd File (.wing)\0*.wing\0All Files\0*.*\0\0";
     if (GetSaveFileName(tempPtr(makeOpenFileName(fileName, wnd, filters, L"wing")))) {
-        writeFile(fileName, g_state.surf);
+        writeFile(fileName, g_state);
         memcpy(g_fileName, fileName, sizeof(g_fileName));
     }
 }
@@ -479,10 +468,11 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 fileName[0] = 0;
                 const TCHAR filters[] = L"WingEd File (.wing)\0*.wing\0\0";
                 if (GetOpenFileName(tempPtr(makeOpenFileName(fileName, wnd, filters, L"wing")))) {
-                    g_state.surf = readFile(fileName);
+                    g_state = readFile(fileName);
                     g_undoStack = {};
                     g_redoStack = {};
                     memcpy(g_fileName, fileName, sizeof(g_fileName));
+                    updateStatus(wnd);
                 }
                 break;
             }
@@ -493,7 +483,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 if (!g_fileName[0])
                     saveAs(wnd);
                 else
-                    writeFile(g_fileName, g_state.surf);
+                    writeFile(g_fileName, g_state);
                 break;
             /* tools */
             case IDM_TOOL_SELECT:

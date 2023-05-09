@@ -20,16 +20,17 @@ static void writeMap(HANDLE handle, const immer::map<K, V> &map) {
     }
 }
 
-void writeFile(TCHAR *file, const Surface &surf) {
+void writeFile(TCHAR *file, const EditorState &state) {
     CHandle handle(CreateFile(file, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
         FILE_ATTRIBUTE_NORMAL, NULL));
     if (handle == INVALID_HANDLE_VALUE)
         throw winged_error(L"Error saving file");
     write(handle, tempPtr('WING'), 4);
     write(handle, tempPtr(1), 4);
-    writeMap(handle, surf.verts);
-    writeMap(handle, surf.faces);
-    writeMap(handle, surf.edges);
+    writeMap(handle, state.surf.verts);
+    writeMap(handle, state.surf.faces);
+    writeMap(handle, state.surf.edges);
+    write(handle, &state.sel, sizeof(EditorState) - offsetof(EditorState, sel));
 }
 
 static void read(HANDLE handle, void *buf, DWORD size) {
@@ -56,7 +57,7 @@ static immer::map<K, V> readMap(HANDLE handle) {
     return map;
 }
 
-Surface readFile(TCHAR *file) {
+EditorState readFile(TCHAR *file) {
     CHandle handle(CreateFile(file, GENERIC_READ, 0, NULL, OPEN_EXISTING,
         FILE_ATTRIBUTE_NORMAL, NULL));
     if (handle == INVALID_HANDLE_VALUE)
@@ -65,11 +66,12 @@ Surface readFile(TCHAR *file) {
         throw winged_error(L"Unrecognized file format");
     if (readVal<uint32_t>(handle) != 1)
         throw winged_error(L"Unrecognized file version");
-    Surface surf;
-    surf.verts = readMap<vert_id, Vertex>(handle);
-    surf.faces = readMap<face_id, Face>(handle);
-    surf.edges = readMap<edge_id, HEdge>(handle);
-    return surf;
+    EditorState state;
+    state.surf.verts = readMap<vert_id, Vertex>(handle);
+    state.surf.faces = readMap<face_id, Face>(handle);
+    state.surf.edges = readMap<edge_id, HEdge>(handle);
+    read(handle, &state.sel, sizeof(EditorState) - offsetof(EditorState, sel));
+    return state;
 }
 
 } // namespace
