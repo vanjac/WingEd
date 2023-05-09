@@ -4,6 +4,8 @@
 namespace winged {
 
 uint32_t name(id_t id) {
+    if (id == id_t{})
+        return 0;
     return (uint32_t)std::hash<GUID>{}(id);
 }
 

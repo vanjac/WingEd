@@ -136,7 +136,8 @@ static void updateStatus(HWND wnd) {
         _stprintf_s(gridBuf, _countof(gridBuf), L"%f", g_state.gridSize);
     else
         _stprintf_s(gridBuf, _countof(gridBuf), L"Off");
-    _stprintf_s(buf, _countof(buf), L"%s    Grid: %s", tools[g_tool].name, gridBuf);
+    _stprintf_s(buf, _countof(buf), L"%08X    %s    Grid: %s",
+        name(g_state.sel), tools[g_tool].name, gridBuf);
     MENUITEMINFO info = {sizeof(info), 0x40}; // TODO requires Win2000?
     info.dwTypeData = buf;
     SetMenuItemInfo(GetMenu(wnd), IDM_STATUS, false, &info);
@@ -297,6 +298,7 @@ static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
             g_state.sel = g_hover.id;
         }
     }
+    updateStatus(wnd);
     refresh(wnd);
 }
 
@@ -452,7 +454,6 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                     g_redoStack.push(g_state);
                     g_state = g_undoStack.top();
                     g_undoStack.pop();
-                    updateStatus(wnd);
                 }
                 break;
             case IDM_REDO:
@@ -460,7 +461,6 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                     g_undoStack.push(g_state);
                     g_state = g_redoStack.top();
                     g_redoStack.pop();
-                    updateStatus(wnd);
                 }
                 break;
             case IDM_OPEN: {
@@ -472,7 +472,6 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                     g_undoStack = {};
                     g_redoStack = {};
                     memcpy(g_fileName, fileName, sizeof(g_fileName));
-                    updateStatus(wnd);
                 }
                 break;
             }
@@ -488,15 +487,12 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
             /* tools */
             case IDM_TOOL_SELECT:
                 g_tool = TOOL_SELECT;
-                updateStatus(wnd);
                 break;
             case IDM_TOOL_SCALE:
                 g_tool = TOOL_SCALE;
-                updateStatus(wnd);
                 break;
             case IDM_TOOL_KNIFE:
                 g_tool = TOOL_KNIFE;
-                updateStatus(wnd);
                 break;
             /* navigation */
             case IDM_CLEAR_SELECT:
@@ -513,15 +509,12 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 break;
             case IDM_TOGGLE_GRID:
                 g_state.gridOn ^= true;
-                updateStatus(wnd);
                 break;
             case IDM_GRID_DOUBLE:
                 g_state.gridSize *= 2;
-                updateStatus(wnd);
                 break;
             case IDM_GRID_HALF:
                 g_state.gridSize /= 2;
-                updateStatus(wnd);
                 break;
             case IDM_FLY_CAM:
                 g_flyCam ^= true;
@@ -582,6 +575,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
     } catch (winged_error err) {
         showError(wnd, err);
     }
+    updateStatus(wnd);
     refresh(wnd);
 }
 
