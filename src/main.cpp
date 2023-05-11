@@ -167,11 +167,11 @@ static void lockMouse(HWND wnd, POINT clientPos, MouseMode mode) {
 }
 
 
-static void tessVertexCallback(Vertex *vertex) {
+static void CALLBACK tessVertexCallback(Vertex *vertex) {
     glVertex3fv(glm::value_ptr(vertex->pos));
 }
 
-static void tessErrorCallback(GLenum error) {
+static void CALLBACK tessErrorCallback(GLenum error) {
     g_tess_error = error;
 }
 
@@ -208,10 +208,10 @@ static BOOL onCreate(HWND wnd, LPCREATESTRUCT) {
     glPolygonOffset(1.0, 1.0);
 
     g_tess = gluNewTess();
-    gluTessCallback(g_tess, GLU_TESS_BEGIN, (GLvoid (*) ())glBegin);
-    gluTessCallback(g_tess, GLU_TESS_END, (GLvoid (*) ())glEnd);
-    gluTessCallback(g_tess, GLU_TESS_VERTEX, (GLvoid (*) ())tessVertexCallback);
-    gluTessCallback(g_tess, GLU_TESS_ERROR, (GLvoid (*) ())tessErrorCallback);
+    gluTessCallback(g_tess, GLU_TESS_BEGIN, (GLvoid (CALLBACK*) ())glBegin);
+    gluTessCallback(g_tess, GLU_TESS_END, (GLvoid (CALLBACK*) ())glEnd);
+    gluTessCallback(g_tess, GLU_TESS_VERTEX, (GLvoid (CALLBACK*) ())tessVertexCallback);
+    gluTessCallback(g_tess, GLU_TESS_ERROR, (GLvoid (CALLBACK*) ())tessErrorCallback);
     // gluTessCallback(g_tess, GLU_TESS_COMBINE, (GLvoid (*) ())tessCombineCallback);
     // gluTessCallback(g_tess, GLU_TESS_EDGE_FLAG, (GLvoid (*) ())glEdgeFlag);
 
