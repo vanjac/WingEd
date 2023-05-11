@@ -120,7 +120,7 @@ static Surface joinFaceEdges(Surface surf, edge_pair prev, edge_pair edge, bool 
         edge_pair twin = edge.second.twin.pair(surf);
         vert_pair prevVert = prev.second.vert.pair(surf);
         vert_pair vert = edge.second.vert.pair(surf); // == keepVert
-        if (twin.second.prev == prevTwin.first) // triangle plane
+        if (twin.second.prev == prevTwin.first) // triangle merging into line
             throw winged_error(L"These vertices can't be merged");
         linkTwins(&prevTwin, &twin);
         prevVert.second.edge = prevTwin.second.next;
@@ -140,7 +140,7 @@ static Surface joinFaceEdges(Surface surf, edge_pair prev, edge_pair edge, bool 
 }
 
 // helper for mergeVerts
-static Surface mergeVertsSharedEdge(Surface surf, edge_pair edge, edge_pair prev, edge_pair next) {
+static Surface mergeVertsSharedEdge(Surface surf, edge_pair edge, edge_pair next) {
     // BEFORE:   ╮
     //           │prev
     //       vert╰  edge     next
@@ -148,6 +148,7 @@ static Surface mergeVertsSharedEdge(Surface surf, edge_pair edge, edge_pair prev
     //  twinNext    twin  ╮
     //            twinPrev│
     //                    ╰
+    edge_pair prev = edge.second.prev.pair(surf);
     edge_pair twin = edge.second.twin.pair(surf);
     vert_pair vert = edge.second.vert.pair(surf);
 
@@ -183,12 +184,18 @@ Surface mergeVerts(Surface surf, edge_id e1, edge_id e2) {
         throw winged_error();
     if (edge1.second.face != edge2.second.face)
         throw winged_error(L"Vertices must share a common face!");
-    surf = assignVertEdges(std::move(surf), delVert.second, keepVert.first);
+    edge_pair sharedEdge = {}, sharedEdgeNext = {};
+    for (auto vertEdge : VertEdges(surf, delVert.second)) {
+        vertEdge.second.vert = keepVert.first;
+        insertAll(&surf.edges, {vertEdge});
+        edge_pair vertEdgeNext = vertEdge.second.next.pair(surf);
+        if (vertEdgeNext.second.vert == keepVert.first) {
+            sharedEdge = vertEdge;
+            sharedEdgeNext = vertEdgeNext;
+        }
+    }
     edge2.second.vert = keepVert.first;
     eraseAll(&surf.verts, {delVert.first});
-
-    edge_pair prev1 = edge1.second.prev.pair(surf);
-    edge_pair prev2 = edge2.second.prev.pair(surf);
 
     // AFTER:    ╮    face
     //           │prev1
@@ -197,11 +204,11 @@ Surface mergeVerts(Surface surf, edge_id e1, edge_id e2) {
     //    edge1  ╮keepVert
     //      prev2│
     // newFace   ╰
-    if (prev2.first == edge1.first) {
-        surf = mergeVertsSharedEdge(std::move(surf), edge1, prev1, edge2);
-    } else if (prev1.first == edge2.first) {
-        surf = mergeVertsSharedEdge(std::move(surf), edge2, prev2, edge1);
+    if (sharedEdge.first != edge_id{}) {
+        surf = mergeVertsSharedEdge(std::move(surf), sharedEdge, sharedEdgeNext);
     } else {
+        edge_pair prev1 = edge1.second.prev.pair(surf);
+        edge_pair prev2 = edge2.second.prev.pair(surf);
         bool collapsedFace1, collapsedFace2;
         surf = joinFaceEdges(std::move(surf), prev2, edge1, &collapsedFace1);
         prev1 = prev1.first.pair(surf);
