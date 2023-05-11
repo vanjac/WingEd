@@ -331,12 +331,12 @@ Surface mergeFaces(Surface surf, edge_id e) {
                 // twin      ╮
                 //   twinPrev│
                 //           ╰
-                linkNext(&twinPrev, &next);
                 twinVert.second.edge = next.first;
-                keepFace.second.edge = next.first;
-                insertAll(&surf.edges, {twinPrev, next});
                 insertAll(&surf.verts, {twinVert});
-                insertAll(&surf.faces, {keepFace});
+                bool collapsedFace;
+                surf = joinFaceEdges(std::move(surf), twinPrev, next, &collapsedFace);
+                if (collapsedFace)
+                    eraseAll(&surf.faces, {keepFace.first});
                 break;
             }
             edge = next;
