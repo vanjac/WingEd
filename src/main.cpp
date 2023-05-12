@@ -189,12 +189,14 @@ static std::pair<edge_id, edge_id> findClosestOpposingEdges(
 
 static std::vector<edge_id> sortEdgeLoop(const Surface &surf, immer::set<edge_id> edges) {
     std::vector<edge_id> loop;
+    auto edgesTrans = edges.transient();
     loop.reserve(edges.size());
     loop.push_back(*edges.begin());
+    edgesTrans.erase(loop[0]);
     while (loop.size() != edges.size()) {
         vert_id nextVert = loop.back().in(surf).next.in(surf).vert;
         edge_id foundEdge = {};
-        for (auto &e : edges) {
+        for (auto &e : edgesTrans) {
             HEdge edge = e.in(surf);
             if (edge.vert == nextVert && edge.twin != loop.back()) {
                 foundEdge = e;
@@ -207,6 +209,7 @@ static std::vector<edge_id> sortEdgeLoop(const Surface &surf, immer::set<edge_id
         if (foundEdge == edge_id{})
             throw winged_error(L"Edges must form a loop");
         loop.push_back(foundEdge);
+        edgesTrans.erase(foundEdge);
     }
     if (loop.back().in(surf).next.in(surf).vert != loop[0].in(surf).vert)
         throw winged_error(L"Edges must form a loop");
