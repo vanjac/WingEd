@@ -227,7 +227,7 @@ Surface mergeVerts(Surface surf, edge_id e1, edge_id e2) {
     return surf;
 }
 
-Surface splitFace(Surface surf, edge_id e1, edge_id e2) {
+Surface splitFace(Surface surf, edge_id e1, edge_id e2, edge_id *splitEdge) {
     // BEFORE:
     // ╮               ╮
     // │prev1     edge2│
@@ -245,10 +245,13 @@ Surface splitFace(Surface surf, edge_id e1, edge_id e2) {
     face_pair face = edge1.second.face.pair(surf);
     if (edge1.second.face != edge2.second.face) {
         throw winged_error(L"Edges must share a common face!");
-    } else if (edge1.first == edge2.first
-            || edge1.second.next == edge2.first || edge2.second.next == edge1.first) {
+    } else if (edge1.first == edge2.first || edge1.second.next == edge2.first) {
         // edge already exists between vertices
-        return surf; // just do nothing
+        *splitEdge = primaryEdge(edge1);
+        return surf;
+    } else if (edge2.second.next == edge1.first) {
+        *splitEdge = primaryEdge(edge2);
+        return surf;
     }
     // AFTER:
     // ╮     face      ╮
@@ -278,6 +281,7 @@ Surface splitFace(Surface surf, edge_id e1, edge_id e2) {
     insertAll(&surf.edges, {edge1, edge2, prev1, prev2, newEdge1, newEdge2});
     insertAll(&surf.faces, {face, newFace});
     surf = assignFaceEdges(std::move(surf), newFace.second, newFace.first);
+    *splitEdge = primaryEdge(newEdge1);
     return surf;
 }
 

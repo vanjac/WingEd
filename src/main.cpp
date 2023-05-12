@@ -291,7 +291,9 @@ static EditorState knifeToVert(EditorState state, vert_id vert) {
     if (state.selVerts.size() == 1 && g_hoverFace.find(state.surf)) {
         edge_pair e1 = edgeOnHoverFace(state.surf, *state.selVerts.begin());
         edge_pair e2 = edgeOnHoverFace(state.surf, vert);
-        state.surf = splitFace(std::move(state.surf), e1.first, e2.first);
+        edge_id splitEdge;
+        state.surf = splitFace(std::move(state.surf), e1.first, e2.first, &splitEdge);
+        state.selEdges = std::move(state.selEdges).insert(splitEdge);
     }
     state.selVerts = immer::set<vert_id>{}.insert(vert);
     return state;

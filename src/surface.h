@@ -139,6 +139,7 @@ struct Surface {
 
 // for each pair of twins there is one primary edge (arbitrary)
 bool isPrimary(const edge_pair &pair);
+edge_id primaryEdge(const edge_pair &pair);
 // faster than faceNormal
 glm::vec3 faceNormalNonUnit(const Surface &surf, const Face &face);
 glm::vec3 faceNormal(const Surface &surf, const Face &face);

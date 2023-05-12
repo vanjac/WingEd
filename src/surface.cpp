@@ -29,6 +29,10 @@ bool isPrimary(const edge_pair &pair) {
     return memcmp(&pair.first, &pair.second.twin, sizeof(edge_id)) < 0;
 }
 
+edge_id primaryEdge(const edge_pair &pair) {
+    return isPrimary(pair) ? pair.first : pair.second.twin;
+}
+
 glm::vec3 faceNormalNonUnit(const Surface &surf, const Face &face) {
     // Newell's method
     // https://web.archive.org/web/20070507025303/http://www.acm.org/tog/GraphicsGems/gemsiii/newell.c

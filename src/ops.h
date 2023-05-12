@@ -16,7 +16,7 @@ Surface splitEdge(Surface surf, edge_id e, glm::vec3 pos);
 // Join two vertices on the same face
 Surface mergeVerts(Surface surf, edge_id e1, edge_id e2);
 // Create a new edge between two vertices on the same face
-Surface splitFace(Surface surf, edge_id e1, edge_id e2);
+Surface splitFace(Surface surf, edge_id e1, edge_id e2, edge_id *splitEdge);
 // Merge two faces along a chain of edges that joins them (given one edge on the chain)
 Surface mergeFaces(Surface surf, edge_id e);
 // Creates new quad faces for each side of the given face
