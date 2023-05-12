@@ -20,6 +20,13 @@ static void writeMap(HANDLE handle, const immer::map<K, V> &map) {
     }
 }
 
+template<typename T>
+static void writeSet(HANDLE handle, const immer::set<T> &set) {
+    write(handle, tempPtr(set.size()), 4);
+    for (auto &v : set)
+        write(handle, &v, sizeof(v));
+}
+
 void writeFile(TCHAR *file, const EditorState &state) {
     CHandle handle(CreateFile(file, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
         FILE_ATTRIBUTE_NORMAL, NULL));
@@ -30,6 +37,9 @@ void writeFile(TCHAR *file, const EditorState &state) {
     writeMap(handle, state.surf.verts);
     writeMap(handle, state.surf.faces);
     writeMap(handle, state.surf.edges);
+    writeSet(handle, state.selVerts);
+    writeSet(handle, state.selFaces);
+    writeSet(handle, state.selEdges);
     write(handle, &state.START_DATA, sizeof(EditorState) - offsetof(EditorState, START_DATA));
 }
 
@@ -57,6 +67,15 @@ static immer::map<K, V> readMap(HANDLE handle) {
     return map;
 }
 
+template<typename T>
+static immer::set<T> readSet(HANDLE handle) {
+    immer::set<T> set;
+    uint32_t size = readVal<uint32_t>(handle);
+    for (uint32_t i = 0; i < size; i++)
+        set = std::move(set).insert(readVal<T>(handle));
+    return set;
+}
+
 EditorState readFile(TCHAR *file) {
     CHandle handle(CreateFile(file, GENERIC_READ, 0, NULL, OPEN_EXISTING,
         FILE_ATTRIBUTE_NORMAL, NULL));
@@ -70,6 +89,9 @@ EditorState readFile(TCHAR *file) {
     state.surf.verts = readMap<vert_id, Vertex>(handle);
     state.surf.faces = readMap<face_id, Face>(handle);
     state.surf.edges = readMap<edge_id, HEdge>(handle);
+    state.selVerts = readSet<vert_id>(handle);
+    state.selFaces = readSet<face_id>(handle);
+    state.selEdges = readSet<edge_id>(handle);
     read(handle, &state.START_DATA, sizeof(EditorState) - offsetof(EditorState, START_DATA));
     return state;
 }

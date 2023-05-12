@@ -12,6 +12,7 @@
 #include "picking.h"
 #include "file.h"
 #include "resource.h"
+#include <immer/set_transient.hpp>
 
 #pragma comment(lib, "Rpcrt4.lib")
 #pragma comment(lib, "Opengl32.lib")
@@ -65,22 +66,73 @@ static GLUtesselator *g_tess;
 static GLenum g_tess_error;
 
 
+static EditorState cleanSelection(const EditorState &state) {
+    EditorState newState = state;
+    for (auto &vert : state.selVerts)
+        if (!vert.find(state.surf))
+            newState.selVerts = std::move(newState.selVerts).erase(vert);
+    for (auto &face : state.selFaces)
+        if (!face.find(state.surf))
+            newState.selFaces = std::move(newState.selFaces).erase(face);
+    for (auto &edge : state.selEdges)
+        if (!edge.find(state.surf))
+            newState.selEdges = std::move(newState.selEdges).erase(edge);
+    return newState;
+}
+
 static void pushUndo() {
     g_undoStack.push(g_state);
     g_redoStack = {};
 }
 
-static void pushUndo(const EditorState &newState) {
+static void pushUndo(EditorState newState) {
     validateSurface(newState.surf);
     pushUndo();
-    g_state = newState;
+    g_state = cleanSelection(newState);
 }
 
-static Surface::ElementType selectedType() {
-    if (g_state.selVert.find(g_state.surf)) return Surface::VERT;
-    if (g_state.selFace.find(g_state.surf)) return Surface::FACE;
-    if (g_state.selEdge.find(g_state.surf)) return Surface::EDGE;
-    return Surface::NONE;
+static bool hasSelection(EditorState state) {
+    return !state.selVerts.empty() || !state.selFaces.empty() || !state.selEdges.empty();
+}
+
+static immer::set<vert_id> selAttachedVerts(const EditorState &state) {
+    auto verts = state.selVerts.transient();
+    for (auto e : state.selEdges) {
+        auto edge = e.in(state.surf), twin = edge.twin.in(state.surf);
+        verts.insert(edge.vert);
+        verts.insert(twin.vert);
+    }
+    for (auto f : state.selFaces) {
+        for (auto &faceEdge : FaceEdges(state.surf, f.in(state.surf))) {
+            verts.insert(faceEdge.second.vert);
+        }
+    }
+    return verts.persistent();
+} 
+
+static EditorState clearSelection(EditorState state) {
+    state.selVerts = {};
+    state.selEdges = {};
+    state.selFaces = {};
+    return state;
+}
+
+static EditorState select(EditorState state, Surface::ElementType type, id_t id) {
+    switch (type) {
+        case Surface::VERT:
+            if (state.surf.verts.count(id))
+                state.selVerts = std::move(state.selVerts).insert(id);
+            break;
+        case Surface::FACE:
+            if (state.surf.faces.count(id))
+                state.selFaces = std::move(state.selFaces).insert(id);
+            break;
+        case Surface::EDGE:
+            if (state.surf.edges.count(id))
+                state.selEdges = std::move(state.selEdges).insert(id);
+            break;
+    }
+    return state;
 }
 
 static Surface::ElementType hoverType() {
@@ -92,15 +144,10 @@ static Surface::ElementType hoverType() {
     }
 }
 
-static const HEdge expectSelEdge() {
-    if (auto sel = g_state.selEdge.find(g_state.surf))
-        return *sel;
+static const HEdge expectSingleSelEdge() {
+    if (g_state.selEdges.size() == 1)
+        return g_state.selEdges.begin()->in(g_state.surf);
     throw winged_error(L"No selected edge");
-}
-
-static void expectSelFace() {
-    if (!g_state.selFace.find(g_state.surf))
-        throw winged_error(L"No selected face");
 }
 
 static void expectHoverVert() {
@@ -131,8 +178,12 @@ static void updateStatus(HWND wnd) {
         _stprintf_s(gridBuf, _countof(gridBuf), L"%f", g_state.gridSize);
     else
         _stprintf_s(gridBuf, _countof(gridBuf), L"Off");
+    uint32_t selName = 0;
+    if (!g_state.selVerts.empty()) selName = name(*g_state.selVerts.begin());
+    else if (!g_state.selFaces.empty()) selName = name(*g_state.selFaces.begin());
+    else if (!g_state.selEdges.empty()) selName = name(*g_state.selEdges.begin());
     _stprintf_s(buf, _countof(buf), L"%08X    %s    Grid: %s",
-        name(g_state.sel), tools[g_tool].name, gridBuf);
+        selName, tools[g_tool].name, gridBuf);
     MENUITEMINFO info = {sizeof(info), 0x40}; // TODO requires Win2000?
     info.dwTypeData = buf;
     SetMenuItemInfo(GetMenu(wnd), IDM_STATUS, false, &info);
@@ -237,12 +288,12 @@ static void onNCDestroy(HWND) {
 }
 
 static EditorState knifeToVert(EditorState state, vert_id vert) {
-    if (state.selVert.find(state.surf) && g_hoverFace.find(state.surf)) {
-        edge_pair e1 = edgeOnHoverFace(state.surf, state.selVert);
+    if (state.selVerts.size() == 1 && g_hoverFace.find(state.surf)) {
+        edge_pair e1 = edgeOnHoverFace(state.surf, *state.selVerts.begin());
         edge_pair e2 = edgeOnHoverFace(state.surf, vert);
         state.surf = splitFace(std::move(state.surf), e1.first, e2.first);
     }
-    state.selVert = vert;
+    state.selVerts = immer::set<vert_id>{}.insert(vert);
     return state;
 }
 
@@ -263,7 +314,7 @@ static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
                     newState.surf = splitEdge(g_state.surf, g_hover.edge, g_hover.point);
                     vert_id newVert = g_hover.edge.in(newState.surf).next.in(newState.surf).vert;
                     newState = knifeToVert(std::move(newState), newVert);
-                    pushUndo(newState);
+                    pushUndo(std::move(newState));
                     break;
                 }
                 case Surface::VERT:
@@ -273,15 +324,15 @@ static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
                     throw winged_error();
                     break;
                 case Surface::NONE:
-                    g_state.sel = {};
+                    g_state = clearSelection(std::move(g_state));
                     break;
             }
         } catch (winged_error err) {
             showError(wnd, err);
         }
     } else {
-        if (!selectedType()) {
-            g_state.sel = g_hover.id;
+        if (!hasSelection(g_state)) {
+            g_state = select(std::move(g_state), g_hover.type, g_hover.id);
             refreshImmediate(wnd);
         }
         if (DragDetect(wnd, clientToScreen(wnd, {x, y}))) {
@@ -290,7 +341,9 @@ static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
             lockMouse(wnd, {x, y}, MOUSE_ADJUST);
             g_moveAccum = {};
         } else {
-            g_state.sel = g_hover.id;
+            if (!(GetKeyState(VK_SHIFT) < 0))
+                g_state = clearSelection(std::move(g_state));
+            g_state = select(std::move(g_state), g_hover.type, g_hover.id);
         }
     }
     updateStatus(wnd);
@@ -327,8 +380,8 @@ static void toolAdjust(HWND, SIZE delta, UINT) {
             glm::mat4 invMV = glm::inverse(g_mvMat);
             glm::vec3 right = {}, down = {};
             if (GetKeyState(VK_CONTROL) < 0) {
-                if (auto face = g_state.selFace.find(g_state.surf))
-                    down = faceNormal(g_state.surf, *face);
+                if (g_state.selFaces.size() == 1) // TODO: move along each face's normal?
+                    down = faceNormal(g_state.surf, g_state.selFaces.begin()->in(g_state.surf));
             } else if (GetKeyState(VK_SHIFT) < 0 && GetKeyState(VK_MENU) < 0)
                 down = snapAxis(invMV[2]);
             else if (GetKeyState(VK_SHIFT) < 0) down = snapAxis(-invMV[1]);
@@ -343,39 +396,19 @@ static void toolAdjust(HWND, SIZE delta, UINT) {
             } else {
                 adjustAmt = deltaPos;
             }
-            if (g_state.selVert.find(g_state.surf)) {
-                g_state.surf = moveVertex(g_state.surf, g_state.selVert, adjustAmt);
-            } else if (auto edge = g_state.selEdge.find(g_state.surf)) {
-                g_state.surf = moveVertex(g_state.surf, edge->vert, adjustAmt);
-                vert_id twinVert = edge->twin.in(g_state.surf).vert;
-                g_state.surf = moveVertex(g_state.surf, twinVert, adjustAmt);
-            } else if (auto face = g_state.selFace.find(g_state.surf)) {
-                for (auto &faceEdge : FaceEdges(g_state.surf, *face))
-                    g_state.surf = moveVertex(g_state.surf, faceEdge.second.vert, adjustAmt);
-            }
+            for (auto v : selAttachedVerts(g_state))
+                g_state.surf = moveVertex(std::move(g_state.surf), v, adjustAmt);
             break;
         }
         case TOOL_SCALE: {
             glm::vec3 factor = glm::vec3(glm::pow(1.001f, (float)delta.cx));
-            if (auto edge = g_state.selEdge.find(g_state.surf)) {
-                vert_id twinVert = edge->twin.in(g_state.surf).vert;
-                glm::vec3 center = edge->vert.in(g_state.surf).pos;
-                center = (center + twinVert.in(g_state.surf).pos) / 2.0f;
-                g_state.surf = scaleVertex(g_state.surf, edge->vert, center, factor);
-                g_state.surf = scaleVertex(g_state.surf, twinVert, center, factor);
-            } else if (auto face = g_state.selFace.find(g_state.surf)) {
-                glm::vec3 center = {};
-                int count = 0;
-                for (auto &faceEdge : FaceEdges(g_state.surf, *face)) {
-                    center += faceEdge.second.vert.in(g_state.surf).pos;
-                    count++;
-                }
-                center /= count;
-                for (auto &faceEdge : FaceEdges(g_state.surf, *face)) {
-                    g_state.surf = scaleVertex(g_state.surf, faceEdge.second.vert,
-                        center, factor);
-                }
-            }
+            auto verts = selAttachedVerts(g_state);
+            glm::vec3 center = {};
+            for (auto v : verts)
+                center += v.in(g_state.surf).pos;
+            center /= verts.size();
+            for (auto v : verts)
+                g_state.surf = scaleVertex(std::move(g_state.surf), v, center, factor);
             break;
         }
     }
@@ -491,16 +524,16 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 break;
             /* navigation */
             case IDM_CLEAR_SELECT:
-                g_state.sel = {};
+                g_state = clearSelection(std::move(g_state));
                 break;
             case IDM_EDGE_TWIN:
-                g_state.selEdge = expectSelEdge().twin;
+                g_state.selEdges = immer::set<edge_id>{}.insert(expectSingleSelEdge().twin);
                 break;
             case IDM_NEXT_FACE_EDGE:
-                g_state.selEdge = expectSelEdge().next;
+                g_state.selEdges = immer::set<edge_id>{}.insert(expectSingleSelEdge().next);
                 break;
             case IDM_PREV_FACE_EDGE:
-                g_state.selEdge = expectSelEdge().prev;
+                g_state.selEdges = immer::set<edge_id>{}.insert(expectSingleSelEdge().prev);
                 break;
             case IDM_TOGGLE_GRID:
                 g_state.gridOn ^= true;
@@ -521,24 +554,23 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                         name(edge.second.twin), name(edge.second.prev), name(edge.second.next),
                         name(edge.second.vert), name(edge.second.face));
                 }
-                LOG("Selected: %08X", name(g_state.sel));
                 break;
             /* undoable operations */
             case IDM_JOIN: {
                 EditorState newState = g_state;
-                if (g_state.selVert.find(g_state.surf)) {
+                if (g_state.selVerts.size() == 1) {
                     expectHoverVert();
-                    edge_id e1 = edgeOnHoverFace(g_state.surf, g_state.selVert).first;
+                    edge_id e1 = edgeOnHoverFace(g_state.surf, *g_state.selVerts.begin()).first;
                     edge_id e2 = edgeOnHoverFace(g_state.surf, g_hover.vert).first;
                     newState.surf = mergeVerts(g_state.surf, e1, e2);
-                } else if (g_state.selEdge.find(g_state.surf)) {
+                } else if (g_state.selEdges.size() == 1) {
                     expectHoverVert();
                     edge_id e2 = edgeOnHoverFace(g_state.surf, g_hover.vert).first;
-                    newState.surf = joinEdgeLoops(g_state.surf, g_state.selEdge, e2);
+                    newState.surf = joinEdgeLoops(g_state.surf, *g_state.selEdges.begin(), e2);
                 } else {
-                    throw winged_error(L"No selected vertex or edge");
+                    throw winged_error(L"Select a single vertex or edge");
                 }
-                pushUndo(newState);
+                pushUndo(std::move(newState));
                 flashSel(wnd);
                 break;
             }
@@ -556,21 +588,22 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 } else {
                     throw winged_error();
                 }
-                pushUndo(newState);
+                pushUndo(std::move(newState));
                 break;
             }
             case IDM_EXTRUDE: {
-                expectSelFace();
+                if (g_state.selFaces.empty()) throw winged_error(L"No selected faces");
                 EditorState newState = g_state;
-                newState.surf = extrudeFace(g_state.surf, g_state.selFace);
-                pushUndo(newState);
+                for (auto f : g_state.selFaces)
+                    newState.surf = extrudeFace(newState.surf, f);
+                pushUndo(std::move(newState));
                 flashSel(wnd);
                 break;
             }
             case IDM_FLIP_NORMALS: {
                 EditorState newState = g_state;
                 newState.surf = flipNormals(g_state.surf);
-                pushUndo(newState);
+                pushUndo(std::move(newState));
                 break;
             }
         }
@@ -582,15 +615,15 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
 }
 
 static void onInitMenu(HWND, HMENU menu) {
-    auto selType = selectedType();
+    bool hasSel = hasSelection(g_state);
     auto hovType = hoverType();
     EnableMenuItem(menu, IDM_UNDO, g_undoStack.empty() ? MF_GRAYED : MF_ENABLED);
     EnableMenuItem(menu, IDM_REDO, g_redoStack.empty() ? MF_GRAYED : MF_ENABLED);
-    EnableMenuItem(menu, IDM_CLEAR_SELECT, selType ? MF_ENABLED : MF_GRAYED);
+    EnableMenuItem(menu, IDM_CLEAR_SELECT, hasSel ? MF_ENABLED : MF_GRAYED);
     CheckMenuItem(menu, IDM_TOGGLE_GRID, g_state.gridOn ? MF_CHECKED : MF_UNCHECKED);
-    EnableMenuItem(menu, IDM_JOIN, (selType && hovType) ? MF_ENABLED : MF_DISABLED);
+    EnableMenuItem(menu, IDM_JOIN, (hasSel && hovType) ? MF_ENABLED : MF_DISABLED);
     EnableMenuItem(menu, IDM_ERASE, hovType ? MF_ENABLED : MF_DISABLED);
-    EnableMenuItem(menu, IDM_EXTRUDE, g_state.selFace.find(g_state.surf) ? MF_ENABLED : MF_GRAYED);
+    EnableMenuItem(menu, IDM_EXTRUDE, g_state.selFaces.empty() ? MF_GRAYED : MF_ENABLED);
     CheckMenuItem(menu, IDM_FLY_CAM, g_flyCam ? MF_CHECKED : MF_UNCHECKED);
     CheckMenuRadioItem(menu, tools[0].command, tools[NUM_TOOLS - 1].command,
         tools[g_tool].command, MF_BYCOMMAND);
@@ -634,8 +667,6 @@ static void drawEdge(const Surface &surf, const HEdge &edge) {
 }
 
 static void drawState(const EditorState &state) {
-    auto selEdge = state.selEdge.find(state.surf);
-
     glLineWidth(1);
     glColor3f(1, 1, 1);
     glBegin(GL_LINES);
@@ -644,14 +675,14 @@ static void drawState(const EditorState &state) {
             drawEdge(state.surf, pair.second);
     }
     glEnd();
-    if (selEdge) {
+    for (auto e : state.selEdges) {
         glLineWidth(5);
         glColor3f(1, 1, 0);
         glBegin(GL_LINES);
-        drawEdge(state.surf, *selEdge);
+        drawEdge(state.surf, e.in(state.surf));
         glEnd();
     }
-    if (auto hoverEdge = g_hover.edge.find(g_state.surf)) {
+    if (auto hoverEdge = g_hover.edge.find(state.surf)) {
         glLineWidth(3);
         glColor3f(1, 0.3f, 0.5f);
         glBegin(GL_LINES);
@@ -662,7 +693,7 @@ static void drawState(const EditorState &state) {
     glPointSize(7);
     glBegin(GL_POINTS);
     for (auto &pair : state.surf.verts) {
-        if (pair.first == state.selVert || (selEdge && pair.first == selEdge->vert)) {
+        if (state.selVerts.count(pair.first)) {
             if (g_flashSel)
                 glColor3f(1, 0.8f, 0.8f);
             else
@@ -676,7 +707,7 @@ static void drawState(const EditorState &state) {
         glVertex3fv(glm::value_ptr(g_hover.point));
     }
     glEnd();
-    if (auto hoverVert = g_hover.vert.find(g_state.surf)) {
+    if (auto hoverVert = g_hover.vert.find(state.surf)) {
         glPointSize(11);
         glColor3f(1, 1, 1);
         glBegin(GL_POINTS);
@@ -684,19 +715,17 @@ static void drawState(const EditorState &state) {
         glEnd();
     }
     
-    if (g_tool == TOOL_KNIFE && g_hover.type) {
-        if (auto kVert = g_state.selVert.find(state.surf)) {
-            glColor3f(1, 1, 1);
-            glLineWidth(1);
-            glBegin(GL_LINES);
-            glVertex3fv(glm::value_ptr(kVert->pos));
-            glVertex3fv(glm::value_ptr(g_hover.point));
-            glEnd();
-        }
+    if (g_tool == TOOL_KNIFE && g_hover.type && state.selVerts.size() == 1) {
+        glColor3f(1, 1, 1);
+        glLineWidth(1);
+        glBegin(GL_LINES);
+        glVertex3fv(glm::value_ptr(state.selVerts.begin()->in(state.surf).pos));
+        glVertex3fv(glm::value_ptr(g_hover.point));
+        glEnd();
     }
 
     for (auto &pair : state.surf.faces) {
-        if (pair.first == state.selFace) {
+        if (state.selFaces.count(pair.first)) {
             if (g_flashSel)
                 glColor3f(0, 1, 0.5);
             else
