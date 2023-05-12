@@ -173,9 +173,9 @@ static std::pair<edge_id, edge_id> findClosestOpposingEdges(
         const Surface &surf, Face face1, Face face2) {
     float closestDist = FLT_MAX;
     edge_id e1 = face1.edge, e2 = face2.edge;
-    for (auto f1Edge : FaceEdges(surf, face1)) {
+    for (auto &f1Edge : FaceEdges(surf, face1)) {
         glm::vec3 v1 = f1Edge.second.vert.in(surf).pos;
-        for (auto f2Edge : FaceEdges(surf, face2)) {
+        for (auto &f2Edge : FaceEdges(surf, face2)) {
             float dist = glm::distance(v1, f2Edge.second.vert.in(surf).pos);
             if (dist < closestDist) {
                 e1 = f1Edge.first;
@@ -185,6 +185,32 @@ static std::pair<edge_id, edge_id> findClosestOpposingEdges(
         }
     }
     return {e1, e2};
+}
+
+static std::vector<edge_id> sortEdgeLoop(const Surface &surf, immer::set<edge_id> edges) {
+    std::vector<edge_id> loop;
+    loop.reserve(edges.size());
+    loop.push_back(*edges.begin());
+    while (loop.size() != edges.size()) {
+        vert_id nextVert = loop.back().in(surf).next.in(surf).vert;
+        edge_id foundEdge = {};
+        for (auto &e : edges) {
+            HEdge edge = e.in(surf);
+            if (edge.vert == nextVert && edge.twin != loop.back()) {
+                foundEdge = e;
+                break;
+            } else if (edge.twin.in(surf).vert == nextVert && e != loop.back()) {
+                foundEdge = edge.twin;
+                break;
+            }
+        }
+        if (foundEdge == edge_id{})
+            throw winged_error(L"Edges must form a loop");
+        loop.push_back(foundEdge);
+    }
+    if (loop.back().in(surf).next.in(surf).vert != loop[0].in(surf).vert)
+        throw winged_error(L"Edges must form a loop");
+    return loop;
 }
 
 
@@ -628,6 +654,15 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 flashSel(wnd);
                 break;
             }
+            case IDM_SPLIT_LOOP: {
+                if (g_state.selEdges.empty()) throw winged_error(L"No selected edges");
+                auto loop = sortEdgeLoop(g_state.surf, g_state.selEdges);
+                EditorState newState = g_state;
+                newState.surf = splitEdgeLoop(g_state.surf, loop);
+                pushUndo(std::move(newState));
+                flashSel(wnd);
+                break;
+            }
             case IDM_FLIP_NORMALS: {
                 EditorState newState = g_state;
                 newState.surf = flipNormals(g_state.surf);
@@ -652,6 +687,7 @@ static void onInitMenu(HWND, HMENU menu) {
     EnableMenuItem(menu, IDM_JOIN, (hasSel && hovType) ? MF_ENABLED : MF_DISABLED);
     EnableMenuItem(menu, IDM_ERASE, hovType ? MF_ENABLED : MF_DISABLED);
     EnableMenuItem(menu, IDM_EXTRUDE, g_state.selFaces.empty() ? MF_GRAYED : MF_ENABLED);
+    EnableMenuItem(menu, IDM_SPLIT_LOOP, g_state.selEdges.empty() ? MF_GRAYED : MF_ENABLED);
     CheckMenuItem(menu, IDM_FLY_CAM, g_flyCam ? MF_CHECKED : MF_UNCHECKED);
     CheckMenuRadioItem(menu, tools[0].command, tools[NUM_TOOLS - 1].command,
         tools[g_tool].command, MF_BYCOMMAND);
@@ -703,13 +739,16 @@ static void drawState(const EditorState &state) {
             drawEdge(state.surf, pair.second);
     }
     glEnd();
-    for (auto e : state.selEdges) {
-        glLineWidth(5);
+    glLineWidth(5);
+    if (g_flashSel)
+        glColor3f(1, 0, 0);
+    else
         glColor3f(1, 1, 0);
-        glBegin(GL_LINES);
+    glBegin(GL_LINES);
+    for (auto e : state.selEdges) {
         drawEdge(state.surf, e.in(state.surf));
-        glEnd();
     }
+    glEnd();
     if (auto hoverEdge = g_hover.edge.find(state.surf)) {
         glLineWidth(3);
         glColor3f(1, 0.3f, 0.5f);
@@ -726,8 +765,9 @@ static void drawState(const EditorState &state) {
                 glColor3f(1, 0.8f, 0.8f);
             else
                 glColor3f(1, 0, 0);
-        } else
+        } else {
             glColor3f(0, 1, 0);
+        }
         glVertex3fv(glm::value_ptr(pair.second.pos));
     }
     if (g_tool == TOOL_KNIFE && g_hover.type && g_hover.type != Surface::VERT) {

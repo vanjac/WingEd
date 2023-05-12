@@ -445,6 +445,63 @@ Surface extrudeFace(Surface surf, face_id f) {
     return surf;
 }
 
+Surface splitEdgeLoop(Surface surf, const std::vector<edge_id> &loop) {
+    face_pair newFace1 = makeFacePair();
+    face_pair newFace2 = makeFacePair();
+
+    edge_pair firstNewEdge1 = {}, firstNewEdge2 = {};
+    edge_pair lastNewEdge1 = {}, lastNewEdge2 = {};
+    std::vector<vert_pair> newVerts;
+    newVerts.reserve(loop.size());
+    for (auto &e : loop) {
+        edge_pair edge = e.pair(surf);
+        edge_pair twin = edge.second.twin.pair(surf);
+        edge_pair newEdge1 = makeEdgePair();
+        edge_pair newEdge2 = makeEdgePair();
+        vert_pair vert = edge.second.vert.pair(surf);
+        vert_pair newVert = makeVertPair();
+
+        linkTwins(&edge, &newEdge1);
+        linkTwins(&twin, &newEdge2);
+        newEdge1.second.face = newFace1.first;
+        newEdge2.second.face = newFace2.first;
+        linkVert(&newEdge2, &vert);
+        newVert.second = vert.second; // copy pos
+        linkVert(&edge, &newVert);
+
+        if (lastNewEdge1.first != edge_id{}) {
+            linkNext(&newEdge1, &lastNewEdge1);
+            linkNext(&lastNewEdge2, &newEdge2);
+            linkVert(&lastNewEdge1, &newVert);
+            if (firstNewEdge1.first == edge_id{}) {
+                firstNewEdge1 = lastNewEdge1;
+                firstNewEdge2 = lastNewEdge2;
+            } else {
+                insertAll(&surf.edges, {lastNewEdge1, lastNewEdge2});
+            }
+        }
+        lastNewEdge1 = newEdge1;
+        lastNewEdge2 = newEdge2;
+        newVerts.push_back(newVert);
+        insertAll(&surf.edges, {edge, twin});
+        insertAll(&surf.verts, {vert});
+    }
+
+    linkNext(&firstNewEdge1, &lastNewEdge1);
+    linkNext(&lastNewEdge2, &firstNewEdge2);
+    linkVert(&lastNewEdge1, &newVerts[0]);
+    newFace1.second.edge = firstNewEdge1.first;
+    newFace2.second.edge = firstNewEdge2.first;
+    insertAll(&surf.edges, {firstNewEdge1, firstNewEdge2, lastNewEdge1, lastNewEdge2});
+    insertAll(&surf.faces, {newFace1, newFace2});
+
+    for (auto &newVert : newVerts) {
+        surf = assignVertEdges(std::move(surf), newVert.second, newVert.first);
+        insertAll(&surf.verts, {newVert});
+    }
+    return surf;
+}
+
 Surface joinEdgeLoops(Surface surf, edge_id e1, edge_id e2) {
     edge_pair edge1 = e1.pair(surf);
     edge_pair edge2 = e2.pair(surf);

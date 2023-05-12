@@ -40,6 +40,7 @@ WINGED MENUEX
         MENUITEM "&Join with Selection\tJ", IDM_JOIN
         MENUITEM "&Erase\tE", IDM_ERASE
         MENUITEM "E&xtrude Face\tCtrl+P", IDM_EXTRUDE
+        MENUITEM "&Split Edge Loop\tCtrl+L", IDM_SPLIT_LOOP
         MENUITEM "&Flip Normals\tCtrl+N", IDM_FLIP_NORMALS
     }
     POPUP "&View"
@@ -82,6 +83,7 @@ ACCEL ACCELERATORS
     "O", IDM_OPEN, CONTROL, VIRTKEY
     "S", IDM_SAVE_AS, CONTROL, SHIFT, VIRTKEY
     "S", IDM_SAVE, CONTROL, VIRTKEY
+    "L", IDM_SPLIT_LOOP, CONTROL, VIRTKEY
 }
 
 //////////////////////////////////////////////////////////////////////////////
