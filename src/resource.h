@@ -28,12 +28,14 @@
 #define IDM_OPEN                            128
 #define IDM_SAVE                            129
 #define IDM_SPLIT_LOOP                      130
+#define IDM_SEL_ELEMENTS                    131
+#define IDM_SEL_SOLIDS                      132
 
 #ifdef APSTUDIO_INVOKED
     #ifndef APSTUDIO_READONLY_SYMBOLS
         #define _APS_NO_MFC                 1
         #define _APS_NEXT_RESOURCE_VALUE    100
-        #define _APS_NEXT_COMMAND_VALUE     131
+        #define _APS_NEXT_COMMAND_VALUE     133
         #define _APS_NEXT_CONTROL_VALUE     1000
         #define _APS_NEXT_SYMED_VALUE       300
     #endif
