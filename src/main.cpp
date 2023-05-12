@@ -155,12 +155,36 @@ static void expectHoverVert() {
         throw winged_error();
 }
 
+static const Face expectHoverFace() {
+    if (auto face = g_hoverFace.find(g_state.surf))
+        return *face;
+    throw winged_error();
+}
+
 static edge_pair edgeOnHoverFace(const Surface &surf, vert_id v) {
     for (auto &edge : VertEdges(surf, v.in(surf))) {
         if (edge.second.face == g_hoverFace)
             return edge;
     }
     throw winged_error();
+}
+
+static std::pair<edge_id, edge_id> findClosestOpposingEdges(
+        const Surface &surf, Face face1, Face face2) {
+    float closestDist = FLT_MAX;
+    edge_id e1 = face1.edge, e2 = face2.edge;
+    for (auto f1Edge : FaceEdges(surf, face1)) {
+        glm::vec3 v1 = f1Edge.second.vert.in(surf).pos;
+        for (auto f2Edge : FaceEdges(surf, face2)) {
+            float dist = glm::distance(v1, f2Edge.second.vert.in(surf).pos);
+            if (dist < closestDist) {
+                e1 = f1Edge.first;
+                e2 = f2Edge.second.prev;
+                closestDist = dist;
+            }
+        }
+    }
+    return {e1, e2};
 }
 
 
@@ -565,12 +589,14 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                     edge_id e1 = edgeOnHoverFace(g_state.surf, *g_state.selVerts.begin()).first;
                     edge_id e2 = edgeOnHoverFace(g_state.surf, g_hover.vert).first;
                     newState.surf = mergeVerts(g_state.surf, e1, e2);
-                } else if (g_state.selEdges.size() == 1) {
-                    expectHoverVert();
-                    edge_id e2 = edgeOnHoverFace(g_state.surf, g_hover.vert).first;
-                    newState.surf = joinEdgeLoops(g_state.surf, *g_state.selEdges.begin(), e2);
+                } else if (g_state.selFaces.size() == 1) {
+                    Face face1 = g_state.selFaces.begin()->in(g_state.surf);
+                    Face face2 = expectHoverFace();
+                    edge_id e1, e2;
+                    std::tie(e1, e2) = findClosestOpposingEdges(g_state.surf, face1, face2);
+                    newState.surf = joinEdgeLoops(g_state.surf, e1, e2);
                 } else {
-                    throw winged_error(L"Select a single vertex or edge");
+                    throw winged_error(L"Select a single vertex or face");
                 }
                 pushUndo(std::move(newState));
                 flashSel(wnd);
