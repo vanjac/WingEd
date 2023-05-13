@@ -3,6 +3,7 @@
 
 #include <stack>
 #include <queue>
+#include <unordered_set>
 #include <gl/GL.h>
 #include <gl/GLU.h>
 #include <glm/gtc/matrix_transform.hpp>
@@ -148,7 +149,7 @@ static EditorState select(EditorState state, Surface::ElementType type, id_t id)
             auto verts = state.selVerts.transient();
             auto faces = state.selFaces.transient();
             auto edges = state.selEdges.transient();
-            auto visited = immer::set<edge_id>{}.transient();
+            auto visited = std::unordered_set<edge_id>();
             // flood-fill
             std::queue<edge_id> toSelect;
             toSelect.push(face->edge);
