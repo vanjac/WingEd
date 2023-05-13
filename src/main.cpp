@@ -725,7 +725,6 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 break;
             }
             case IDM_EXTRUDE: {
-                if (g_state.selFaces.empty()) throw winged_error(L"No selected faces");
                 EditorState newState = g_state;
                 for (auto f : g_state.selFaces)
                     newState.surf = extrudeFace(newState.surf, f);
@@ -734,7 +733,6 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 break;
             }
             case IDM_SPLIT_LOOP: {
-                if (g_state.selEdges.empty()) throw winged_error(L"No selected edges");
                 auto loop = sortEdgeLoop(g_state.surf, g_state.selEdges);
                 EditorState newState = g_state;
                 newState.surf = splitEdgeLoop(g_state.surf, loop);
@@ -743,7 +741,6 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 break;
             }
             case IDM_FLIP_NORMALS: {
-                if (g_state.selMode == SEL_ELEMENTS) throw winged_error(L"Wrong select mode");
                 EditorState newState = g_state;
                 newState.surf = flipNormals(g_state.surf, g_state.selEdges, g_state.selVerts);
                 pushUndo(std::move(newState));
@@ -760,16 +757,19 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
 static void onInitMenu(HWND, HMENU menu) {
     bool hasSel = hasSelection(g_state);
     auto hovType = hoverType();
+    bool selElem = g_state.selMode == SEL_ELEMENTS;
+    bool selSolid = g_state.selMode == SEL_SOLIDS;
+    EnableMenuItem(menu, IDM_CLEAR_SELECT, hasSel ? MF_ENABLED : MF_GRAYED);
     EnableMenuItem(menu, IDM_UNDO, g_undoStack.empty() ? MF_GRAYED : MF_ENABLED);
     EnableMenuItem(menu, IDM_REDO, g_redoStack.empty() ? MF_GRAYED : MF_ENABLED);
-    EnableMenuItem(menu, IDM_CLEAR_SELECT, hasSel ? MF_ENABLED : MF_GRAYED);
     CheckMenuItem(menu, IDM_TOGGLE_GRID, g_state.gridOn ? MF_CHECKED : MF_UNCHECKED);
-    EnableMenuItem(menu, IDM_JOIN, (hasSel && hovType) ? MF_ENABLED : MF_DISABLED);
     EnableMenuItem(menu, IDM_ERASE, hasSel ? MF_ENABLED : MF_DISABLED);
-    EnableMenuItem(menu, IDM_EXTRUDE, g_state.selFaces.empty() ? MF_GRAYED : MF_ENABLED);
-    EnableMenuItem(menu, IDM_SPLIT_LOOP, g_state.selEdges.empty() ? MF_GRAYED : MF_ENABLED);
-    EnableMenuItem(menu, IDM_FLIP_NORMALS, (hasSel && g_state.selMode != SEL_ELEMENTS) ?
+    EnableMenuItem(menu, IDM_JOIN, (hasSel && hovType && selElem) ? MF_ENABLED : MF_DISABLED);
+    EnableMenuItem(menu, IDM_EXTRUDE, (!g_state.selFaces.empty() && selElem) ?
         MF_ENABLED : MF_GRAYED);
+    EnableMenuItem(menu, IDM_SPLIT_LOOP, (!g_state.selEdges.empty() && selElem) ?
+        MF_ENABLED : MF_GRAYED);
+    EnableMenuItem(menu, IDM_FLIP_NORMALS, (hasSel && selSolid) ? MF_ENABLED : MF_GRAYED);
     CheckMenuItem(menu, IDM_FLY_CAM, g_flyCam ? MF_CHECKED : MF_UNCHECKED);
     CheckMenuRadioItem(menu, selCommands[0], selCommands[NUM_SELMODES - 1],
         selCommands[g_state.selMode], MF_BYCOMMAND);

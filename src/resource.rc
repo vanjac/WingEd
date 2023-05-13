@@ -42,10 +42,12 @@ WINGED MENUEX
         MENUITEM "Grid &Larger\t]", IDM_GRID_DOUBLE
         MENUITEM "Grid &Smaller\t[", IDM_GRID_HALF
         MENUITEM "", 0, MFT_SEPARATOR
-        MENUITEM "&Join with Selection\tJ", IDM_JOIN
         MENUITEM "&Erase\tDel", IDM_ERASE
+        MENUITEM "", 0, MFT_SEPARATOR
+        MENUITEM "&Join with Selection\tJ", IDM_JOIN
         MENUITEM "E&xtrude Face\tCtrl+P", IDM_EXTRUDE
         MENUITEM "&Split Edge Loop\tCtrl+L", IDM_SPLIT_LOOP
+        MENUITEM "", 0, MFT_SEPARATOR
         MENUITEM "&Flip Normals\tCtrl+N", IDM_FLIP_NORMALS
     }
     POPUP "&Tool"
