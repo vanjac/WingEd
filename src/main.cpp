@@ -78,9 +78,14 @@ static EditorState cleanSelection(const EditorState &state) {
     for (auto &face : state.selFaces)
         if (!face.find(state.surf))
             newState.selFaces = std::move(newState.selFaces).erase(face);
-    for (auto &edge : state.selEdges)
-        if (!edge.find(state.surf))
-            newState.selEdges = std::move(newState.selEdges).erase(edge);
+    for (auto &e : state.selEdges) {
+        if (auto edge = e.find(state.surf)) {
+            if (!isPrimary({e, *edge}))
+                newState.selEdges = std::move(newState.selEdges).erase(e).insert(edge->twin);
+        } else {
+            newState.selEdges = std::move(newState.selEdges).erase(e);
+        }
+    }
     return newState;
 }
 
@@ -142,19 +147,22 @@ static EditorState select(EditorState state, Surface::ElementType type, id_t id)
             auto verts = state.selVerts.transient();
             auto faces = state.selFaces.transient();
             auto edges = state.selEdges.transient();
+            auto visited = immer::set<edge_id>{}.transient();
             // flood-fill
             std::queue<edge_id> toSelect;
             toSelect.push(face->edge);
             while (!toSelect.empty()) {
                 edge_id e = toSelect.front();
                 toSelect.pop();
-                if (!edges.count(e)) {
-                    HEdge edge = e.in(state.surf);
-                    edges.insert(e);
-                    verts.insert(edge.vert);
-                    faces.insert(edge.face);
-                    toSelect.push(edge.twin);
-                    toSelect.push(edge.next);
+                if (!visited.count(e)) {
+                    edge_pair edge = e.pair(state.surf);
+                    visited.insert(e);
+                    if (isPrimary(edge))
+                        edges.insert(e);
+                    verts.insert(edge.second.vert);
+                    faces.insert(edge.second.face);
+                    toSelect.push(edge.second.twin);
+                    toSelect.push(edge.second.next);
                 }
             }
             state.selVerts = verts.persistent();
@@ -708,7 +716,8 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                     for (auto &f : g_state.selFaces)
                         newState.surf.faces = std::move(newState.surf.faces).erase(f);
                     for (auto &e : g_state.selEdges)
-                        newState.surf.edges = std::move(newState.surf.edges).erase(e);
+                        newState.surf.edges = std::move(newState.surf.edges).erase(e)
+                            .erase(e.in(g_state.surf).twin);
                 } else {
                     throw winged_error();
                 }

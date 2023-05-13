@@ -14,7 +14,7 @@ struct EditorState {
     Surface surf;
     immer::set<vert_id> selVerts;
     immer::set<face_id> selFaces;
-    immer::set<edge_id> selEdges;
+    immer::set<edge_id> selEdges; // only primary edges!
     union {
         struct{} START_DATA;
         SelectMode selMode = SEL_ELEMENTS;

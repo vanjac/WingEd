@@ -554,9 +554,11 @@ Surface flipNormals(Surface surf,
     Surface newSurf = surf;
     for (auto e : edges) {
         edge_pair edge = e.pair(surf);
+        edge_pair twin = edge.second.twin.pair(surf);
         std::swap(edge.second.prev, edge.second.next);
-        edge.second.vert = edge.second.twin.in(surf).vert;
-        insertAll(&newSurf.edges, {edge});
+        std::swap(twin.second.prev, twin.second.next);
+        std::swap(edge.second.vert, twin.second.vert);
+        insertAll(&newSurf.edges, {edge, twin});
     }
     for (auto v : verts) {
         vert_pair vert = v.pair(surf);
