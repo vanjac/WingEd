@@ -31,12 +31,13 @@ struct ToolInfo {
     const TCHAR *name;
     UINT command;
     HCURSOR cursor;
+    uint32_t allowedSelModes;
 };
 const ToolInfo tools[] = {
-    {L"Select", IDM_TOOL_SELECT, LoadCursor(NULL, IDC_ARROW)},
-    {L"Scale", IDM_TOOL_SCALE, LoadCursor(NULL, IDC_SIZEWE)},
-    // only works in SEL_ELEMENTS mode!
-    {L"Knife", IDM_TOOL_KNIFE, LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_KNIFE))},
+    {L"Select", IDM_TOOL_SELECT, LoadCursor(NULL, IDC_ARROW), (uint32_t)-1},
+    {L"Scale", IDM_TOOL_SCALE, LoadCursor(NULL, IDC_SIZEWE), (uint32_t)-1},
+    {L"Knife", IDM_TOOL_KNIFE, LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_KNIFE)),
+        1<<SEL_ELEMENTS},
 };
 
 const UINT selCommands[] = {IDM_SEL_ELEMENTS, IDM_SEL_SOLIDS};
@@ -117,7 +118,7 @@ static immer::set<vert_id> selAttachedVerts(const EditorState &state) {
         }
     }
     return verts.persistent();
-} 
+}
 
 static EditorState clearSelection(EditorState state) {
     state.selVerts = {};
@@ -308,6 +309,12 @@ static void lockMouse(HWND wnd, POINT clientPos, MouseMode mode) {
     g_mouseMode = mode;
 }
 
+static void setSelMode(SelectMode mode) {
+    g_state.selMode = mode;
+    if (!(tools[g_tool].allowedSelModes & (1 << mode)))
+        g_tool = TOOL_SELECT;
+}
+
 
 static void CALLBACK tessVertexCallback(Vertex *vertex) {
     glVertex3fv(glm::value_ptr(vertex->pos));
@@ -401,8 +408,6 @@ static bool onSetCursor(HWND wnd, HWND cursorWnd, UINT hitTest, UINT msg) {
 static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
     if (g_tool == TOOL_KNIFE) {
         try {
-            if (g_state.selMode != SEL_ELEMENTS)
-                throw winged_error();
             switch (hoverType()) {
                 case Surface::EDGE: {
                     EditorState newState = g_state;
@@ -623,7 +628,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 g_state = clearSelection(std::move(g_state));
                 break;
             case IDM_SEL_ELEMENTS:
-                g_state.selMode = SEL_ELEMENTS;
+                setSelMode(SEL_ELEMENTS);
                 break;
             case IDM_SEL_SOLIDS:
                 if (g_state.selMode != SEL_SOLIDS) {
@@ -631,7 +636,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                     g_hoverFace = {};
                     g_hover.type = Surface::NONE;
                 }
-                g_state.selMode = SEL_SOLIDS;
+                setSelMode(SEL_SOLIDS);
                 break;
             case IDM_EDGE_TWIN:
                 g_state.selEdges = immer::set<edge_id>{}.insert(expectSingleSelEdge().twin);
@@ -775,6 +780,9 @@ static void onInitMenu(HWND, HMENU menu) {
         selCommands[g_state.selMode], MF_BYCOMMAND);
     CheckMenuRadioItem(menu, tools[0].command, tools[NUM_TOOLS - 1].command,
         tools[g_tool].command, MF_BYCOMMAND);
+    for (int i = 0; i < NUM_TOOLS; i++)
+        EnableMenuItem(menu, tools[i].command, (tools[i].allowedSelModes & (1 << g_state.selMode)) ?
+            MF_ENABLED : MF_GRAYED);
 }
 
 static void onSize(HWND, UINT, int cx, int cy) {
