@@ -678,15 +678,37 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
             }
             case IDM_ERASE: {
                 EditorState newState = g_state;
-                if (g_hover.edge.find(g_state.surf)) {
-                    newState.surf = mergeFaces(g_state.surf, g_hover.edge);
-                } else if (auto vert = g_hover.vert.find(g_state.surf)) {
-                    // make sure vert has only two edges
-                    const HEdge &edge = vert->edge.in(g_state.surf);
-                    const HEdge &twinNext = edge.twin.in(g_state.surf).next.in(g_state.surf);
-                    if (twinNext.twin.in(g_state.surf).next != vert->edge)
+                if (g_state.selMode == SEL_ELEMENTS) {
+                    // edges first, then vertices
+                    bool anyDeleted = false;
+                    for (auto &e : g_state.selEdges) {
+                        if (e.find(newState.surf)) { // could have been deleted previously
+                            newState.surf = mergeFaces(std::move(newState.surf), e);
+                            anyDeleted = true;
+                        }
+                    }
+                    for (auto &v : g_state.selVerts) {
+                        if (auto vert = v.find(newState.surf)) {
+                            // make sure vert has only two edges
+                            const HEdge &edge = vert->edge.in(newState.surf);
+                            const HEdge &twin = edge.twin.in(newState.surf);
+                            const HEdge &twinNext = twin.next.in(newState.surf);
+                            if (twinNext.twin.in(newState.surf).next == vert->edge) {
+                                newState.surf = mergeVerts(std::move(newState.surf),
+                                    edge.prev, vert->edge);
+                                anyDeleted = true;
+                            }
+                        }
+                    }
+                    if (!anyDeleted)
                         throw winged_error();
-                    newState.surf = mergeVerts(g_state.surf, edge.prev, vert->edge);
+                } else if (g_state.selMode == SEL_SOLIDS) {
+                    for (auto &v : g_state.selVerts)
+                        newState.surf.verts = std::move(newState.surf.verts).erase(v);
+                    for (auto &f : g_state.selFaces)
+                        newState.surf.faces = std::move(newState.surf.faces).erase(f);
+                    for (auto &e : g_state.selEdges)
+                        newState.surf.edges = std::move(newState.surf.edges).erase(e);
                 } else {
                     throw winged_error();
                 }
@@ -733,7 +755,7 @@ static void onInitMenu(HWND, HMENU menu) {
     EnableMenuItem(menu, IDM_CLEAR_SELECT, hasSel ? MF_ENABLED : MF_GRAYED);
     CheckMenuItem(menu, IDM_TOGGLE_GRID, g_state.gridOn ? MF_CHECKED : MF_UNCHECKED);
     EnableMenuItem(menu, IDM_JOIN, (hasSel && hovType) ? MF_ENABLED : MF_DISABLED);
-    EnableMenuItem(menu, IDM_ERASE, hovType ? MF_ENABLED : MF_DISABLED);
+    EnableMenuItem(menu, IDM_ERASE, hasSel ? MF_ENABLED : MF_DISABLED);
     EnableMenuItem(menu, IDM_EXTRUDE, g_state.selFaces.empty() ? MF_GRAYED : MF_ENABLED);
     EnableMenuItem(menu, IDM_SPLIT_LOOP, g_state.selEdges.empty() ? MF_GRAYED : MF_ENABLED);
     CheckMenuItem(menu, IDM_FLY_CAM, g_flyCam ? MF_CHECKED : MF_UNCHECKED);
