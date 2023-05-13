@@ -734,8 +734,9 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 break;
             }
             case IDM_FLIP_NORMALS: {
+                if (g_state.selMode == SEL_ELEMENTS) throw winged_error(L"Wrong select mode");
                 EditorState newState = g_state;
-                newState.surf = flipNormals(g_state.surf);
+                newState.surf = flipNormals(g_state.surf, g_state.selEdges, g_state.selVerts);
                 pushUndo(std::move(newState));
                 break;
             }
@@ -758,6 +759,8 @@ static void onInitMenu(HWND, HMENU menu) {
     EnableMenuItem(menu, IDM_ERASE, hasSel ? MF_ENABLED : MF_DISABLED);
     EnableMenuItem(menu, IDM_EXTRUDE, g_state.selFaces.empty() ? MF_GRAYED : MF_ENABLED);
     EnableMenuItem(menu, IDM_SPLIT_LOOP, g_state.selEdges.empty() ? MF_GRAYED : MF_ENABLED);
+    EnableMenuItem(menu, IDM_FLIP_NORMALS, (hasSel && g_state.selMode != SEL_ELEMENTS) ?
+        MF_ENABLED : MF_GRAYED);
     CheckMenuItem(menu, IDM_FLY_CAM, g_flyCam ? MF_CHECKED : MF_UNCHECKED);
     CheckMenuRadioItem(menu, selCommands[0], selCommands[NUM_SELMODES - 1],
         selCommands[g_state.selMode], MF_BYCOMMAND);

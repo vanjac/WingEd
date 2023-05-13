@@ -2,6 +2,7 @@
 #include "common.h"
 
 #include <vector>
+#include <immer/set.hpp>
 #include "surface.h"
 
 namespace winged {
@@ -28,7 +29,8 @@ Surface joinEdgeLoops(Surface surf, edge_id e1, edge_id e2);
 Surface moveVertex(Surface surf, vert_id v, glm::vec3 amount);
 Surface scaleVertex(Surface surf, vert_id v, glm::vec3 center, glm::vec3 factor);
 
-Surface flipNormals(Surface surf);
+Surface flipNormals(Surface surf,
+    const immer::set<edge_id> &edges, const immer::set<vert_id> &verts);
 
 void validateSurface(const Surface &surf); // slow!
 
