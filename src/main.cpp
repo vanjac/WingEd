@@ -8,11 +8,11 @@
 #include <gl/GLU.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include <glm/gtx/associated_min_max.hpp>
 #include "editor.h"
 #include "ops.h"
 #include "picking.h"
 #include "file.h"
+#include "mathutil.h"
 #include "resource.h"
 #include <immer/set_transient.hpp>
 
@@ -468,8 +468,7 @@ static void onButtonUp(HWND, int, int, UINT) {
 }
 
 static glm::vec3 snapAxis(glm::vec3 v) {
-    glm::vec3 absV = glm::abs(v);
-    int axis = glm::associatedMax(absV.x, 0, absV.y, 1, absV.z, 2);
+    int axis = maxAxis(glm::abs(v));
     glm::vec3 dir = {};
     dir[axis] = v[axis] >= 0 ? 1.0f : -1.0f;
     return dir;

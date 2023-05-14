@@ -1,8 +1,7 @@
 #include "picking.h"
 #include <glm/vec4.hpp>
-#include "winchroma.h"
 #include <glm/gtx/norm.hpp>
-#include <glm/gtx/associated_min_max.hpp>
+#include "mathutil.h"
 
 namespace winged {
 
@@ -74,11 +73,10 @@ PickResult pickElement(const Surface &surf, Surface::ElementType types, glm::vec
                         && glm::abs(normPoint.x - normCur.x) < normEdgeDist.x
                         && glm::abs(normPoint.y - normCur.y) < normEdgeDist.y) {
                     if (grid != 0) {
-                        glm::vec3 absVDiff = glm::abs(vDiff);
-                        int maxAxis = glm::associatedMax(absVDiff.x,0, absVDiff.y,1, absVDiff.z,2);
-                        float rounded = glm::round(point[maxAxis] / grid) * grid;
-                        t = glm::clamp((rounded - v1[maxAxis]) / vDiff[maxAxis], 0.0f, 1.0f);
-                        point = v1 + t * vDiff; // DON'T update normPoint
+                        int axis = maxAxis(glm::abs(vDiff));
+                        float rounded = glm::round(point[axis] / grid) * grid;
+                        t = glm::clamp((rounded - v1[axis]) / vDiff[axis], 0.0f, 1.0f);
+                        point = v1 + t * vDiff; // DON'T update normPoint (preserve depth)
                     }
                     if (t == 0 && (types & Surface::VERT))
                         result = PickResult(Surface::VERT, edge.second.vert, point, normPoint.z);
@@ -119,8 +117,22 @@ PickResult pickElement(const Surface &surf, Surface::ElementType types, glm::vec
                 float t = glm::dot(prevVertPos - rayOrg, normal) / glm::dot(normal, rayDir);
                 glm::vec3 point = rayOrg + t * rayDir;
                 glm::vec3 normPoint = projectPoint(point, project);
-                if (normPoint.z < result.depth)
+                if (normPoint.z < result.depth) {
+                    if (grid != 0) {
+                        int axis = maxAxis(glm::abs(normal));
+                        int a = (axis + 1) % 3, b = (axis + 2) % 3; // orthogonal axes
+                        glm::vec3 rounded;
+                        rounded[a] = glm::round(point[a] / grid) * grid;
+                        rounded[b] = glm::round(point[b] / grid) * grid;
+                        glm::vec3 diff = rounded - prevVertPos;
+                        // solve plane equation:
+                        rounded[axis] = prevVertPos[axis] -
+                            (normal[a] * diff[a] + normal[b] * diff[b]) / normal[axis];
+                        point = rounded; // DON'T update normPoint (preserve depth)
+                        // TODO: constrain to edge/vertex if outside face boundary!
+                    }
                     result = PickResult(Surface::FACE, face.first, point, normPoint.z);
+                }
             }
         }
     }
