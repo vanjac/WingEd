@@ -1,6 +1,7 @@
 #include "surface.h"
 #include <rpc.h>
 #include <glm/geometric.hpp>
+#include "mathutil.h"
 
 namespace winged {
 
@@ -34,16 +35,11 @@ edge_id primaryEdge(const edge_pair &pair) {
 }
 
 glm::vec3 faceNormalNonUnit(const Surface &surf, const Face &face) {
-    // Newell's method
-    // https://web.archive.org/web/20070507025303/http://www.acm.org/tog/GraphicsGems/gemsiii/newell.c
-    // an extension to 3D of https://stackoverflow.com/a/1165943
-    glm::vec3 normal(0);
+    glm::vec3 normal = {};
     for (auto &pair : FaceEdges(surf, face)) {
         glm::vec3 v1 = pair.second.vert.in(surf).pos;
         glm::vec3 v2 = pair.second.next.in(surf).vert.in(surf).pos;
-        glm::vec3 sum = v1 + v2;
-        glm::vec3 diff = v1 - v2;
-        normal += glm::vec3(diff.y * sum.z, diff.z * sum.x, diff.x * sum.y);
+        normal += accumPolyNormal(v1, v2);
     }
     return normal;
 }

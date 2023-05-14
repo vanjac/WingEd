@@ -391,6 +391,20 @@ static EditorState knifeToVert(EditorState state, vert_id vert) {
     if (state.selVerts.size() == 1 && g_hoverFace.find(state.surf)) {
         edge_pair e1 = edgeOnHoverFace(state.surf, *state.selVerts.begin());
         edge_pair e2 = edgeOnHoverFace(state.surf, vert);
+
+        if (e1.first == e2.first) {
+            // loop must be clockwise in this case
+            glm::vec3 start = vert.in(state.surf).pos;
+            glm::vec3 loopNorm = accumPolyNormal(start, g_knifeVerts[0]);
+            for (int i = 1; i < g_knifeVerts.size(); i++)
+                loopNorm += accumPolyNormal(g_knifeVerts[i - 1], g_knifeVerts[i]);
+            loopNorm += accumPolyNormal(g_knifeVerts.back(), start);
+
+            glm::vec3 faceNorm = faceNormalNonUnit(state.surf, g_hoverFace.in(state.surf));
+            if (glm::dot(loopNorm, faceNorm) > 0)
+                std::reverse(g_knifeVerts.begin(), g_knifeVerts.end());
+        }
+
         edge_id newEdge;
         state.surf = splitFace(std::move(state.surf), e1.first, e2.first, g_knifeVerts, &newEdge);
         for (int i = 0; i < g_knifeVerts.size() + 1; i++) {
@@ -399,6 +413,7 @@ static EditorState knifeToVert(EditorState state, vert_id vert) {
             newEdge = pair.second.next;
         }
     }
+
     state.selVerts = immer::set<vert_id>{}.insert(vert);
     g_knifeVerts.clear();
     return state;
