@@ -4,7 +4,7 @@
 namespace winged {
 
 int maxAxis(glm::vec3 v) {
-    return glm::associatedMax(v.x, 0, v.y, 1, v.z, 2);
+    return glm::associatedMax(v.x, 0, v.z, 2, v.y, 1); // last value has priority!
 }
 
 glm::vec3 accumPolyNormal(glm::vec3 v1, glm::vec3 v2) {
