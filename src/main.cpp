@@ -766,13 +766,6 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 g_flyCam ^= true;
                 updateProjMat();
                 break;
-            case IDM_DEBUG_INFO:
-                for (auto &edge : g_state.surf.edges) {
-                    LOG("Edge %08X twin %08X prev %08X next %08X vert %08X face %08X", name(edge),
-                        name(edge.second.twin), name(edge.second.prev), name(edge.second.next),
-                        name(edge.second.vert), name(edge.second.face));
-                }
-                break;
             /* Edit */
             case IDM_UNDO:
                 if (!g_undoStack.empty()) {
