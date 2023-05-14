@@ -391,13 +391,12 @@ static EditorState knifeToVert(EditorState state, vert_id vert) {
     if (state.selVerts.size() == 1 && g_hoverFace.find(state.surf)) {
         edge_pair e1 = edgeOnHoverFace(state.surf, *state.selVerts.begin());
         edge_pair e2 = edgeOnHoverFace(state.surf, vert);
-        edge_pair newEdge;
-        state.surf = splitFace(std::move(state.surf), e1.first, e2.first, &newEdge);
-        state.selEdges = std::move(state.selEdges).insert(primaryEdge(newEdge));
-        for (auto &v : g_knifeVerts) {
-            state.surf = splitEdge(state.surf, newEdge.first, v);
-            newEdge = newEdge.first.in(state.surf).next.pair(state.surf);
-            state.selEdges = std::move(state.selEdges).insert(primaryEdge(newEdge));
+        edge_id newEdge;
+        state.surf = splitFace(std::move(state.surf), e1.first, e2.first, g_knifeVerts, &newEdge);
+        for (int i = 0; i < g_knifeVerts.size() + 1; i++) {
+            edge_pair pair = newEdge.pair(state.surf);
+            state.selEdges = std::move(state.selEdges).insert(primaryEdge(pair));
+            newEdge = pair.second.next;
         }
     }
     state.selVerts = immer::set<vert_id>{}.insert(vert);
@@ -487,6 +486,7 @@ static void toolAdjust(HWND, SIZE delta, UINT) {
             glm::mat4 invMV = glm::inverse(g_mvMat);
             glm::vec3 right = {}, down = {};
             if (GetKeyState(VK_CONTROL) < 0) {
+                // TODO: align to orthogonal grid
                 if (g_state.selFaces.size() == 1) // TODO: move along each face's normal?
                     down = faceNormal(g_state.surf, g_state.selFaces.begin()->in(g_state.surf));
             } else if (GetKeyState(VK_SHIFT) < 0 && GetKeyState(VK_MENU) < 0)

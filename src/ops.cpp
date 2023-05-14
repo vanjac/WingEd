@@ -227,7 +227,8 @@ Surface mergeVerts(Surface surf, edge_id e1, edge_id e2) {
     return surf;
 }
 
-Surface splitFace(Surface surf, edge_id e1, edge_id e2, edge_pair *splitEdge) {
+Surface splitFace(Surface surf, edge_id e1, edge_id e2,
+        const std::vector<glm::vec3> points, edge_id *splitEdge) {
     // BEFORE:
     // ╮               ╮
     // │prev1     edge2│
@@ -241,16 +242,15 @@ Surface splitFace(Surface surf, edge_id e1, edge_id e2, edge_pair *splitEdge) {
     edge_pair edge1 = e1.pair(surf);
     edge_pair edge2 = e2.pair(surf);
     edge_pair prev1 = edge1.second.prev.pair(surf);
-    edge_pair prev2 = edge2.second.prev.pair(surf);
     face_pair face = edge1.second.face.pair(surf);
     if (edge1.second.face != edge2.second.face) {
         throw winged_error(L"Edges must share a common face!");
-    } else if (edge1.first == edge2.first || edge1.second.next == edge2.first) {
+    } else if ((edge1.first == edge2.first || edge1.second.next == edge2.first) && points.empty()) {
         // edge already exists between vertices
-        *splitEdge = edge1;
+        *splitEdge = edge1.first;
         return surf;
-    } else if (edge2.second.next == edge1.first) {
-        *splitEdge = edge2.second.twin.pair(surf);
+    } else if (edge2.second.next == edge1.first && points.empty()) {
+        *splitEdge = edge2.second.twin;
         return surf;
     }
     // AFTER:
@@ -266,22 +266,46 @@ Surface splitFace(Surface surf, edge_id e1, edge_id e2, edge_pair *splitEdge) {
     edge_pair newEdge1 = makeEdgePair();
     edge_pair newEdge2 = makeEdgePair();
     face_pair newFace = makeFacePair();
+    *splitEdge = newEdge1.first;
 
     linkTwins(&newEdge1, &newEdge2);
-    linkNext(&newEdge1, &edge2);
-    linkNext(&newEdge2, &edge1);
     linkNext(&prev1, &newEdge1);
-    linkNext(&prev2, &newEdge2);
-
+    linkNext(&newEdge2, &edge1);
     newEdge1.second.vert = edge1.second.vert;
-    newEdge2.second.vert = edge2.second.vert;
-
     linkFace(&newEdge1, &face);
+
+    for (auto &v : points) {
+        edge_pair nextEdge1 = makeEdgePair();
+        edge_pair nextEdge2 = makeEdgePair();
+        vert_pair newVert = makeVertPair();
+
+        linkTwins(&nextEdge1, &nextEdge2);
+        linkNext(&newEdge1, &nextEdge1);
+        linkNext(&nextEdge2, &newEdge2);
+        newVert.second.pos = v;
+        linkVert(&nextEdge1, &newVert);
+        newEdge2.second.vert = newVert.first;
+        nextEdge1.second.face = face.first;
+        nextEdge2.second.face = newFace.first;
+
+        insertAll(&surf.edges, {newEdge1, newEdge2, nextEdge1, nextEdge2});
+        insertAll(&surf.verts, {newVert});
+        newEdge1 = nextEdge1;
+        newEdge2 = nextEdge2;
+    }
+
+    insertAll(&surf.edges, {edge1, prev1});
+    // refresh these edges, could be the same as other edges
+    edge2 = e2.pair(surf);
+    edge_pair prev2 = edge2.second.prev.pair(surf);
+    linkNext(&newEdge1, &edge2);
+    linkNext(&prev2, &newEdge2);
+    newEdge2.second.vert = edge2.second.vert;
     newFace.second.edge = newEdge2.first;
-    insertAll(&surf.edges, {edge1, edge2, prev1, prev2, newEdge1, newEdge2});
+
+    insertAll(&surf.edges, {edge2, prev2, newEdge1, newEdge2});
     insertAll(&surf.faces, {face, newFace});
     surf = assignFaceEdges(std::move(surf), newFace.second, newFace.first);
-    *splitEdge = newEdge1;
     return surf;
 }
 
