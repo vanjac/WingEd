@@ -511,7 +511,7 @@ static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
             refreshImmediate(wnd);
         }
         if (DragDetect(wnd, clientToScreen(wnd, {x, y}))) {
-            if (g_tool == TOOL_SELECT || g_tool == TOOL_SCALE)
+            if (hasSelection(g_state) && (g_tool == TOOL_SELECT || g_tool == TOOL_SCALE))
                 pushUndo();
             lockMouse(wnd, {x, y}, MOUSE_ADJUST);
             g_moveAccum = {};
