@@ -191,17 +191,6 @@ static const HEdge expectSingleSelEdge() {
     throw winged_error(L"No selected edge");
 }
 
-static void expectHoverVert() {
-    if (!g_hover.type || !g_hover.vert.find(g_state.surf))
-        throw winged_error();
-}
-
-static const Face expectHoverFace() {
-    if (auto face = g_hoverFace.find(g_state.surf))
-        return *face;
-    throw winged_error();
-}
-
 static edge_pair edgeOnHoverFace(const Surface &surf, vert_id v) {
     for (auto &edge : VertEdges(surf, v.in(surf))) {
         if (edge.second.face == g_hoverFace)
@@ -612,6 +601,87 @@ static void saveAs(HWND wnd) {
     }
 }
 
+static void join() {
+    EditorState newState = g_state;
+    if (g_hover.vert.find(g_state.surf) && g_state.selVerts.size() == 1) {
+        edge_id e1 = edgeOnHoverFace(g_state.surf, *g_state.selVerts.begin()).first;
+        edge_id e2 = edgeOnHoverFace(g_state.surf, g_hover.vert).first;
+        newState.surf = mergeVerts(g_state.surf, e1, e2);
+    } else if (auto hovEdge = g_hover.edge.find(g_state.surf)) {
+        if (g_state.selEdges.size() != 1) throw winged_error();
+        edge_pair edge1 = g_state.selEdges.begin()->pair(g_state.surf);
+        edge_pair twin1 = edge1.second.twin.pair(g_state.surf);
+        edge_pair edge2 = {g_hover.edge, *hovEdge};
+        edge_pair twin2 = edge2.second.twin.pair(g_state.surf);
+        if (edge1.first == edge2.first)
+            throw winged_error();
+        if (edge1.second.face == edge2.second.face) {} // do nothing
+        else if (edge1.second.face == twin2.second.face) {
+            std::swap(edge2, twin2);
+        } else if (twin1.second.face == edge2.second.face) {
+            std::swap(edge1, twin1);
+        } else if (twin1.second.face == twin2.second.face) {
+            std::swap(edge1, twin1); std::swap(edge2, twin2);
+        } else {
+            throw winged_error(); // edges don't share a face
+        }
+
+        if (edge2.second.next != edge1.first)
+            newState.surf = mergeVerts(std::move(newState.surf), edge1.first, edge2.second.next);
+        if (edge1.second.next != edge2.first)
+            newState.surf = mergeVerts(std::move(newState.surf), edge1.second.next, edge2.first);
+    } else if (auto face2 = g_hover.face.find(g_state.surf)) {
+        if (g_state.selFaces.size() != 1) throw winged_error();
+        Face face1 = g_state.selFaces.begin()->in(g_state.surf);
+        edge_id e1, e2;
+        std::tie(e1, e2) = findClosestOpposingEdges(g_state.surf, face1, *face2);
+        newState.surf = joinEdgeLoops(g_state.surf, e1, e2);
+    } else {
+        throw winged_error();
+    }
+    pushUndo(std::move(newState));
+}
+
+static void erase() {
+    EditorState newState = g_state;
+    if (g_state.selMode == SEL_ELEMENTS) {
+        // edges first, then vertices
+        bool anyDeleted = false;
+        for (auto &e : g_state.selEdges) {
+            if (e.find(newState.surf)) { // could have been deleted previously
+                newState.surf = mergeFaces(std::move(newState.surf), e);
+                anyDeleted = true;
+            }
+        }
+        for (auto &v : g_state.selVerts) {
+            if (auto vert = v.find(newState.surf)) {
+                // make sure vert has only two edges
+                const HEdge &edge = vert->edge.in(newState.surf);
+                const HEdge &twin = edge.twin.in(newState.surf);
+                const HEdge &twinNext = twin.next.in(newState.surf);
+                if (twinNext.twin.in(newState.surf).next == vert->edge) {
+                    newState.surf = mergeVerts(std::move(newState.surf),
+                        edge.prev, vert->edge);
+                    anyDeleted = true;
+                }
+            }
+        }
+        if (!anyDeleted)
+            throw winged_error();
+    } else if (g_state.selMode == SEL_SOLIDS) {
+        for (auto &v : g_state.selVerts)
+            newState.surf.verts = std::move(newState.surf.verts).erase(v);
+        for (auto &f : g_state.selFaces)
+            newState.surf.faces = std::move(newState.surf.faces).erase(f);
+        for (auto &e : g_state.selEdges)
+            newState.surf.edges = std::move(newState.surf.edges).erase(e)
+                .erase(e.in(g_state.surf).twin);
+    } else {
+        throw winged_error();
+    }
+    pushUndo(std::move(newState));
+}
+
 static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
     if (ctl) return;
 
@@ -631,6 +701,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                     g_state = g_redoStack.top();
                     g_redoStack.pop();
                 }
+                g_knifeVerts.clear();
                 break;
             case IDM_OPEN: {
                 TCHAR fileName[MAX_PATH];
@@ -716,63 +787,12 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 break;
             /* undoable operations */
             case IDM_JOIN: {
-                EditorState newState = g_state;
-                if (g_state.selVerts.size() == 1) {
-                    expectHoverVert();
-                    edge_id e1 = edgeOnHoverFace(g_state.surf, *g_state.selVerts.begin()).first;
-                    edge_id e2 = edgeOnHoverFace(g_state.surf, g_hover.vert).first;
-                    newState.surf = mergeVerts(g_state.surf, e1, e2);
-                } else if (g_state.selFaces.size() == 1) {
-                    Face face1 = g_state.selFaces.begin()->in(g_state.surf);
-                    Face face2 = expectHoverFace();
-                    edge_id e1, e2;
-                    std::tie(e1, e2) = findClosestOpposingEdges(g_state.surf, face1, face2);
-                    newState.surf = joinEdgeLoops(g_state.surf, e1, e2);
-                } else {
-                    throw winged_error(L"Select a single vertex or face");
-                }
-                pushUndo(std::move(newState));
+                join();
                 flashSel(wnd);
                 break;
             }
             case IDM_ERASE: {
-                EditorState newState = g_state;
-                if (g_state.selMode == SEL_ELEMENTS) {
-                    // edges first, then vertices
-                    bool anyDeleted = false;
-                    for (auto &e : g_state.selEdges) {
-                        if (e.find(newState.surf)) { // could have been deleted previously
-                            newState.surf = mergeFaces(std::move(newState.surf), e);
-                            anyDeleted = true;
-                        }
-                    }
-                    for (auto &v : g_state.selVerts) {
-                        if (auto vert = v.find(newState.surf)) {
-                            // make sure vert has only two edges
-                            const HEdge &edge = vert->edge.in(newState.surf);
-                            const HEdge &twin = edge.twin.in(newState.surf);
-                            const HEdge &twinNext = twin.next.in(newState.surf);
-                            if (twinNext.twin.in(newState.surf).next == vert->edge) {
-                                newState.surf = mergeVerts(std::move(newState.surf),
-                                    edge.prev, vert->edge);
-                                anyDeleted = true;
-                            }
-                        }
-                    }
-                    if (!anyDeleted)
-                        throw winged_error();
-                } else if (g_state.selMode == SEL_SOLIDS) {
-                    for (auto &v : g_state.selVerts)
-                        newState.surf.verts = std::move(newState.surf.verts).erase(v);
-                    for (auto &f : g_state.selFaces)
-                        newState.surf.faces = std::move(newState.surf.faces).erase(f);
-                    for (auto &e : g_state.selEdges)
-                        newState.surf.edges = std::move(newState.surf.edges).erase(e)
-                            .erase(e.in(g_state.surf).twin);
-                } else {
-                    throw winged_error();
-                }
-                pushUndo(std::move(newState));
+                erase();
                 break;
             }
             case IDM_EXTRUDE: {
