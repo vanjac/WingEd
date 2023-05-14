@@ -468,6 +468,7 @@ static EditorState join(EditorState state) {
         edge_id e1, e2;
         std::tie(e1, e2) = findClosestOpposingEdges(state.surf, face1, *face2);
         state.surf = joinEdgeLoops(std::move(state.surf), e1, e2);
+        // TODO: select edge loop
     } else {
         throw winged_error();
     }
@@ -818,6 +819,10 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 auto loop = sortEdgeLoop(g_state.surf, g_state.selEdges);
                 EditorState newState = g_state;
                 newState.surf = splitEdgeLoop(g_state.surf, loop);
+                newState.selVerts = {};
+                newState.selEdges = {};
+                for (auto &e : loop)
+                    newState.selEdges = std::move(newState.selEdges).insert(e);
                 pushUndo(std::move(newState));
                 flashSel(wnd);
                 break;
