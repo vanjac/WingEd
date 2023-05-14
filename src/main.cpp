@@ -504,7 +504,8 @@ static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
         try {
             pushUndo(join(g_state));
             flashSel(wnd);
-            g_tool = TOOL_SELECT;
+            if (!(GetKeyState(VK_SHIFT) < 0))
+                g_tool = TOOL_SELECT;
         } catch (winged_error err) {
             showError(wnd, err);
         }
