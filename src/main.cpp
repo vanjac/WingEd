@@ -821,8 +821,10 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 newState.surf = splitEdgeLoop(g_state.surf, loop);
                 newState.selVerts = {};
                 newState.selEdges = {};
-                for (auto &e : loop)
-                    newState.selEdges = std::move(newState.selEdges).insert(e);
+                for (auto &e : loop) {
+                    edge_id primary = primaryEdge(e.pair(newState.surf));
+                    newState.selEdges = std::move(newState.selEdges).insert(primary);
+                }
                 pushUndo(std::move(newState));
                 flashSel(wnd);
                 break;
