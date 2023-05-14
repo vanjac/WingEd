@@ -11,13 +11,13 @@
 #define IDM_UNDO                            107
 #define IDM_REDO                            108
 #define IDM_ERASE                           110
-#define IDM_JOIN                            112
 #define IDM_DEBUG_INFO                      114
 #define IDM_EXTRUDE                         115
 #define IDM_FLIP_NORMALS                    116
 #define IDM_TOOL_SELECT                     117
-#define IDM_TOOL_SCALE                      119
-#define IDM_TOOL_KNIFE                      120
+#define IDM_TOOL_SCALE                      118
+#define IDM_TOOL_KNIFE                      119
+#define IDM_TOOL_JOIN                       120
 #define IDM_CLEAR_SELECT                    121
 #define IDM_GRID_DOUBLE                     122
 #define IDM_GRID_HALF                       123

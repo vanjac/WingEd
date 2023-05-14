@@ -26,7 +26,7 @@ using namespace winged;
 const TCHAR APP_NAME[] = _T("WingEd");
 
 enum Tool {
-    TOOL_SELECT, TOOL_SCALE, TOOL_KNIFE, NUM_TOOLS
+    TOOL_SELECT, TOOL_SCALE, TOOL_KNIFE, TOOL_JOIN, NUM_TOOLS
 };
 struct ToolInfo {
     const TCHAR *name;
@@ -39,6 +39,7 @@ const ToolInfo tools[] = {
     {L"Scale", IDM_TOOL_SCALE, LoadCursor(NULL, IDC_SIZEWE), (uint32_t)-1},
     {L"Knife", IDM_TOOL_KNIFE, LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_KNIFE)),
         1<<SEL_ELEMENTS},
+    {L"Join", IDM_TOOL_JOIN, LoadCursor(NULL, IDC_CROSS), 1<<SEL_ELEMENTS},
 };
 
 const UINT selCommands[] = {IDM_SEL_ELEMENTS, IDM_SEL_SOLIDS};
@@ -431,6 +432,47 @@ static bool onSetCursor(HWND wnd, HWND cursorWnd, UINT hitTest, UINT msg) {
     return FORWARD_WM_SETCURSOR(wnd, cursorWnd, hitTest, msg, DefWindowProc);
 }
 
+static void join() {
+    EditorState newState = g_state;
+    if (g_hover.vert.find(g_state.surf) && g_state.selVerts.size() == 1) {
+        edge_id e1 = edgeOnHoverFace(g_state.surf, *g_state.selVerts.begin()).first;
+        edge_id e2 = edgeOnHoverFace(g_state.surf, g_hover.vert).first;
+        newState.surf = mergeVerts(g_state.surf, e1, e2);
+    } else if (auto hovEdge = g_hover.edge.find(g_state.surf)) {
+        if (g_state.selEdges.size() != 1) throw winged_error();
+        edge_pair edge1 = g_state.selEdges.begin()->pair(g_state.surf);
+        edge_pair twin1 = edge1.second.twin.pair(g_state.surf);
+        edge_pair edge2 = {g_hover.edge, *hovEdge};
+        edge_pair twin2 = edge2.second.twin.pair(g_state.surf);
+        if (edge1.first == edge2.first)
+            throw winged_error();
+        if (edge1.second.face == edge2.second.face) {} // do nothing
+        else if (edge1.second.face == twin2.second.face) {
+            std::swap(edge2, twin2);
+        } else if (twin1.second.face == edge2.second.face) {
+            std::swap(edge1, twin1);
+        } else if (twin1.second.face == twin2.second.face) {
+            std::swap(edge1, twin1); std::swap(edge2, twin2);
+        } else {
+            throw winged_error(); // edges don't share a face
+        }
+
+        if (edge2.second.next != edge1.first)
+            newState.surf = mergeVerts(std::move(newState.surf), edge1.first, edge2.second.next);
+        if (edge1.second.next != edge2.first)
+            newState.surf = mergeVerts(std::move(newState.surf), edge1.second.next, edge2.first);
+    } else if (auto face2 = g_hover.face.find(g_state.surf)) {
+        if (g_state.selFaces.size() != 1) throw winged_error();
+        Face face1 = g_state.selFaces.begin()->in(g_state.surf);
+        edge_id e1, e2;
+        std::tie(e1, e2) = findClosestOpposingEdges(g_state.surf, face1, *face2);
+        newState.surf = joinEdgeLoops(g_state.surf, e1, e2);
+    } else {
+        throw winged_error();
+    }
+    pushUndo(std::move(newState));
+}
+
 static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
     if (g_tool == TOOL_KNIFE) {
         try {
@@ -453,6 +495,14 @@ static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
                     g_state = clearSelection(std::move(g_state));
                     break;
             }
+        } catch (winged_error err) {
+            showError(wnd, err);
+        }
+    } else if (g_tool == TOOL_JOIN && hasSelection(g_state)) {
+        try {
+            join();
+            flashSel(wnd);
+            g_tool = TOOL_SELECT;
         } catch (winged_error err) {
             showError(wnd, err);
         }
@@ -601,47 +651,6 @@ static void saveAs(HWND wnd) {
     }
 }
 
-static void join() {
-    EditorState newState = g_state;
-    if (g_hover.vert.find(g_state.surf) && g_state.selVerts.size() == 1) {
-        edge_id e1 = edgeOnHoverFace(g_state.surf, *g_state.selVerts.begin()).first;
-        edge_id e2 = edgeOnHoverFace(g_state.surf, g_hover.vert).first;
-        newState.surf = mergeVerts(g_state.surf, e1, e2);
-    } else if (auto hovEdge = g_hover.edge.find(g_state.surf)) {
-        if (g_state.selEdges.size() != 1) throw winged_error();
-        edge_pair edge1 = g_state.selEdges.begin()->pair(g_state.surf);
-        edge_pair twin1 = edge1.second.twin.pair(g_state.surf);
-        edge_pair edge2 = {g_hover.edge, *hovEdge};
-        edge_pair twin2 = edge2.second.twin.pair(g_state.surf);
-        if (edge1.first == edge2.first)
-            throw winged_error();
-        if (edge1.second.face == edge2.second.face) {} // do nothing
-        else if (edge1.second.face == twin2.second.face) {
-            std::swap(edge2, twin2);
-        } else if (twin1.second.face == edge2.second.face) {
-            std::swap(edge1, twin1);
-        } else if (twin1.second.face == twin2.second.face) {
-            std::swap(edge1, twin1); std::swap(edge2, twin2);
-        } else {
-            throw winged_error(); // edges don't share a face
-        }
-
-        if (edge2.second.next != edge1.first)
-            newState.surf = mergeVerts(std::move(newState.surf), edge1.first, edge2.second.next);
-        if (edge1.second.next != edge2.first)
-            newState.surf = mergeVerts(std::move(newState.surf), edge1.second.next, edge2.first);
-    } else if (auto face2 = g_hover.face.find(g_state.surf)) {
-        if (g_state.selFaces.size() != 1) throw winged_error();
-        Face face1 = g_state.selFaces.begin()->in(g_state.surf);
-        edge_id e1, e2;
-        std::tie(e1, e2) = findClosestOpposingEdges(g_state.surf, face1, *face2);
-        newState.surf = joinEdgeLoops(g_state.surf, e1, e2);
-    } else {
-        throw winged_error();
-    }
-    pushUndo(std::move(newState));
-}
-
 static void erase() {
     EditorState newState = g_state;
     if (g_state.selMode == SEL_ELEMENTS) {
@@ -735,6 +744,9 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 g_tool = TOOL_KNIFE;
                 g_knifeVerts.clear();
                 break;
+            case IDM_TOOL_JOIN:
+                g_tool = TOOL_JOIN;
+                break;
             /* selection */
             case IDM_CLEAR_SELECT:
                 g_state = clearSelection(std::move(g_state));
@@ -786,15 +798,9 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 }
                 break;
             /* undoable operations */
-            case IDM_JOIN: {
-                join();
-                flashSel(wnd);
-                break;
-            }
-            case IDM_ERASE: {
+            case IDM_ERASE:
                 erase();
                 break;
-            }
             case IDM_EXTRUDE: {
                 EditorState newState = g_state;
                 for (auto f : g_state.selFaces)
@@ -827,7 +833,6 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
 
 static void onInitMenu(HWND, HMENU menu) {
     bool hasSel = hasSelection(g_state);
-    auto hovType = hoverType();
     bool selElem = g_state.selMode == SEL_ELEMENTS;
     bool selSolid = g_state.selMode == SEL_SOLIDS;
     EnableMenuItem(menu, IDM_CLEAR_SELECT, hasSel ? MF_ENABLED : MF_GRAYED);
@@ -835,7 +840,6 @@ static void onInitMenu(HWND, HMENU menu) {
     EnableMenuItem(menu, IDM_REDO, g_redoStack.empty() ? MF_GRAYED : MF_ENABLED);
     CheckMenuItem(menu, IDM_TOGGLE_GRID, g_state.gridOn ? MF_CHECKED : MF_UNCHECKED);
     EnableMenuItem(menu, IDM_ERASE, hasSel ? MF_ENABLED : MF_DISABLED);
-    EnableMenuItem(menu, IDM_JOIN, (hasSel && hovType && selElem) ? MF_ENABLED : MF_DISABLED);
     EnableMenuItem(menu, IDM_EXTRUDE, (!g_state.selFaces.empty() && selElem) ?
         MF_ENABLED : MF_GRAYED);
     EnableMenuItem(menu, IDM_SPLIT_LOOP, (!g_state.selEdges.empty() && selElem) ?
@@ -968,7 +972,8 @@ static void drawState(const EditorState &state) {
                 glColor3f(0, 1, 0.5);
             else
                 glColor3f(0, 0.5, 1);
-        } else if (g_hover.type && pair.first == g_hoverFace) {
+        } else if (g_hover.type && pair.first == g_hoverFace
+                && (g_hover.type == Surface::FACE || g_tool == TOOL_KNIFE || g_tool == TOOL_JOIN)) {
             glColor3f(0.25, 0.25, 1);
         } else {
             glColor3f(0, 0, 1);
