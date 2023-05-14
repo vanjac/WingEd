@@ -59,7 +59,7 @@ static PickResult g_hover;
 static face_id g_hoverFace;
 static MouseMode g_mouseMode = MOUSE_NONE;
 static POINT g_curLockPos;
-static glm::vec3 g_moveAccum;
+static glm::vec2 g_moveAccum;
 static bool g_flashSel = false;
 static std::vector<glm::vec3> g_knifeVerts;
 
@@ -551,28 +551,29 @@ static glm::vec3 snapAxis(glm::vec3 v) {
 static void toolAdjust(HWND, SIZE delta, UINT) {
     switch (g_tool) {
         case TOOL_SELECT: {
+            glm::vec2 scaled = glm::vec2(delta.cx, delta.cy) * g_zoom / 600.0f;
+            if (g_state.gridOn) {
+                g_moveAccum = glm::modf(g_moveAccum + (scaled / g_state.gridSize), scaled);
+                scaled *= g_state.gridSize;
+            }
+
             glm::mat4 invMV = glm::inverse(g_mvMat);
             glm::vec3 right = {}, down = {};
             if (GetKeyState(VK_CONTROL) < 0) {
-                // TODO: align to orthogonal grid
-                if (g_state.selFaces.size() == 1) // TODO: move along each face's normal?
+                if (g_state.selFaces.size() == 1) { // TODO: move along each face's normal?
                     down = faceNormal(g_state.surf, g_state.selFaces.begin()->in(g_state.surf));
+                    if (g_state.gridOn)
+                        down /= down[maxAxis(down)]; // scale to cartesian grid
+                }
             } else if (GetKeyState(VK_SHIFT) < 0 && GetKeyState(VK_MENU) < 0)
                 down = snapAxis(invMV[2]);
             else if (GetKeyState(VK_SHIFT) < 0) down = snapAxis(-invMV[1]);
             else if (GetKeyState(VK_MENU) < 0) right = snapAxis(invMV[0]);
             else { right = snapAxis(invMV[0]), down = snapAxis(-invMV[1]); }
-            glm::vec3 deltaPos = right * (float)delta.cx + down * (float)delta.cy;
-            deltaPos *= g_zoom / 600.0f;
-            glm::vec3 adjustAmt;
-            if (g_state.gridOn) {
-                g_moveAccum = glm::modf(g_moveAccum + (deltaPos / g_state.gridSize), adjustAmt);
-                adjustAmt *= g_state.gridSize;
-            } else {
-                adjustAmt = deltaPos;
-            }
+
+            glm::vec3 deltaPos = right * scaled.x + down * scaled.y;
             for (auto v : selAttachedVerts(g_state))
-                g_state.surf = moveVertex(std::move(g_state.surf), v, adjustAmt);
+                g_state.surf = moveVertex(std::move(g_state.surf), v, deltaPos);
             break;
         }
         case TOOL_SCALE: {
