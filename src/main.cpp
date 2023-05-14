@@ -696,22 +696,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
 
     try {
         switch (id) {
-            case IDM_UNDO:
-                if (!g_undoStack.empty()) {
-                    g_redoStack.push(g_state);
-                    g_state = g_undoStack.top();
-                    g_undoStack.pop();
-                }
-                g_knifeVerts.clear();
-                break;
-            case IDM_REDO:
-                if (!g_redoStack.empty()) {
-                    g_undoStack.push(g_state);
-                    g_state = g_redoStack.top();
-                    g_redoStack.pop();
-                }
-                g_knifeVerts.clear();
-                break;
+            /* File */
             case IDM_OPEN: {
                 TCHAR fileName[MAX_PATH];
                 fileName[0] = 0;
@@ -733,7 +718,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 else
                     writeFile(g_fileName, g_state);
                 break;
-            /* tools */
+            /* Tool */
             case IDM_TOOL_SELECT:
                 g_tool = TOOL_SELECT;
                 break;
@@ -747,7 +732,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
             case IDM_TOOL_JOIN:
                 g_tool = TOOL_JOIN;
                 break;
-            /* selection */
+            /* Select */
             case IDM_CLEAR_SELECT:
                 g_state = clearSelection(std::move(g_state));
                 g_knifeVerts.clear();
@@ -772,7 +757,35 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
             case IDM_PREV_FACE_EDGE:
                 g_state.selEdges = immer::set<edge_id>{}.insert(expectSingleSelEdge().prev);
                 break;
-            /* etc */
+            /* View */
+            case IDM_FLY_CAM:
+                g_flyCam ^= true;
+                updateProjMat();
+                break;
+            case IDM_DEBUG_INFO:
+                for (auto &edge : g_state.surf.edges) {
+                    LOG("Edge %08X twin %08X prev %08X next %08X vert %08X face %08X", name(edge),
+                        name(edge.second.twin), name(edge.second.prev), name(edge.second.next),
+                        name(edge.second.vert), name(edge.second.face));
+                }
+                break;
+            /* Edit */
+            case IDM_UNDO:
+                if (!g_undoStack.empty()) {
+                    g_redoStack.push(g_state);
+                    g_state = g_undoStack.top();
+                    g_undoStack.pop();
+                }
+                g_knifeVerts.clear();
+                break;
+            case IDM_REDO:
+                if (!g_redoStack.empty()) {
+                    g_undoStack.push(g_state);
+                    g_state = g_redoStack.top();
+                    g_redoStack.pop();
+                }
+                g_knifeVerts.clear();
+                break;
             case IDM_TOGGLE_GRID:
                 g_state.gridOn ^= true;
                 break;
@@ -786,21 +799,11 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 if (!g_knifeVerts.empty())
                     g_knifeVerts.pop_back();
                 break;
-            case IDM_FLY_CAM:
-                g_flyCam ^= true;
-                updateProjMat();
-                break;
-            case IDM_DEBUG_INFO:
-                for (auto &edge : g_state.surf.edges) {
-                    LOG("Edge %08X twin %08X prev %08X next %08X vert %08X face %08X", name(edge),
-                        name(edge.second.twin), name(edge.second.prev), name(edge.second.next),
-                        name(edge.second.vert), name(edge.second.face));
-                }
-                break;
-            /* undoable operations */
+            /* undoable operations... */
             case IDM_ERASE:
                 erase();
                 break;
+            /* element */
             case IDM_EXTRUDE: {
                 EditorState newState = g_state;
                 for (auto f : g_state.selFaces)
@@ -817,6 +820,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 flashSel(wnd);
                 break;
             }
+            /* solid */
             case IDM_FLIP_NORMALS: {
                 EditorState newState = g_state;
                 newState.surf = flipNormals(g_state.surf, g_state.selEdges, g_state.selVerts);
