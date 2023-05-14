@@ -93,6 +93,7 @@ ACCEL ACCELERATORS
     "L", IDM_SPLIT_LOOP, CONTROL, VIRTKEY
     "1", IDM_SEL_ELEMENTS, VIRTKEY
     "2", IDM_SEL_SOLIDS, VIRTKEY
+    VK_BACK, IDM_KNIFE_BKSP, VIRTKEY
 }
 
 //////////////////////////////////////////////////////////////////////////////

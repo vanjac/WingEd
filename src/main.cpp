@@ -697,6 +697,10 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
             case IDM_GRID_HALF:
                 g_state.gridSize /= 2;
                 break;
+            case IDM_KNIFE_BKSP:
+                if (!g_knifeVerts.empty())
+                    g_knifeVerts.pop_back();
+                break;
             case IDM_FLY_CAM:
                 g_flyCam ^= true;
                 updateProjMat();

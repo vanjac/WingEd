@@ -30,12 +30,13 @@
 #define IDM_SPLIT_LOOP                      130
 #define IDM_SEL_ELEMENTS                    131
 #define IDM_SEL_SOLIDS                      132
+#define IDM_KNIFE_BKSP                      133
 
 #ifdef APSTUDIO_INVOKED
     #ifndef APSTUDIO_READONLY_SYMBOLS
         #define _APS_NO_MFC                 1
         #define _APS_NEXT_RESOURCE_VALUE    100
-        #define _APS_NEXT_COMMAND_VALUE     133
+        #define _APS_NEXT_COMMAND_VALUE     134
         #define _APS_NEXT_CONTROL_VALUE     1000
         #define _APS_NEXT_SYMED_VALUE       300
     #endif
