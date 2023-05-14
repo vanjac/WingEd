@@ -60,6 +60,7 @@ static MouseMode g_mouseMode = MOUSE_NONE;
 static POINT g_curLockPos;
 static glm::vec3 g_moveAccum;
 static bool g_flashSel = false;
+static std::vector<glm::vec3> g_knifeVerts;
 
 static glm::vec3 g_camPivot = {};
 static float g_rotX = 0, g_rotY = 0;
@@ -390,11 +391,17 @@ static EditorState knifeToVert(EditorState state, vert_id vert) {
     if (state.selVerts.size() == 1 && g_hoverFace.find(state.surf)) {
         edge_pair e1 = edgeOnHoverFace(state.surf, *state.selVerts.begin());
         edge_pair e2 = edgeOnHoverFace(state.surf, vert);
-        edge_id splitEdge;
-        state.surf = splitFace(std::move(state.surf), e1.first, e2.first, &splitEdge);
-        state.selEdges = std::move(state.selEdges).insert(splitEdge);
+        edge_pair newEdge;
+        state.surf = splitFace(std::move(state.surf), e1.first, e2.first, &newEdge);
+        state.selEdges = std::move(state.selEdges).insert(primaryEdge(newEdge));
+        for (auto &v : g_knifeVerts) {
+            state.surf = splitEdge(state.surf, newEdge.first, v);
+            newEdge = newEdge.first.in(state.surf).next.pair(state.surf);
+            state.selEdges = std::move(state.selEdges).insert(primaryEdge(newEdge));
+        }
     }
     state.selVerts = immer::set<vert_id>{}.insert(vert);
+    g_knifeVerts.clear();
     return state;
 }
 
@@ -422,7 +429,7 @@ static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
                     pushUndo(knifeToVert(g_state, g_hover.vert));
                     break;
                 case Surface::FACE:
-                    throw winged_error();
+                    g_knifeVerts.push_back(g_hover.point);
                     break;
                 case Surface::NONE:
                     g_state = clearSelection(std::move(g_state));
@@ -584,6 +591,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                     g_state = g_undoStack.top();
                     g_undoStack.pop();
                 }
+                g_knifeVerts.clear();
                 break;
             case IDM_REDO:
                 if (!g_redoStack.empty()) {
@@ -622,10 +630,12 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 break;
             case IDM_TOOL_KNIFE:
                 g_tool = TOOL_KNIFE;
+                g_knifeVerts.clear();
                 break;
             /* selection */
             case IDM_CLEAR_SELECT:
                 g_state = clearSelection(std::move(g_state));
+                g_knifeVerts.clear();
                 break;
             case IDM_SEL_ELEMENTS:
                 setSelMode(SEL_ELEMENTS);
@@ -864,9 +874,14 @@ static void drawState(const EditorState &state) {
             }
             glVertex3fv(glm::value_ptr(pair.second.pos));
         }
-        if (g_tool == TOOL_KNIFE && g_hover.type && g_hover.type != Surface::VERT) {
+        if (g_tool == TOOL_KNIFE) {
             glColor3f(1, 1, 1);
-            glVertex3fv(glm::value_ptr(g_hover.point));
+            if (state.selVerts.size() == 1) {
+                for (auto &v : g_knifeVerts)
+                    glVertex3fv(glm::value_ptr(v));
+            }
+            if (g_hover.type && g_hover.type != Surface::VERT)
+                glVertex3fv(glm::value_ptr(g_hover.point));
         }
         glEnd();
         if (auto hoverVert = g_hover.vert.find(state.surf)) {
@@ -877,12 +892,16 @@ static void drawState(const EditorState &state) {
             glEnd();
         }
 
-        if (g_tool == TOOL_KNIFE && g_hover.type && state.selVerts.size() == 1) {
+        if (g_tool == TOOL_KNIFE && state.selVerts.size() == 1
+                && (g_hover.type || !g_knifeVerts.empty())) {
             glColor3f(1, 1, 1);
             glLineWidth(1);
-            glBegin(GL_LINES);
+            glBegin(GL_LINE_STRIP);
             glVertex3fv(glm::value_ptr(state.selVerts.begin()->in(state.surf).pos));
-            glVertex3fv(glm::value_ptr(g_hover.point));
+            for (auto &v : g_knifeVerts)
+                glVertex3fv(glm::value_ptr(v));
+            if (g_hover.type)
+                glVertex3fv(glm::value_ptr(g_hover.point));
             glEnd();
         }
     }
