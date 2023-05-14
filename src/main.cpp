@@ -257,7 +257,7 @@ static void refreshImmediate(HWND wnd) {
 }
 
 static void updateStatus(HWND wnd) {
-    TCHAR buf[64], gridBuf[16], lenBuf[16];
+    TCHAR buf[64], gridBuf[16], lenBuf[24];
     if (g_state.gridOn)
         _stprintf_s(gridBuf, _countof(gridBuf), L"%f", g_state.gridSize);
     else
@@ -266,21 +266,23 @@ static void updateStatus(HWND wnd) {
     if (!g_state.selVerts.empty()) selName = name(*g_state.selVerts.begin());
     else if (!g_state.selFaces.empty()) selName = name(*g_state.selFaces.begin());
     else if (!g_state.selEdges.empty()) selName = name(*g_state.selEdges.begin());
+    size_t numSel = g_state.selVerts.size() + g_state.selFaces.size() + g_state.selEdges.size();
     if (g_tool == TOOL_KNIFE && g_state.selVerts.size() == 1 && g_hover.type) {
         glm::vec3 lastPos = g_knifeVerts.empty()
             ? g_state.selVerts.begin()->in(g_state.surf).pos
             : g_knifeVerts.back();
-        _stprintf_s(lenBuf, _countof(lenBuf), L"%f    ", glm::distance(lastPos, g_hover.point));
+        _stprintf_s(lenBuf, _countof(lenBuf), L"Len: %f    ",
+            glm::distance(lastPos, g_hover.point));
     } else if (g_state.selEdges.size() == 1) {
         edge_pair edge = g_state.selEdges.begin()->pair(g_state.surf);
         glm::vec3 v1 = edge.second.vert.in(g_state.surf).pos;
         glm::vec3 v2 = edge.second.twin.in(g_state.surf).vert.in(g_state.surf).pos;
-        _stprintf_s(lenBuf, _countof(lenBuf), L"%f    ", glm::distance(v1, v2));
+        _stprintf_s(lenBuf, _countof(lenBuf), L"Len: %f    ", glm::distance(v1, v2));
     } else {
         lenBuf[0] = 0;
     }
-    _stprintf_s(buf, _countof(buf), L"%s%08X    %s    Grid: %s",
-        lenBuf, selName, tools[g_tool].name, gridBuf);
+    _stprintf_s(buf, _countof(buf), L"%sSel: %08X (%zd)    %s    Grid: %s",
+        lenBuf, selName, numSel, tools[g_tool].name, gridBuf);
     MENUITEMINFO info = {sizeof(info), 0x40}; // TODO requires Win2000?
     info.dwTypeData = buf;
     SetMenuItemInfo(GetMenu(wnd), IDM_STATUS, false, &info);
