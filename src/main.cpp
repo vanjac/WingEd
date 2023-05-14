@@ -406,6 +406,8 @@ static EditorState knifeToVert(EditorState state, vert_id vert) {
         edge_pair e2 = edgeOnHoverFace(state.surf, vert);
 
         if (e1.first == e2.first) {
+            if (g_knifeVerts.empty())
+                return state; // clicked same vertex twice, nothing to do
             // loop must be clockwise in this case
             glm::vec3 start = vert.in(state.surf).pos;
             glm::vec3 loopNorm = accumPolyNormal(start, g_knifeVerts[0]);

@@ -252,6 +252,8 @@ Surface splitFace(Surface surf, edge_id e1, edge_id e2,
     } else if (edge2.second.next == edge1.first && points.empty()) {
         *splitEdge = edge2.second.twin;
         return surf;
+    } else if (edge1.first == edge2.first && points.size() == 1) {
+        throw winged_error(); // would create a two-sided face
     }
     // AFTER:
     // ╮     face      ╮
