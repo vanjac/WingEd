@@ -550,6 +550,8 @@ Surface joinEdgeLoops(Surface surf, edge_id e1, edge_id e2) {
         edge_pair twin2 = edge2.second.twin.pair(surf);
         if (twin1.second.face == edge2.second.face || twin2.second.face == edge1.second.face)
             throw winged_error(L"Faces share an edge!");
+        if (twin1.second.face == twin2.second.face)
+            throw winged_error(L"Edges share a face!");
         linkTwins(&twin1, &twin2);
         insertAll(&surf.edges, {twin1, twin2});
         eraseAll(&surf.edges, {edge1.first, edge2.first});
