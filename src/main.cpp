@@ -497,7 +497,7 @@ static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
         } catch (winged_error err) {
             showError(wnd, err);
         }
-    } else if (g_tool == TOOL_JOIN && hasSelection(g_state)) {
+    } else if (g_tool == TOOL_JOIN && hasSelection(g_state) && g_hover.type) {
         try {
             pushUndo(join(g_state));
             flashSel(wnd);
