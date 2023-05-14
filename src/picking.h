@@ -20,12 +20,14 @@ struct PickResult {
         edge_id edge;
     };
     glm::vec3 point = {};
+    float depth = 2; // NDC, range -1 to 1
     PickResult() = default;
-    PickResult(Surface::ElementType type, id_t id, glm::vec3 point)
-        : type(type), id(id), point(point) {}
+    PickResult(Surface::ElementType type, id_t id, glm::vec3 point, float depth)
+        : type(type), id(id), point(point), depth(depth) {}
 };
 
 PickResult pickElement(const Surface &surf, Surface::ElementType types,
-    glm::vec2 cursor, glm::vec2 windowDim, const glm::mat4 &project, float grid = 0);
+    glm::vec2 cursor, glm::vec2 windowDim, const glm::mat4 &project,
+    float grid = 0, float maxDepth = 2);
 
 } // namespace

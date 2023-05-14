@@ -16,13 +16,13 @@ glm::vec3 projectPoint(glm::vec3 point, const glm::mat4 &project) {
     return glm::vec3(tv) / tv.w;
 }
 
-PickResult pickElement(const Surface &surf, Surface::ElementType types,
-        glm::vec2 cursor, glm::vec2 windowDim, const glm::mat4 &project, float grid) {
+PickResult pickElement(const Surface &surf, Surface::ElementType types, glm::vec2 cursor,
+        glm::vec2 windowDim, const glm::mat4 &project, float grid, float maxDepth) {
     glm::vec2 normCur = cursor / windowDim * 2.0f - 1.0f; // range -1 to 1
     normCur.y *= -1; // opengl convention
 
     PickResult result;
-    float closestZ = 2; // range -1 to 1
+    result.depth = maxDepth;
 
     if (types & Surface::VERT) {
         const glm::vec2 normPointDist = PICK_POINT_SIZE / windowDim;
@@ -30,14 +30,13 @@ PickResult pickElement(const Surface &surf, Surface::ElementType types,
             glm::vec3 normVert = projectPoint(vert.second.pos, project);
             normVert.z += VERT_Z_OFFSET;
             if (glm::all(glm::lessThanEqual(glm::abs(glm::vec2(normVert) - normCur), normPointDist))
-                    && glm::abs(normVert.z) <= 1 && normVert.z < closestZ) {
-                result = PickResult(Surface::VERT, vert.first, vert.second.pos);
-                closestZ = normVert.z;
+                    && glm::abs(normVert.z) <= 1 && normVert.z < result.depth) {
+                result = PickResult(Surface::VERT, vert.first, vert.second.pos, normVert.z);
             }
         }
+        if (types == Surface::VERT)
+            return result; // skip extra matrix calculations
     }
-    if (types == Surface::VERT)
-        return result;
 
     const glm::mat4 invProj = glm::inverse(project);
     glm::vec3 rayOrg = projectPoint(glm::vec3(normCur, -1), invProj); // near plane intersect
@@ -71,7 +70,7 @@ PickResult pickElement(const Surface &surf, Surface::ElementType types,
                 glm::vec3 point = v1 + t * vDiff;
                 glm::vec3 normPoint = projectPoint(point, project);
                 normPoint.z += EDGE_Z_OFFSET;
-                if (normPoint.z < closestZ
+                if (normPoint.z < result.depth
                         && glm::abs(normPoint.x - normCur.x) < normEdgeDist.x
                         && glm::abs(normPoint.y - normCur.y) < normEdgeDist.y) {
                     if (grid != 0) {
@@ -82,12 +81,12 @@ PickResult pickElement(const Surface &surf, Surface::ElementType types,
                         point = v1 + t * vDiff; // DON'T update normPoint
                     }
                     if (t == 0 && (types & Surface::VERT))
-                        result = PickResult(Surface::VERT, edge.second.vert, point);
+                        result = PickResult(Surface::VERT, edge.second.vert, point, normPoint.z);
                     else if (t == 1 && (types & Surface::VERT))
-                        result = PickResult(Surface::VERT, edge.second.twin.in(surf).vert, point);
+                        result = PickResult(Surface::VERT, edge.second.twin.in(surf).vert, point,
+                            normPoint.z);
                     else
-                        result = PickResult(Surface::EDGE, edge.first, point);
-                    closestZ = normPoint.z;
+                        result = PickResult(Surface::EDGE, edge.first, point, normPoint.z);
                 }
             }
         }
@@ -120,10 +119,8 @@ PickResult pickElement(const Surface &surf, Surface::ElementType types,
                 float t = glm::dot(prevVertPos - rayOrg, normal) / glm::dot(normal, rayDir);
                 glm::vec3 point = rayOrg + t * rayDir;
                 glm::vec3 normPoint = projectPoint(point, project);
-                if (normPoint.z < closestZ) {
-                    result = PickResult(Surface::FACE, face.first, point);
-                    closestZ = normPoint.z;
-                }
+                if (normPoint.z < result.depth)
+                    result = PickResult(Surface::FACE, face.first, point, normPoint.z);
             }
         }
     }
