@@ -5,8 +5,8 @@
 // win32
 #define UNICODE
 #define _UNICODE
-#define WINVER          0x0400 // Windows 95
-#define _WIN32_WINNT    0x0400 // Windows NT 4.0
+#define WINVER          0x0501 // Windows XP
+#define _WIN32_WINNT    0x0501
 
 #pragma warning(disable: 4201) // for glm
 
