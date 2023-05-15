@@ -29,20 +29,15 @@ enum Tool {
     TOOL_SELECT, TOOL_SCALE, TOOL_KNIFE, TOOL_JOIN, NUM_TOOLS
 };
 struct ToolInfo {
-    const TCHAR *name;
-    UINT command;
     HCURSOR cursor;
     uint32_t allowedSelModes;
 };
 const ToolInfo tools[] = {
-    {L"Select", IDM_TOOL_SELECT, LoadCursor(NULL, IDC_ARROW), (uint32_t)-1},
-    {L"Scale", IDM_TOOL_SCALE, LoadCursor(NULL, IDC_SIZEWE), (uint32_t)-1},
-    {L"Knife", IDM_TOOL_KNIFE, LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_KNIFE)),
-        1<<SEL_ELEMENTS},
-    {L"Join", IDM_TOOL_JOIN, LoadCursor(NULL, IDC_CROSS), 1<<SEL_ELEMENTS},
+    {LoadCursor(NULL, IDC_ARROW), (uint32_t)-1},
+    {LoadCursor(NULL, IDC_SIZEWE), (uint32_t)-1},
+    {LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_KNIFE)), 1<<SEL_ELEMENTS},
+    {LoadCursor(NULL, IDC_CROSS), 1<<SEL_ELEMENTS},
 };
-
-const UINT selCommands[] = {IDM_SEL_ELEMENTS, IDM_SEL_SOLIDS};
 
 enum MouseMode {
     MOUSE_NONE = 0, MOUSE_ADJUST, MOUSE_CAM_ROTATE, MOUSE_CAM_PAN
@@ -190,6 +185,7 @@ static const HEdge expectSingleSelEdge() {
 }
 
 static edge_pair edgeOnHoverFace(const Surface &surf, vert_id v) {
+    // TODO: what if there are multiple?
     for (auto &edge : VertEdges(surf, v.in(surf))) {
         if (edge.second.face == g_hoverFace)
             return edge;
@@ -254,33 +250,42 @@ static void refreshImmediate(HWND wnd) {
 }
 
 static void updateStatus(HWND wnd) {
-    TCHAR buf[64], gridBuf[16], lenBuf[24];
-    if (g_state.gridOn)
-        _stprintf_s(gridBuf, _countof(gridBuf), L"%f", g_state.gridSize);
-    else
-        _stprintf_s(gridBuf, _countof(gridBuf), L"Off");
-    uint32_t selName = 0;
-    if (!g_state.selVerts.empty()) selName = name(*g_state.selVerts.begin());
-    else if (!g_state.selFaces.empty()) selName = name(*g_state.selFaces.begin());
-    else if (!g_state.selEdges.empty()) selName = name(*g_state.selEdges.begin());
-    size_t numSel = g_state.selVerts.size() + g_state.selFaces.size() + g_state.selEdges.size();
+    TCHAR buf[64];
+    TCHAR *str = buf;
+
     if (g_tool == TOOL_KNIFE && g_state.selVerts.size() == 1 && g_hover.type) {
         glm::vec3 lastPos = g_knifeVerts.empty()
             ? g_state.selVerts.begin()->in(g_state.surf).pos
             : g_knifeVerts.back();
-        _stprintf_s(lenBuf, _countof(lenBuf), L"Len: %f    ",
-            glm::distance(lastPos, g_hover.point));
+        str += _stprintf(str, L"Len: %f    ", glm::distance(lastPos, g_hover.point));
     } else if (g_state.selEdges.size() == 1) {
         edge_pair edge = g_state.selEdges.begin()->pair(g_state.surf);
         glm::vec3 v1 = edge.second.vert.in(g_state.surf).pos;
         glm::vec3 v2 = edge.second.twin.in(g_state.surf).vert.in(g_state.surf).pos;
-        _stprintf_s(lenBuf, _countof(lenBuf), L"Len: %f    ", glm::distance(v1, v2));
-    } else {
-        lenBuf[0] = 0;
+        str += _stprintf(str, L"Len: %f    ", glm::distance(v1, v2));
     }
-    _stprintf_s(buf, _countof(buf), L"%sSel: %08X (%zd)    %s    Grid: %s",
-        lenBuf, selName, numSel, tools[g_tool].name, gridBuf);
-    MENUITEMINFO info = {sizeof(info), 0x40}; // TODO requires Win2000?
+
+    size_t numSel = g_state.selVerts.size() + g_state.selFaces.size() + g_state.selEdges.size();
+    if (numSel) {
+        uint32_t selName = 0;
+        if (!g_state.selVerts.empty()) selName = name(*g_state.selVerts.begin());
+        else if (!g_state.selFaces.empty()) selName = name(*g_state.selFaces.begin());
+        else if (!g_state.selEdges.empty()) selName = name(*g_state.selEdges.begin());
+        str += _stprintf(str, L"Sel: %08X (%zd)    ", selName, numSel);
+    }
+
+    HMENU menu = GetMenu(wnd);
+    MENUITEMINFO toolMenu = {sizeof(toolMenu), MIIM_SUBMENU};
+    GetMenuItemInfo(menu, IDM_TOOL_MENU, false, &toolMenu);
+    str += GetMenuString(toolMenu.hSubMenu, g_tool, str, 32, MF_BYPOSITION);
+    if (TCHAR *tab = _tcsrchr(buf, L'\t')) str = tab;
+
+    if (g_state.gridOn)
+        str += _stprintf(str, L"    Grid: %f", g_state.gridSize);
+    else
+        str += _stprintf(str, L"    Grid: Off");
+
+    MENUITEMINFO info = {sizeof(info), MIIM_STRING};
     info.dwTypeData = buf;
     SetMenuItemInfo(GetMenu(wnd), IDM_STATUS, false, &info);
     DrawMenuBar(wnd);
@@ -850,13 +855,18 @@ static void onInitMenu(HWND, HMENU menu) {
         MF_ENABLED : MF_GRAYED);
     EnableMenuItem(menu, IDM_FLIP_NORMALS, (hasSel && selSolid) ? MF_ENABLED : MF_GRAYED);
     CheckMenuItem(menu, IDM_FLY_CAM, g_view.flyCam ? MF_CHECKED : MF_UNCHECKED);
-    CheckMenuRadioItem(menu, selCommands[0], selCommands[NUM_SELMODES - 1],
-        selCommands[g_state.selMode], MF_BYCOMMAND);
-    CheckMenuRadioItem(menu, tools[0].command, tools[NUM_TOOLS - 1].command,
-        tools[g_tool].command, MF_BYCOMMAND);
-    for (int i = 0; i < NUM_TOOLS; i++)
-        EnableMenuItem(menu, tools[i].command, (tools[i].allowedSelModes & (1 << g_state.selMode)) ?
-            MF_ENABLED : MF_GRAYED);
+
+    MENUITEMINFO selMenu = {sizeof(selMenu), MIIM_SUBMENU};
+    GetMenuItemInfo(menu, IDM_SEL_MENU, false, &selMenu);
+    CheckMenuRadioItem(selMenu.hSubMenu, 0, NUM_SELMODES - 1, g_state.selMode, MF_BYPOSITION);
+
+    MENUITEMINFO toolMenu = {sizeof(toolMenu), MIIM_SUBMENU};
+    GetMenuItemInfo(menu, IDM_TOOL_MENU, false, &toolMenu);
+    CheckMenuRadioItem(toolMenu.hSubMenu, 0, NUM_TOOLS - 1, g_tool, MF_BYPOSITION);
+    for (int i = 0; i < NUM_TOOLS; i++) {
+        EnableMenuItem(toolMenu.hSubMenu, GetMenuItemID(toolMenu.hSubMenu, i),
+            (tools[i].allowedSelModes & (1 << g_state.selMode)) ? MF_ENABLED : MF_GRAYED);
+    }
 }
 
 static void onSize(HWND, UINT, int cx, int cy) {

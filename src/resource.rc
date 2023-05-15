@@ -26,7 +26,7 @@ WINGED MENUEX
         MENUITEM "&Save\tCtrl+S", IDM_SAVE
         MENUITEM "Save &as...\tCtrl+Shift+S", IDM_SAVE_AS
     }
-    POPUP "&Select"
+    POPUP "&Select", IDM_SEL_MENU
     {
         MENUITEM "&Elements\t1", IDM_SEL_ELEMENTS
         MENUITEM "&Solids\t2", IDM_SEL_SOLIDS
@@ -49,7 +49,7 @@ WINGED MENUEX
         MENUITEM "", 0, MFT_SEPARATOR
         MENUITEM "&Flip Normals\tCtrl+N", IDM_FLIP_NORMALS
     }
-    POPUP "&Tool"
+    POPUP "&Tool", IDM_TOOL_MENU
     {
         MENUITEM "&Select\tSpace", IDM_TOOL_SELECT
         MENUITEM "S&cale\tS", IDM_TOOL_SCALE

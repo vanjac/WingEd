@@ -8,6 +8,8 @@
 #define IDM_EDGE_TWIN                       100
 #define IDM_NEXT_FACE_EDGE                  101
 #define IDM_PREV_FACE_EDGE                  102
+#define IDM_TOOL_MENU                       103
+#define IDM_SEL_MENU                        104
 #define IDM_UNDO                            107
 #define IDM_REDO                            108
 #define IDM_ERASE                           110
