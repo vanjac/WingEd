@@ -63,10 +63,7 @@ static glm::vec2 g_moveAccum;
 static bool g_flashSel = false;
 static std::vector<glm::vec3> g_knifeVerts;
 
-static glm::vec3 g_camPivot = {};
-static float g_rotX = 0, g_rotY = 0;
-static float g_zoom = 4;
-static bool g_flyCam = false;
+static ViewState g_view;
 static glm::mat4 g_projMat, g_mvMat;
 static glm::vec2 g_windowDim;
 
@@ -335,7 +332,7 @@ static void CALLBACK tessErrorCallback(GLenum error) {
 static void updateProjMat() {
     glMatrixMode(GL_PROJECTION);
     float aspect = g_windowDim.x / g_windowDim.y;
-    g_projMat = glm::perspective(glm::radians(g_flyCam ? 90.0f : 60.0f), aspect, 0.1f, 100.0f);
+    g_projMat = glm::perspective(glm::radians(g_view.flyCam ? 90.0f : 60.0f), aspect, 0.1f, 100.0f);
     glLoadMatrixf(glm::value_ptr(g_projMat));
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
@@ -555,7 +552,7 @@ static glm::vec3 snapAxis(glm::vec3 v) {
 static void toolAdjust(HWND, SIZE delta, UINT) {
     switch (g_tool) {
         case TOOL_SELECT: {
-            glm::vec2 scaled = glm::vec2(delta.cx, delta.cy) * g_zoom / 600.0f;
+            glm::vec2 scaled = glm::vec2(delta.cx, delta.cy) * g_view.zoom / 600.0f;
             if (g_state.gridOn) {
                 g_moveAccum = glm::modf(g_moveAccum + (scaled / g_state.gridSize), scaled);
                 scaled *= g_state.gridSize;
@@ -620,20 +617,20 @@ static void onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
             toolAdjust(wnd, delta, keyFlags);
             break;
         case MOUSE_CAM_ROTATE:
-            g_rotX += glm::radians((float)delta.cy) * 0.5f;
-            g_rotY += glm::radians((float)delta.cx) * 0.5f;
+            g_view.rotX += glm::radians((float)delta.cy) * 0.5f;
+            g_view.rotY += glm::radians((float)delta.cx) * 0.5f;
             break;
         case MOUSE_CAM_PAN: {
             bool shift = GetKeyState(VK_SHIFT) < 0;
             glm::vec3 deltaPos;
-            if (g_flyCam) {
+            if (g_view.flyCam) {
                 deltaPos = shift ? glm::vec3(-delta.cx, delta.cy, 0)
                     : glm::vec3(-delta.cx, 0, -delta.cy);
             } else {
                 deltaPos = shift ? glm::vec3(0, 0, -delta.cy) : glm::vec3(delta.cx, -delta.cy, 0);
             }
             deltaPos = glm::inverse(g_mvMat) * glm::vec4(deltaPos, 0);
-            g_camPivot += deltaPos * g_zoom / 600.0f;
+            g_view.camPivot += deltaPos * g_view.zoom / 600.0f;
         }
     }
     refresh(wnd);
@@ -641,7 +638,7 @@ static void onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
 }
 
 void onMouseWheel(HWND wnd, int, int, int delta, UINT) {
-    g_zoom *= glm::pow(1.001f, g_flyCam ? delta : -delta);
+    g_view.zoom *= glm::pow(1.001f, g_view.flyCam ? delta : -delta);
     refresh(wnd);
 }
 
@@ -650,7 +647,7 @@ static void saveAs(HWND wnd) {
     fileName[0] = 0;
     const TCHAR filters[] = L"WingEd File (.wing)\0*.wing\0All Files\0*.*\0\0";
     if (GetSaveFileName(tempPtr(makeOpenFileName(fileName, wnd, filters, L"wing")))) {
-        writeFile(fileName, g_state);
+        writeFile(fileName, g_state, g_view);
         memcpy(g_fileName, fileName, sizeof(g_fileName));
     }
 }
@@ -706,7 +703,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 fileName[0] = 0;
                 const TCHAR filters[] = L"WingEd File (.wing)\0*.wing\0\0";
                 if (GetOpenFileName(tempPtr(makeOpenFileName(fileName, wnd, filters, L"wing")))) {
-                    g_state = readFile(fileName);
+                    std::tie(g_state, g_view) = readFile(fileName);
                     g_undoStack = {};
                     g_redoStack = {};
                     memcpy(g_fileName, fileName, sizeof(g_fileName));
@@ -720,7 +717,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 if (!g_fileName[0])
                     saveAs(wnd);
                 else
-                    writeFile(g_fileName, g_state);
+                    writeFile(g_fileName, g_state, g_view);
                 break;
             /* Tool */
             case IDM_TOOL_SELECT:
@@ -763,7 +760,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 break;
             /* View */
             case IDM_FLY_CAM:
-                g_flyCam ^= true;
+                g_view.flyCam ^= true;
                 updateProjMat();
                 break;
             /* Edit */
@@ -852,7 +849,7 @@ static void onInitMenu(HWND, HMENU menu) {
     EnableMenuItem(menu, IDM_SPLIT_LOOP, (!g_state.selEdges.empty() && selElem) ?
         MF_ENABLED : MF_GRAYED);
     EnableMenuItem(menu, IDM_FLIP_NORMALS, (hasSel && selSolid) ? MF_ENABLED : MF_GRAYED);
-    CheckMenuItem(menu, IDM_FLY_CAM, g_flyCam ? MF_CHECKED : MF_UNCHECKED);
+    CheckMenuItem(menu, IDM_FLY_CAM, g_view.flyCam ? MF_CHECKED : MF_UNCHECKED);
     CheckMenuRadioItem(menu, selCommands[0], selCommands[NUM_SELMODES - 1],
         selCommands[g_state.selMode], MF_BYCOMMAND);
     CheckMenuRadioItem(menu, tools[0].command, tools[NUM_TOOLS - 1].command,
@@ -996,11 +993,11 @@ static void onPaint(HWND wnd) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     g_mvMat = glm::mat4(1);
-    if (!g_flyCam)
-        g_mvMat = glm::translate(g_mvMat, glm::vec3(0, 0, -g_zoom));
-    g_mvMat = glm::rotate(g_mvMat, g_rotX, glm::vec3(1, 0, 0));
-    g_mvMat = glm::rotate(g_mvMat, g_rotY, glm::vec3(0, 1, 0));
-    g_mvMat = glm::translate(g_mvMat, g_camPivot);
+    if (!g_view.flyCam)
+        g_mvMat = glm::translate(g_mvMat, glm::vec3(0, 0, -g_view.zoom));
+    g_mvMat = glm::rotate(g_mvMat, g_view.rotX, glm::vec3(1, 0, 0));
+    g_mvMat = glm::rotate(g_mvMat, g_view.rotY, glm::vec3(0, 1, 0));
+    g_mvMat = glm::translate(g_mvMat, g_view.camPivot);
     glLoadMatrixf(glm::value_ptr(g_mvMat));
 
     drawState(g_state);

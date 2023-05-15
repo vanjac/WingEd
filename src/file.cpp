@@ -27,7 +27,7 @@ static void writeSet(HANDLE handle, const immer::set<T> &set) {
         write(handle, &v, sizeof(v));
 }
 
-void writeFile(TCHAR *file, const EditorState &state) {
+void writeFile(TCHAR *file, const EditorState &state, const ViewState &view) {
     CHandle handle(CreateFile(file, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
         FILE_ATTRIBUTE_NORMAL, NULL));
     if (handle == INVALID_HANDLE_VALUE)
@@ -40,7 +40,8 @@ void writeFile(TCHAR *file, const EditorState &state) {
     writeSet(handle, state.selVerts);
     writeSet(handle, state.selFaces);
     writeSet(handle, state.selEdges);
-    write(handle, &state.START_DATA, sizeof(EditorState) - offsetof(EditorState, START_DATA));
+    write(handle, &state.SAVE_DATA, sizeof(EditorState) - offsetof(EditorState, SAVE_DATA));
+    write(handle, &view, sizeof(view));
 }
 
 static void read(HANDLE handle, void *buf, DWORD size) {
@@ -76,7 +77,7 @@ static immer::set<T> readSet(HANDLE handle) {
     return set;
 }
 
-EditorState readFile(TCHAR *file) {
+std::tuple<EditorState, ViewState> readFile(TCHAR *file) {
     CHandle handle(CreateFile(file, GENERIC_READ, 0, NULL, OPEN_EXISTING,
         FILE_ATTRIBUTE_NORMAL, NULL));
     if (handle == INVALID_HANDLE_VALUE)
@@ -92,8 +93,9 @@ EditorState readFile(TCHAR *file) {
     state.selVerts = readSet<vert_id>(handle);
     state.selFaces = readSet<face_id>(handle);
     state.selEdges = readSet<edge_id>(handle);
-    read(handle, &state.START_DATA, sizeof(EditorState) - offsetof(EditorState, START_DATA));
-    return state;
+    read(handle, &state.SAVE_DATA, sizeof(EditorState) - offsetof(EditorState, SAVE_DATA));
+    ViewState view = readVal<ViewState>(handle);
+    return {state, view};
 }
 
 } // namespace
