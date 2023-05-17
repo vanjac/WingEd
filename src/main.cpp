@@ -62,6 +62,27 @@ const PickType
     PICK_WORKPLANE = 0x8,
     PICK_DRAWVERT = 0x10;
 
+const uint32_t
+    COLOR_VERT          = 0x00FF00,
+    COLOR_VERT_HOVER    = 0xFFFFFF,
+    COLOR_VERT_SEL      = 0xFF0000,
+    COLOR_VERT_FLASH    = 0xFFCCCC,
+    COLOR_EDGE          = 0xFFFFFF,
+    COLOR_EDGE_HOVER    = 0xFF4C7F,
+    COLOR_EDGE_SEL      = 0xFFFF00,
+    COLOR_EDGE_FLASH    = 0xFF0000,
+    COLOR_FACE          = 0x0000FF,
+    COLOR_FACE_HOVER    = 0x3F3FFF,
+    COLOR_FACE_SEL      = 0x007FFF,
+    COLOR_FACE_FLASH    = 0x00FF7F,
+    COLOR_FACE_ERROR    = 0xFF0000,
+    COLOR_DRAW_POINT    = 0xFFFFFF,
+    COLOR_DRAW_LINE     = 0xFFFFFF,
+    COLOR_GRID          = 0x333333,
+    COLOR_X_AXIS        = 0xFF0000,
+    COLOR_Y_AXIS        = 0x00FF00,
+    COLOR_Z_AXIS        = 0x0000FF;
+
 
 static EditorState g_state;
 static std::stack<EditorState> g_undoStack;
@@ -989,6 +1010,10 @@ static void onSize(HWND, UINT, int cx, int cy) {
     updateProjMat();
 }
 
+static void glColorHex(uint32_t color) {
+    glColor3ub((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF);
+}
+
 static void drawFace(const Surface &surf, const Face &face) {
     // TODO cache faces
     // https://www.glprogramming.com/red/chapter11.html
@@ -1006,7 +1031,7 @@ static void drawFace(const Surface &surf, const Face &face) {
     gluTessEndPolygon(g_tess);
     if (g_tess_error) {
         // fallback
-        glColor3f(1, 0, 0);
+        glColorHex(COLOR_FACE_ERROR);
         glBegin(GL_TRIANGLE_FAN);
         for (auto &ep : FaceEdges(surf, face)) {
             glVertex3fv(glm::value_ptr(ep.second.vert.in(surf).pos));
@@ -1021,19 +1046,18 @@ static void drawEdge(const Surface &surf, const HEdge &edge) {
 }
 
 static void drawState(const EditorState &state) {
-    // axes
     glLineWidth(3);
     glBegin(GL_LINES);
-    glColor3f(1, 0, 0);
+    glColorHex(COLOR_X_AXIS);
     glVertex3f(0, 0, 0); glVertex3f(8, 0, 0);
-    glColor3f(0, 1, 0);
+    glColorHex(COLOR_Y_AXIS);
     glVertex3f(0, 0, 0); glVertex3f(0, 8, 0);
-    glColor3f(0, 0, 1);
+    glColorHex(COLOR_Z_AXIS);
     glVertex3f(0, 0, 0); glVertex3f(0, 0, 8);
     glEnd();
 
     glLineWidth(1);
-    glColor3f(1, 1, 1);
+    glColorHex(COLOR_EDGE);
     glBegin(GL_LINES);
     for (auto &pair : state.surf.edges) {
         if (isPrimary(pair))
@@ -1043,10 +1067,7 @@ static void drawState(const EditorState &state) {
 
     if (g_state.selMode == SEL_ELEMENTS) {
         glLineWidth(5);
-        if (g_flashSel)
-            glColor3f(1, 0, 0);
-        else
-            glColor3f(1, 1, 0);
+        glColorHex(g_flashSel ? COLOR_EDGE_FLASH : COLOR_EDGE_SEL);
         glBegin(GL_LINES);
         for (auto e : state.selEdges) {
             drawEdge(state.surf, e.in(state.surf));
@@ -1054,7 +1075,7 @@ static void drawState(const EditorState &state) {
         glEnd();
         if (auto hoverEdge = g_hover.edge.find(state.surf)) {
             glLineWidth(3);
-            glColor3f(1, 0.3f, 0.5f);
+            glColorHex(COLOR_EDGE_HOVER);
             glBegin(GL_LINES);
             drawEdge(state.surf, *hoverEdge);
             glEnd();
@@ -1064,12 +1085,9 @@ static void drawState(const EditorState &state) {
         glBegin(GL_POINTS);
         for (auto &pair : state.surf.verts) {
             if (state.selVerts.count(pair.first)) {
-                if (g_flashSel)
-                    glColor3f(1, 0.8f, 0.8f);
-                else
-                    glColor3f(1, 0, 0);
+                glColorHex(g_flashSel ? COLOR_VERT_FLASH : COLOR_VERT_SEL);
             } else {
-                glColor3f(0, 1, 0);
+                glColorHex(COLOR_VERT);
             }
             glVertex3fv(glm::value_ptr(pair.second.pos));
         }
@@ -1077,27 +1095,28 @@ static void drawState(const EditorState &state) {
             if (numDrawPoints() > 0) {
                 for (int i = 0; i < g_drawVerts.size(); i++) {
                     if (g_hover.type == PICK_DRAWVERT && g_hover.val == i)
-                        glColor3f(0, 1, 0);
+                        glColorHex(COLOR_VERT);
                     else
-                        glColor3f(1, 1, 1);
+                        glColorHex(COLOR_DRAW_POINT);
                     glVertex3fv(glm::value_ptr(g_drawVerts[i]));
                 }
             }
-            glColor3f(1, 1, 1);
-            if (g_hover.type && g_hover.type != PICK_VERT && g_hover.type != PICK_DRAWVERT)
+            if (g_hover.type && g_hover.type != PICK_VERT && g_hover.type != PICK_DRAWVERT) {
+                glColorHex(COLOR_DRAW_POINT);
                 glVertex3fv(glm::value_ptr(g_hover.point));
+            }
         }
         glEnd();
         if (g_hover.type == PICK_DRAWVERT || g_hover.vert.find(state.surf)) {
             glPointSize(11);
-            glColor3f(1, 1, 1);
+            glColorHex(COLOR_VERT_HOVER);
             glBegin(GL_POINTS);
             glVertex3fv(glm::value_ptr(g_hover.point));
             glEnd();
         }
 
         if (numDrawPoints() + (g_hover.type ? 1 : 0) >= 2) {
-            glColor3f(1, 1, 1);
+            glColorHex(COLOR_DRAW_LINE);
             glLineWidth(1);
             glBegin(GL_LINE_STRIP);
             if (g_tool == TOOL_KNIFE)
@@ -1112,15 +1131,12 @@ static void drawState(const EditorState &state) {
 
     for (auto &pair : state.surf.faces) {
         if (state.selFaces.count(pair.first)) {
-            if (g_flashSel)
-                glColor3f(0, 1, 0.5);
-            else
-                glColor3f(0, 0.5, 1);
+            glColorHex(g_flashSel ? COLOR_FACE_FLASH : COLOR_FACE_SEL);
         } else if (g_hover.type && pair.first == g_hoverFace
                 && (g_hover.type == PICK_FACE || (tools[g_tool].flags & TOOLF_HOVFACE))) {
-            glColor3f(0.25, 0.25, 1);
+            glColorHex(COLOR_FACE_HOVER);
         } else {
-            glColor3f(0, 0, 1);
+            glColorHex(COLOR_FACE);
         }
         drawFace(state.surf, pair.second);
     }
@@ -1141,7 +1157,7 @@ static void drawState(const EditorState &state) {
         // snap origin to grid
         pt -= uVec * glm::fract(pt[u]) + vVec * glm::fract(pt[v]);
         glLineWidth(1);
-        glColor3f(0.2f, 0.2f, 0.2f);
+        glColorHex(COLOR_GRID);
         glBegin(GL_LINES);
         for (int i = -128; i <= 128; i++) {
             glVertex3fv(glm::value_ptr(pt - vVec * 128.0f + uVec * (float)i));
