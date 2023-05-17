@@ -71,7 +71,6 @@ static TCHAR g_fileName[MAX_PATH] = {0};
 static Tool g_tool = TOOL_SELECT;
 static PickResult g_hover;
 static face_id g_hoverFace = {};
-static glm::vec3 g_workPlanePt = {}, g_workPlaneNorm = {0, 1, 0};
 static MouseMode g_mouseMode = MOUSE_NONE;
 static POINT g_curLockPos;
 static glm::vec2 g_moveAccum;
@@ -105,6 +104,12 @@ static EditorState cleanSelection(const EditorState &state) {
     return newState;
 }
 
+static void setWorkPlane(EditorState *state, Face face) {
+    HEdge faceEdge = face.edge.in(state->surf);
+    state->workPlanePt = faceEdge.vert.in(state->surf).pos;
+    state->workPlaneNorm = faceNormal(state->surf, face);
+}
+
 static void pushUndo() {
     g_undoStack.push(g_state);
     g_redoStack = {};
@@ -114,6 +119,8 @@ static void pushUndo(EditorState newState) {
     validateSurface(newState.surf);
     pushUndo();
     g_state = cleanSelection(newState);
+    if (g_state.selFaces.size() == 1)
+        setWorkPlane(&g_state, g_state.selFaces.begin()->in(g_state.surf));
 }
 
 static bool hasSelection(EditorState state) {
@@ -152,9 +159,7 @@ static EditorState select(EditorState state, const PickResult pick) {
             case PICK_FACE:
                 if (auto face = pick.face.find(state.surf)) {
                     state.selFaces = std::move(state.selFaces).insert(pick.face);
-                    HEdge faceEdge = face->edge.in(state.surf);
-                    g_workPlanePt = faceEdge.vert.in(state.surf).pos;
-                    g_workPlaneNorm = faceNormal(state.surf, *face);
+                    setWorkPlane(&state, *face);
                 }
                 break;
             case PICK_EDGE:
@@ -644,6 +649,8 @@ static void toolAdjust(HWND, SIZE delta, UINT) {
             break;
         }
     }
+    if (g_state.selFaces.size() == 1)
+        setWorkPlane(&g_state, g_state.selFaces.begin()->in(g_state.surf));
 }
 
 static void onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
@@ -662,10 +669,10 @@ static void onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
             } else {
                 Ray ray = viewPosToRay(normCur, project);
                 float t;
-                if (glm::intersectRayPlane(ray.org, ray.dir, g_workPlanePt, g_workPlaneNorm,
-                        /*out*/t)) {
+                if (glm::intersectRayPlane(ray.org, ray.dir,
+                        g_state.workPlanePt, g_state.workPlaneNorm, /*out*/t)) {
                     result.point = snapPlanePoint(ray.org + t * ray.dir,
-                        g_workPlanePt, g_workPlaneNorm, grid);
+                        g_state.workPlanePt, g_state.workPlaneNorm, grid);
                     if (!g_drawVerts.empty() && result.point == g_drawVerts[0]) {
                         result.type = PICK_DRAWVERT;
                         result.val = 0;
