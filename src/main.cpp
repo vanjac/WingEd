@@ -535,6 +535,8 @@ static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
                     pushUndo(knifeToVert(g_state, g_hover.vert));
                     break;
                 case PICK_FACE:
+                    if (!g_state.selVerts.size() == 1)
+                        throw winged_error(); // TODO
                     g_drawVerts.push_back(g_hover.point);
                     break;
                 case PICK_NONE:
