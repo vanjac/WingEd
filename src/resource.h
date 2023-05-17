@@ -4,6 +4,7 @@
 // resource.rc
 
 #define IDC_KNIFE                           100
+#define IDC_DRAW                            101
 
 #define IDM_EDGE_TWIN                       100
 #define IDM_NEXT_FACE_EDGE                  101
@@ -32,13 +33,14 @@
 #define IDM_SPLIT_LOOP                      130
 #define IDM_SEL_ELEMENTS                    131
 #define IDM_SEL_SOLIDS                      132
-#define IDM_KNIFE_BKSP                      133
+#define IDM_DRAW_BKSP                       133
+#define IDM_TOOL_POLY                       134
 
 #ifdef APSTUDIO_INVOKED
     #ifndef APSTUDIO_READONLY_SYMBOLS
         #define _APS_NO_MFC                 1
         #define _APS_NEXT_RESOURCE_VALUE    100
-        #define _APS_NEXT_COMMAND_VALUE     134
+        #define _APS_NEXT_COMMAND_VALUE     135
         #define _APS_NEXT_CONTROL_VALUE     1000
         #define _APS_NEXT_SYMED_VALUE       300
     #endif

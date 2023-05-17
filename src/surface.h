@@ -124,14 +124,6 @@ struct HEdge {
 
 
 struct Surface {
-    enum ElementType {
-        NONE = 0,
-        VERT = 1,
-        FACE = 2,
-        EDGE = 4,
-        ALL = VERT|FACE|EDGE,
-    };
-
     immer::map<vert_id, Vertex> verts;
     immer::map<face_id, Face>   faces;
     immer::map<edge_id, HEdge>  edges;

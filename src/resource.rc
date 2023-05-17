@@ -53,6 +53,7 @@ WINGED MENUEX
     {
         MENUITEM "&Select\tSpace", IDM_TOOL_SELECT
         MENUITEM "S&cale\tS", IDM_TOOL_SCALE
+        MENUITEM "&Polygon\tP", IDM_TOOL_POLY
         MENUITEM "&Knife\tK", IDM_TOOL_KNIFE
         MENUITEM "&Join\tJ", IDM_TOOL_JOIN
     }
@@ -93,7 +94,8 @@ ACCEL ACCELERATORS
     "L", IDM_SPLIT_LOOP, CONTROL, VIRTKEY
     "1", IDM_SEL_ELEMENTS, VIRTKEY
     "2", IDM_SEL_SOLIDS, VIRTKEY
-    VK_BACK, IDM_KNIFE_BKSP, VIRTKEY
+    VK_BACK, IDM_DRAW_BKSP, VIRTKEY
+    "P", IDM_TOOL_POLY, VIRTKEY
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -101,6 +103,8 @@ ACCEL ACCELERATORS
 // RT_GROUP_CURSOR
 
 IDC_KNIFE CURSOR "res/1033_Cursor_100.cur"
+
+IDC_DRAW CURSOR "res/1033_Cursor_101.cur"
 
 //////////////////////////////////////////////////////////////////////////////
 

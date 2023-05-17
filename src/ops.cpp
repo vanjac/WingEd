@@ -488,13 +488,13 @@ Surface extrudeFace(Surface surf, face_id f) {
 }
 
 Surface splitEdgeLoop(Surface surf, const std::vector<edge_id> &loop) {
-    face_pair newFace1 = makeFacePair();
-    face_pair newFace2 = makeFacePair();
-
     size_t size = loop.size();
     std::vector<edge_pair> newEdges1 = makeEdgePairs(size);
     std::vector<edge_pair> newEdges2 = makeEdgePairs(size);
     std::vector<vert_pair> newVerts = makeVertPairs(size);
+    face_pair newFace1 = makeFacePair();
+    face_pair newFace2 = makeFacePair();
+
     for (size_t i = 0, j = size - 1; i < size; j = i++) {
         edge_pair edge = loop[i].pair(surf);
         edge_pair twin = edge.second.twin.pair(surf);
@@ -523,9 +523,9 @@ Surface splitEdgeLoop(Surface surf, const std::vector<edge_id> &loop) {
     newFace1.second.edge = newEdges1[0].first;
     newFace2.second.edge = newEdges2[0].first;
     insertAll(&surf.faces, {newFace1, newFace2});
-    for (int i = 0; i < size; i++)
+    for (size_t i = 0; i < size; i++)
         insertAll(&surf.edges, {newEdges1[i], newEdges2[i]});
-    for (int i = 0; i < size; i++) {
+    for (size_t i = 0; i < size; i++) {
         vert_pair *newVert = &newVerts[i];
         surf = assignVertEdges(std::move(surf), newVert->second, newVert->first);
         insertAll(&surf.verts, {*newVert});
@@ -565,6 +565,43 @@ Surface joinEdgeLoops(Surface surf, edge_id e1, edge_id e2) {
         edge1 = edge1.second.next.pair(surf); edge2 = edge2.second.prev.pair(surf);
     }
     eraseAll(&surf.faces, {edge1.second.face, edge2.second.face});
+    return surf;
+}
+
+Surface makePolygonPlane(Surface surf, const std::vector<glm::vec3> points, face_id *newFace) {
+    size_t size = points.size();
+    std::vector<edge_pair> edges1 = makeEdgePairs(size);
+    std::vector<edge_pair> edges2 = makeEdgePairs(size);
+    std::vector<vert_pair> verts = makeVertPairs(size);
+    face_pair face1 = makeFacePair();
+    face_pair face2 = makeFacePair();
+
+    for (size_t i = 0, j = size - 1; i < size; j = i++) {
+        edge_pair *edge1 = &edges1[i];
+        edge_pair *edge2 = &edges2[i];
+        edge_pair *lastEdge1 = &edges1[j];
+        edge_pair *lastEdge2 = &edges2[j];
+        vert_pair *vert = &verts[i];
+        vert_pair *lastVert = &verts[j];
+
+        linkTwins(edge1, edge2);
+        linkNext(lastEdge1, edge1);
+        linkNext(edge2, lastEdge2);
+        edge1->second.face = face1.first;
+        edge2->second.face = face2.first;
+        lastVert->second.pos = points[i];
+        linkVert(edge1, lastVert);
+        edge2->second.vert = vert->first;
+    }
+    face1.second.edge = edges1[0].first;
+    face2.second.edge = edges2[0].first;
+
+    for (size_t i = 0; i < size; i++) {
+        insertAll(&surf.edges, {edges1[i], edges2[i]});
+        insertAll(&surf.verts, {verts[i]});
+    }
+    insertAll(&surf.faces, {face1, face2});
+    *newFace = face1.first;
     return surf;
 }
 

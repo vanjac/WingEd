@@ -8,6 +8,7 @@
 #include <gl/GLU.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/intersect.hpp>
 #include "editor.h"
 #include "ops.h"
 #include "picking.h"
@@ -25,23 +26,41 @@ using namespace winged;
 
 const TCHAR APP_NAME[] = _T("WingEd");
 
+const HCURSOR knifeCur = LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_KNIFE));
+const HCURSOR drawCur = LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_DRAW));
+
 enum Tool {
-    TOOL_SELECT, TOOL_SCALE, TOOL_KNIFE, TOOL_JOIN, NUM_TOOLS
+    TOOL_SELECT, TOOL_SCALE, TOOL_POLY, TOOL_KNIFE, TOOL_JOIN, NUM_TOOLS
 };
+// tool flags
+enum ToolFlags {
+    TOOLF_ELEMENTS = 1<<SEL_ELEMENTS, // allowed in element select mode
+    TOOLF_SOLIDS = 1<<SEL_SOLIDS, // allowed in solid select mode
+    TOOLF_ALLSEL = TOOLF_ELEMENTS | TOOLF_SOLIDS, // allowed in all select modes
+    TOOLF_TFORM = 0x10, // transformation tool (click and drag to transform)
+    TOOLF_DRAW = 0x20, // drawing tool (click to add point)
+    TOOLF_HOVFACE = 0x40, // show last hovered face while hovering over other elements
+};
+DEFINE_ENUM_FLAG_OPERATORS(ToolFlags)
 struct ToolInfo {
+    ToolFlags flags;
     HCURSOR cursor;
-    uint32_t allowedSelModes;
 };
 const ToolInfo tools[] = {
-    {LoadCursor(NULL, IDC_ARROW), (uint32_t)-1},
-    {LoadCursor(NULL, IDC_SIZEWE), (uint32_t)-1},
-    {LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_KNIFE)), 1<<SEL_ELEMENTS},
-    {LoadCursor(NULL, IDC_CROSS), 1<<SEL_ELEMENTS},
+    /*select*/  {TOOLF_ALLSEL | TOOLF_TFORM, LoadCursor(NULL, IDC_ARROW)},
+    /*scale*/   {TOOLF_ALLSEL | TOOLF_TFORM, LoadCursor(NULL, IDC_SIZEWE)},
+    /*poly*/    {TOOLF_ELEMENTS | TOOLF_DRAW, drawCur},
+    /*knife*/   {TOOLF_ELEMENTS | TOOLF_DRAW | TOOLF_HOVFACE, knifeCur},
+    /*join*/    {TOOLF_ELEMENTS | TOOLF_HOVFACE, LoadCursor(NULL, IDC_CROSS)},
 };
 
 enum MouseMode {
     MOUSE_NONE = 0, MOUSE_ADJUST, MOUSE_CAM_ROTATE, MOUSE_CAM_PAN
 };
+
+const PickType
+    PICK_WORKPLANE = 0x8,
+    PICK_DRAWVERT = 0x10;
 
 
 static EditorState g_state;
@@ -51,12 +70,13 @@ static TCHAR g_fileName[MAX_PATH] = {0};
 
 static Tool g_tool = TOOL_SELECT;
 static PickResult g_hover;
-static face_id g_hoverFace;
+static face_id g_hoverFace = {};
+static glm::vec3 g_workPlanePt = {}, g_workPlaneNorm = {0, 1, 0};
 static MouseMode g_mouseMode = MOUSE_NONE;
 static POINT g_curLockPos;
 static glm::vec2 g_moveAccum;
 static bool g_flashSel = false;
-static std::vector<glm::vec3> g_knifeVerts;
+static std::vector<glm::vec3> g_drawVerts;
 
 static ViewState g_view;
 static glm::mat4 g_projMat, g_mvMat;
@@ -122,24 +142,28 @@ static EditorState clearSelection(EditorState state) {
     return state;
 }
 
-static EditorState select(EditorState state, Surface::ElementType type, id_t id) {
+static EditorState select(EditorState state, const PickResult pick) {
     if (state.selMode == SEL_ELEMENTS) {
-        switch (type) {
-            case Surface::VERT:
-                if (state.surf.verts.count(id))
-                    state.selVerts = std::move(state.selVerts).insert(id);
+        switch (pick.type) {
+            case PICK_VERT:
+                if (state.surf.verts.count(pick.vert))
+                    state.selVerts = std::move(state.selVerts).insert(pick.vert);
                 break;
-            case Surface::FACE:
-                if (state.surf.faces.count(id))
-                    state.selFaces = std::move(state.selFaces).insert(id);
+            case PICK_FACE:
+                if (auto face = pick.face.find(state.surf)) {
+                    state.selFaces = std::move(state.selFaces).insert(pick.face);
+                    HEdge faceEdge = face->edge.in(state.surf);
+                    g_workPlanePt = faceEdge.vert.in(state.surf).pos;
+                    g_workPlaneNorm = faceNormal(state.surf, *face);
+                }
                 break;
-            case Surface::EDGE:
-                if (state.surf.edges.count(id))
-                    state.selEdges = std::move(state.selEdges).insert(id);
+            case PICK_EDGE:
+                if (state.surf.edges.count(pick.edge))
+                    state.selEdges = std::move(state.selEdges).insert(pick.edge);
                 break;
         }
     } else if (state.selMode == SEL_SOLIDS) {
-        if (auto face = ((face_id)id).find(state.surf)) {
+        if (auto face = pick.face.find(state.surf)) {
             auto verts = state.selVerts.transient();
             auto faces = state.selFaces.transient();
             auto edges = state.selEdges.transient();
@@ -169,12 +193,12 @@ static EditorState select(EditorState state, Surface::ElementType type, id_t id)
     return state;
 }
 
-static Surface::ElementType hoverType() {
+static PickType hoverType() {
     switch (g_hover.type) {
-        case Surface::VERT: return g_hover.vert.find(g_state.surf) ? Surface::VERT : Surface::NONE;
-        case Surface::FACE: return g_hover.face.find(g_state.surf) ? Surface::FACE : Surface::NONE;
-        case Surface::EDGE: return g_hover.edge.find(g_state.surf) ? Surface::EDGE : Surface::NONE;
-        default: return Surface::NONE;
+        case PICK_VERT: return g_hover.vert.find(g_state.surf) ? PICK_VERT : PICK_NONE;
+        case PICK_FACE: return g_hover.face.find(g_state.surf) ? PICK_FACE : PICK_NONE;
+        case PICK_EDGE: return g_hover.edge.find(g_state.surf) ? PICK_EDGE : PICK_NONE;
+        default: return g_hover.type;
     }
 }
 
@@ -209,6 +233,19 @@ static std::pair<edge_id, edge_id> findClosestOpposingEdges(
         }
     }
     return {e1, e2};
+}
+
+static size_t numDrawPoints() {
+    if (g_tool == TOOL_KNIFE) {
+        if (g_state.selVerts.size() == 1)
+            return g_drawVerts.size() + 1;
+        else
+            return 0;
+    } else if (tools[g_tool].flags & TOOLF_DRAW) {
+        return g_drawVerts.size();
+    } else {
+        return 0;
+    }
 }
 
 static std::vector<edge_id> sortEdgeLoop(const Surface &surf, immer::set<edge_id> edges) {
@@ -250,13 +287,13 @@ static void refreshImmediate(HWND wnd) {
 }
 
 static void updateStatus(HWND wnd) {
-    TCHAR buf[64];
+    TCHAR buf[256];
     TCHAR *str = buf;
 
-    if (g_tool == TOOL_KNIFE && g_state.selVerts.size() == 1 && g_hover.type) {
-        glm::vec3 lastPos = g_knifeVerts.empty()
+    if (numDrawPoints() > 0 && g_hover.type) {
+        glm::vec3 lastPos = g_drawVerts.empty()
             ? g_state.selVerts.begin()->in(g_state.surf).pos
-            : g_knifeVerts.back();
+            : g_drawVerts.back();
         str += _stprintf(str, L"Len: %f    ", glm::distance(lastPos, g_hover.point));
     } else if (g_state.selEdges.size() == 1) {
         edge_pair edge = g_state.selEdges.begin()->pair(g_state.surf);
@@ -320,8 +357,13 @@ static void lockMouse(HWND wnd, POINT clientPos, MouseMode mode) {
 
 static void setSelMode(SelectMode mode) {
     g_state.selMode = mode;
-    if (!(tools[g_tool].allowedSelModes & (1 << mode)))
+    if (!(tools[g_tool].flags & (1 << mode)))
         g_tool = TOOL_SELECT;
+}
+
+static void setTool(Tool tool) {
+    g_tool = tool;
+    g_drawVerts.clear();
 }
 
 
@@ -400,23 +442,23 @@ static EditorState knifeToVert(EditorState state, vert_id vert) {
         edge_pair e2 = edgeOnHoverFace(state.surf, vert);
 
         if (e1.first == e2.first) {
-            if (g_knifeVerts.empty())
+            if (g_drawVerts.empty())
                 return state; // clicked same vertex twice, nothing to do
             // loop must be clockwise in this case
             glm::vec3 start = vert.in(state.surf).pos;
-            glm::vec3 loopNorm = accumPolyNormal(start, g_knifeVerts[0]);
-            for (int i = 1; i < g_knifeVerts.size(); i++)
-                loopNorm += accumPolyNormal(g_knifeVerts[i - 1], g_knifeVerts[i]);
-            loopNorm += accumPolyNormal(g_knifeVerts.back(), start);
+            glm::vec3 loopNorm = accumPolyNormal(start, g_drawVerts[0]);
+            for (int i = 1; i < g_drawVerts.size(); i++)
+                loopNorm += accumPolyNormal(g_drawVerts[i - 1], g_drawVerts[i]);
+            loopNorm += accumPolyNormal(g_drawVerts.back(), start);
 
             glm::vec3 faceNorm = faceNormalNonUnit(state.surf, g_hoverFace.in(state.surf));
             if (glm::dot(loopNorm, faceNorm) > 0)
-                std::reverse(g_knifeVerts.begin(), g_knifeVerts.end());
+                std::reverse(g_drawVerts.begin(), g_drawVerts.end());
         }
 
         edge_id newEdge;
-        state.surf = splitFace(std::move(state.surf), e1.first, e2.first, g_knifeVerts, &newEdge);
-        for (int i = 0; i < g_knifeVerts.size() + 1; i++) {
+        state.surf = splitFace(std::move(state.surf), e1.first, e2.first, g_drawVerts, &newEdge);
+        for (int i = 0; i < g_drawVerts.size() + 1; i++) {
             edge_pair pair = newEdge.pair(state.surf);
             state.selEdges = std::move(state.selEdges).insert(primaryEdge(pair));
             newEdge = pair.second.next;
@@ -424,7 +466,7 @@ static EditorState knifeToVert(EditorState state, vert_id vert) {
     }
 
     state.selVerts = immer::set<vert_id>{}.insert(vert);
-    g_knifeVerts.clear();
+    g_drawVerts.clear();
     return state;
 }
 
@@ -478,10 +520,10 @@ static EditorState join(EditorState state) {
 }
 
 static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
-    if (g_tool == TOOL_KNIFE) {
-        try {
+    try {
+        if (g_tool == TOOL_KNIFE) {
             switch (hoverType()) {
-                case Surface::EDGE: {
+                case PICK_EDGE: {
                     EditorState newState = g_state;
                     newState.surf = splitEdge(g_state.surf, g_hover.edge, g_hover.point);
                     vert_id newVert = g_hover.edge.in(newState.surf).next.in(newState.surf).vert;
@@ -489,43 +531,54 @@ static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
                     pushUndo(std::move(newState));
                     break;
                 }
-                case Surface::VERT:
+                case PICK_VERT:
                     pushUndo(knifeToVert(g_state, g_hover.vert));
                     break;
-                case Surface::FACE:
-                    g_knifeVerts.push_back(g_hover.point);
+                case PICK_FACE:
+                    g_drawVerts.push_back(g_hover.point);
                     break;
-                case Surface::NONE:
+                case PICK_NONE:
                     g_state = clearSelection(std::move(g_state));
                     break;
             }
-        } catch (winged_error err) {
-            showError(wnd, err);
-        }
-    } else if (g_tool == TOOL_JOIN && hasSelection(g_state) && g_hover.type) {
-        try {
+        } else if (g_tool == TOOL_POLY) {
+            if (g_hover.type == PICK_WORKPLANE) {
+                g_drawVerts.push_back(g_hover.point);
+            } else if (g_hover.type == PICK_DRAWVERT && g_hover.val == 0) {
+                if (g_drawVerts.size() < 3) throw winged_error();
+                EditorState newState = clearSelection(g_state);
+                face_id newFace;
+                newState.surf = makePolygonPlane(g_state.surf, g_drawVerts, &newFace);
+                newState.selFaces = std::move(newState.selFaces).insert(newFace);
+                pushUndo(std::move(newState));
+                g_drawVerts.clear();
+                flashSel(wnd);
+                if (!(GetKeyState(VK_SHIFT) < 0))
+                    g_tool = TOOL_SELECT;
+            }
+        } else if (g_tool == TOOL_JOIN && hasSelection(g_state) && g_hover.type) {
             pushUndo(join(g_state));
             flashSel(wnd);
             if (!(GetKeyState(VK_SHIFT) < 0))
                 g_tool = TOOL_SELECT;
-        } catch (winged_error err) {
-            showError(wnd, err);
-        }
-    } else {
-        if (!hasSelection(g_state)) {
-            g_state = select(std::move(g_state), g_hover.type, g_hover.id);
-            refreshImmediate(wnd);
-        }
-        if (DragDetect(wnd, clientToScreen(wnd, {x, y}))) {
-            if (hasSelection(g_state) && (g_tool == TOOL_SELECT || g_tool == TOOL_SCALE))
-                pushUndo();
-            lockMouse(wnd, {x, y}, MOUSE_ADJUST);
-            g_moveAccum = {};
         } else {
-            if (!(GetKeyState(VK_SHIFT) < 0))
-                g_state = clearSelection(std::move(g_state));
-            g_state = select(std::move(g_state), g_hover.type, g_hover.id);
+            if (!hasSelection(g_state)) {
+                g_state = select(std::move(g_state), g_hover);
+                refreshImmediate(wnd);
+            }
+            if (DragDetect(wnd, clientToScreen(wnd, {x, y}))) {
+                if (hasSelection(g_state) && (tools[g_tool].flags & TOOLF_TFORM))
+                    pushUndo();
+                lockMouse(wnd, {x, y}, MOUSE_ADJUST);
+                g_moveAccum = {};
+            } else {
+                if (!(GetKeyState(VK_SHIFT) < 0))
+                    g_state = clearSelection(std::move(g_state));
+                g_state = select(std::move(g_state), g_hover);
+            }
         }
+    } catch (winged_error err) {
+        showError(wnd, err);
     }
     updateStatus(wnd);
     refresh(wnd);
@@ -598,16 +651,44 @@ static void toolAdjust(HWND, SIZE delta, UINT) {
 
 static void onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
     if (g_mouseMode == MOUSE_NONE) {
-        bool elementSel = g_state.selMode == SEL_ELEMENTS;
-        auto result = pickElement(g_state.surf, elementSel ? Surface::ALL : Surface::FACE,
-            {x, y}, g_windowDim, g_projMat * g_mvMat,
-            (g_state.gridOn && g_tool == TOOL_KNIFE && elementSel) ? g_state.gridSize : 0);
+        glm::vec2 normCur = screenPosToNDC({x, y}, g_windowDim);
+        glm::mat4 project = g_projMat * g_mvMat;
+        float grid = g_state.gridOn ? g_state.gridSize : 0;
+        PickResult result = {};
+
+        if (g_tool == TOOL_POLY) {
+            if (!g_drawVerts.empty() &&
+                    pickVert(g_drawVerts[0], normCur, g_windowDim, project, NULL)) {
+                result.type = PICK_DRAWVERT;
+                result.val = 0;
+                result.point = g_drawVerts[0];
+            } else {
+                Ray ray = viewPosToRay(normCur, project);
+                float t;
+                if (glm::intersectRayPlane(ray.org, ray.dir, g_workPlanePt, g_workPlaneNorm,
+                        /*out*/t)) {
+                    result.point = snapPlanePoint(ray.org + t * ray.dir,
+                        g_workPlanePt, g_workPlaneNorm, grid);
+                    if (!g_drawVerts.empty() && result.point == g_drawVerts[0]) {
+                        result.type = PICK_DRAWVERT;
+                        result.val = 0;
+                    } else {
+                        result.type = PICK_WORKPLANE;
+                    }
+                }
+            }
+        } else {
+            PickType type = (g_state.selMode == SEL_ELEMENTS) ? PICK_ELEMENT : PICK_FACE;
+            result = pickElement(g_state.surf, type, normCur, g_windowDim, project,
+                (g_tool == TOOL_KNIFE) ? grid : 0);
+        }
+
         if (result.id != g_hover.id || result.point != g_hover.point) {
             g_hover = result;
-            if (result.type == Surface::FACE)
+            if (result.type == PICK_FACE)
                 g_hoverFace = g_hover.face;
             refresh(wnd);
-            if (g_tool == TOOL_KNIFE)
+            if (tools[g_tool].flags & TOOLF_DRAW)
                 updateStatus(wnd);
         }
         return;
@@ -726,22 +807,24 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 break;
             /* Tool */
             case IDM_TOOL_SELECT:
-                g_tool = TOOL_SELECT;
+                setTool(TOOL_SELECT);
                 break;
             case IDM_TOOL_SCALE:
-                g_tool = TOOL_SCALE;
+                setTool(TOOL_SCALE);
+                break;
+            case IDM_TOOL_POLY:
+                setTool(TOOL_POLY);
                 break;
             case IDM_TOOL_KNIFE:
-                g_tool = TOOL_KNIFE;
-                g_knifeVerts.clear();
+                setTool(TOOL_KNIFE);
                 break;
             case IDM_TOOL_JOIN:
-                g_tool = TOOL_JOIN;
+                setTool(TOOL_JOIN);
                 break;
             /* Select */
             case IDM_CLEAR_SELECT:
                 g_state = clearSelection(std::move(g_state));
-                g_knifeVerts.clear();
+                g_drawVerts.clear();
                 break;
             case IDM_SEL_ELEMENTS:
                 setSelMode(SEL_ELEMENTS);
@@ -750,7 +833,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 if (g_state.selMode != SEL_SOLIDS) {
                     g_state = clearSelection(std::move(g_state));
                     g_hoverFace = {};
-                    g_hover.type = Surface::NONE;
+                    g_hover.type = PICK_NONE;
                 }
                 setSelMode(SEL_SOLIDS);
                 break;
@@ -775,7 +858,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                     g_state = g_undoStack.top();
                     g_undoStack.pop();
                 }
-                g_knifeVerts.clear();
+                g_drawVerts.clear();
                 break;
             case IDM_REDO:
                 if (!g_redoStack.empty()) {
@@ -783,7 +866,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                     g_state = g_redoStack.top();
                     g_redoStack.pop();
                 }
-                g_knifeVerts.clear();
+                g_drawVerts.clear();
                 break;
             case IDM_TOGGLE_GRID:
                 g_state.gridOn ^= true;
@@ -794,9 +877,9 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
             case IDM_GRID_HALF:
                 g_state.gridSize /= 2;
                 break;
-            case IDM_KNIFE_BKSP:
-                if (!g_knifeVerts.empty())
-                    g_knifeVerts.pop_back();
+            case IDM_DRAW_BKSP:
+                if (!g_drawVerts.empty())
+                    g_drawVerts.pop_back();
                 break;
             /* undoable operations... */
             case IDM_ERASE:
@@ -865,7 +948,7 @@ static void onInitMenu(HWND, HMENU menu) {
     CheckMenuRadioItem(toolMenu.hSubMenu, 0, NUM_TOOLS - 1, g_tool, MF_BYPOSITION);
     for (int i = 0; i < NUM_TOOLS; i++) {
         EnableMenuItem(toolMenu.hSubMenu, GetMenuItemID(toolMenu.hSubMenu, i),
-            (tools[i].allowedSelModes & (1 << g_state.selMode)) ? MF_ENABLED : MF_GRAYED);
+            (tools[i].flags & (1 << g_state.selMode)) ? MF_ENABLED : MF_GRAYED);
     }
 }
 
@@ -948,31 +1031,36 @@ static void drawState(const EditorState &state) {
             }
             glVertex3fv(glm::value_ptr(pair.second.pos));
         }
-        if (g_tool == TOOL_KNIFE) {
-            glColor3f(1, 1, 1);
-            if (state.selVerts.size() == 1) {
-                for (auto &v : g_knifeVerts)
-                    glVertex3fv(glm::value_ptr(v));
+        if (tools[g_tool].flags & TOOLF_DRAW) {
+            if (numDrawPoints() > 0) {
+                for (int i = 0; i < g_drawVerts.size(); i++) {
+                    if (g_hover.type == PICK_DRAWVERT && g_hover.val == i)
+                        glColor3f(0, 1, 0);
+                    else
+                        glColor3f(1, 1, 1);
+                    glVertex3fv(glm::value_ptr(g_drawVerts[i]));
+                }
             }
-            if (g_hover.type && g_hover.type != Surface::VERT)
+            glColor3f(1, 1, 1);
+            if (g_hover.type && g_hover.type != PICK_VERT && g_hover.type != PICK_DRAWVERT)
                 glVertex3fv(glm::value_ptr(g_hover.point));
         }
         glEnd();
-        if (auto hoverVert = g_hover.vert.find(state.surf)) {
+        if (g_hover.type == PICK_DRAWVERT || g_hover.vert.find(state.surf)) {
             glPointSize(11);
             glColor3f(1, 1, 1);
             glBegin(GL_POINTS);
-            glVertex3fv(glm::value_ptr(hoverVert->pos));
+            glVertex3fv(glm::value_ptr(g_hover.point));
             glEnd();
         }
 
-        if (g_tool == TOOL_KNIFE && state.selVerts.size() == 1
-                && (g_hover.type || !g_knifeVerts.empty())) {
+        if (numDrawPoints() + (g_hover.type ? 1 : 0) >= 2) {
             glColor3f(1, 1, 1);
             glLineWidth(1);
             glBegin(GL_LINE_STRIP);
-            glVertex3fv(glm::value_ptr(state.selVerts.begin()->in(state.surf).pos));
-            for (auto &v : g_knifeVerts)
+            if (g_tool == TOOL_KNIFE)
+                glVertex3fv(glm::value_ptr(state.selVerts.begin()->in(state.surf).pos));
+            for (auto &v : g_drawVerts)
                 glVertex3fv(glm::value_ptr(v));
             if (g_hover.type)
                 glVertex3fv(glm::value_ptr(g_hover.point));
@@ -987,7 +1075,7 @@ static void drawState(const EditorState &state) {
             else
                 glColor3f(0, 0.5, 1);
         } else if (g_hover.type && pair.first == g_hoverFace
-                && (g_hover.type == Surface::FACE || g_tool == TOOL_KNIFE || g_tool == TOOL_JOIN)) {
+                && (g_hover.type == PICK_FACE || (tools[g_tool].flags & TOOLF_HOVFACE))) {
             glColor3f(0.25, 0.25, 1);
         } else {
             glColor3f(0, 0, 1);
