@@ -788,6 +788,15 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
     try {
         switch (id) {
             /* File */
+            case IDM_NEW:
+                if (MessageBox(wnd, L"Are you sure?", L"New File", MB_YESNO) == IDYES) {
+                    g_state = {};
+                    g_view = {};
+                    g_undoStack = {};
+                    g_redoStack = {};
+                    g_fileName[0] = 0;
+                }
+                break;
             case IDM_OPEN: {
                 TCHAR fileName[MAX_PATH];
                 fileName[0] = 0;
