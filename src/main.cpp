@@ -73,7 +73,7 @@ const GLfloat
     WIDTH_AXIS          = 1;
 
 #define COLOR_CLEAR         0x##262626
-#define COLOR_VERT          0x##009eaf
+#define COLOR_VERT          0x##90ffed
 #define COLOR_VERT_HOVER    0x##FFFFFF
 #define COLOR_VERT_SEL      0x##ff4d00
 #define COLOR_VERT_FLASH    0x##00ff00
