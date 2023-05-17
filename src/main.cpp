@@ -1110,13 +1110,15 @@ static void drawState(const EditorState &state) {
 
     if ((tools[g_tool].flags & TOOLF_DRAW)
             && (g_state.gridOn || !(tools[g_tool].flags & TOOLF_HOVFACE))) {
+        // TODO duplicate logic in snapPlanePoint
         const glm::vec3 norm = g_state.workPlaneNorm, pt = g_state.workPlanePt;
         int axis = maxAxis(glm::abs(norm));
+        int u = (axis + 1) % 3, v = (axis + 2) % 3;
         glm::vec3 uVec = {}, vVec = {};
-        uVec[(axis + 1) % 3] = g_state.gridSize;
-        vVec[(axis + 2) % 3] = g_state.gridSize;
-        uVec -= norm * glm::dot(uVec, norm) / glm::dot(norm, norm); // project on plane
-        vVec -= norm * glm::dot(vVec, norm) / glm::dot(norm, norm);
+        uVec[u] = g_state.gridSize; vVec[v] = g_state.gridSize;
+        glm::vec3 uDiff = uVec - pt, vDiff = vVec - pt;
+        uVec[axis] = pt[axis] - (norm[u] * uDiff[u] + norm[v] * uDiff[v]) / norm[axis];
+        vVec[axis] = pt[axis] - (norm[u] * vDiff[u] + norm[v] * vDiff[v]) / norm[axis];
         glLineWidth(1);
         glColor3f(0.2f, 0.2f, 0.2f);
         glBegin(GL_LINES);
