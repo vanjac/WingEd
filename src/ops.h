@@ -39,6 +39,4 @@ Surface flipNormals(Surface surf,
 
 void validateSurface(const Surface &surf); // slow!
 
-Surface makeCube();
-
 } // namespace

@@ -415,9 +415,6 @@ static BOOL onCreate(HWND wnd, LPCREATESTRUCT) {
     // gluTessCallback(g_tess, GLU_TESS_COMBINE, (GLvoid (*) ())tessCombineCallback);
     // gluTessCallback(g_tess, GLU_TESS_EDGE_FLAG, (GLvoid (*) ())glEdgeFlag);
 
-    g_state.surf = makeCube();
-    validateSurface(g_state.surf);
-
     updateStatus(wnd);
     return true;
 }
@@ -990,6 +987,17 @@ static void drawEdge(const Surface &surf, const HEdge &edge) {
 }
 
 static void drawState(const EditorState &state) {
+    // axes
+    glLineWidth(3);
+    glBegin(GL_LINES);
+    glColor3f(1, 0, 0);
+    glVertex3f(0, 0, 0); glVertex3f(8, 0, 0);
+    glColor3f(0, 1, 0);
+    glVertex3f(0, 0, 0); glVertex3f(0, 8, 0);
+    glColor3f(0, 0, 1);
+    glVertex3f(0, 0, 0); glVertex3f(0, 0, 8);
+    glEnd();
+
     glLineWidth(1);
     glColor3f(1, 1, 1);
     glBegin(GL_LINES);

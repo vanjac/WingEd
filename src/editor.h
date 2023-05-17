@@ -2,6 +2,7 @@
 #include "common.h"
 
 #include <immer/set.hpp>
+#include <glm/trigonometric.hpp>
 #include "surface.h"
 
 namespace winged {
@@ -21,14 +22,14 @@ struct EditorState {
         SelectMode selMode = SEL_ELEMENTS;
     };
     bool gridOn = true;
-    float gridSize = 0.25f;
+    float gridSize = 1;
 };
 
 // saved in file but not undo stack
 struct ViewState {
     glm::vec3 camPivot = {};
-    float rotX = 0, rotY = 0;
-    float zoom = 4;
+    float rotX = glm::radians(30.0f), rotY = glm::radians(-45.0f);
+    float zoom = 16;
     bool flyCam = false;
 };
 
