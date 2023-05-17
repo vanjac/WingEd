@@ -622,7 +622,7 @@ static void toolAdjust(HWND, SIZE delta, UINT) {
                 if (g_state.selFaces.size() == 1) { // TODO: move along each face's normal?
                     down = faceNormal(g_state.surf, g_state.selFaces.begin()->in(g_state.surf));
                     if (g_state.gridOn)
-                        down /= down[maxAxis(down)]; // scale to cartesian grid
+                        down /= down[maxAxis(glm::abs(down))]; // scale to cartesian grid
                 }
             } else if (GetKeyState(VK_SHIFT) < 0 && GetKeyState(VK_MENU) < 0)
                 down = snapAxis(invMV[2]);
