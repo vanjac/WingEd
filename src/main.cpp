@@ -161,8 +161,10 @@ static EditorState select(EditorState state, const PickResult pick) {
                 }
                 break;
             case PICK_EDGE:
-                if (state.surf.edges.count(pick.edge))
-                    state.selEdges = std::move(state.selEdges).insert(pick.edge);
+                if (auto edge = pick.edge.find(state.surf)) {
+                    state.selEdges = std::move(state.selEdges).insert(
+                        primaryEdge({pick.edge, *edge}));
+                }
                 break;
         }
     } else if (state.selMode == SEL_SOLIDS) {
@@ -484,6 +486,7 @@ static EditorState join(EditorState state) {
         edge_id e2 = edgeOnHoverFace(state.surf, g_hover.vert).first;
         state.surf = mergeVerts(std::move(state.surf), e1, e2);
     } else if (auto hovEdge = g_hover.edge.find(state.surf)) {
+        // TODO move to ops
         if (state.selEdges.size() != 1) throw winged_error();
         edge_pair edge1 = state.selEdges.begin()->pair(state.surf);
         edge_pair twin1 = edge1.second.twin.pair(state.surf);
