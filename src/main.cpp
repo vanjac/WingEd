@@ -1116,9 +1116,8 @@ static void drawState(const EditorState &state) {
         int u = (axis + 1) % 3, v = (axis + 2) % 3;
         glm::vec3 uVec = {}, vVec = {};
         uVec[u] = g_state.gridSize; vVec[v] = g_state.gridSize;
-        glm::vec3 uDiff = uVec - pt, vDiff = vVec - pt;
-        uVec[axis] = pt[axis] - (norm[u] * uDiff[u] + norm[v] * uDiff[v]) / norm[axis];
-        vVec[axis] = pt[axis] - (norm[u] * vDiff[u] + norm[v] * vDiff[v]) / norm[axis];
+        uVec[axis] = -(norm[u] * uVec[u] + norm[v] * uVec[v]) / norm[axis];
+        vVec[axis] = -(norm[u] * vVec[u] + norm[v] * vVec[v]) / norm[axis];
         glLineWidth(1);
         glColor3f(0.2f, 0.2f, 0.2f);
         glBegin(GL_LINES);
