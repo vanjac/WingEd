@@ -62,26 +62,36 @@ const PickType
     PICK_WORKPLANE = 0x8,
     PICK_DRAWVERT = 0x10;
 
-const uint32_t
-    COLOR_VERT          = 0x00FF00,
-    COLOR_VERT_HOVER    = 0xFFFFFF,
-    COLOR_VERT_SEL      = 0xFF0000,
-    COLOR_VERT_FLASH    = 0xFFCCCC,
-    COLOR_EDGE          = 0xFFFFFF,
-    COLOR_EDGE_HOVER    = 0xFF4C7F,
-    COLOR_EDGE_SEL      = 0xFFFF00,
-    COLOR_EDGE_FLASH    = 0xFF0000,
-    COLOR_FACE          = 0x0000FF,
-    COLOR_FACE_HOVER    = 0x3F3FFF,
-    COLOR_FACE_SEL      = 0x007FFF,
-    COLOR_FACE_FLASH    = 0x00FF7F,
-    COLOR_FACE_ERROR    = 0xFF0000,
-    COLOR_DRAW_POINT    = 0xFFFFFF,
-    COLOR_DRAW_LINE     = 0xFFFFFF,
-    COLOR_GRID          = 0x333333,
-    COLOR_X_AXIS        = 0xFF0000,
-    COLOR_Y_AXIS        = 0x00FF00,
-    COLOR_Z_AXIS        = 0x0000FF;
+const GLfloat
+    SIZE_VERT           = 7,
+    SIZE_VERT_HOVER     = 11,
+    WIDTH_EDGE          = 1,
+    WIDTH_EDGE_HOVER    = 2,
+    WIDTH_EDGE_SEL      = 3,
+    WIDTH_DRAW          = 2,
+    WIDTH_GRID          = 1,
+    WIDTH_AXIS          = 1;
+
+#define COLOR_CLEAR         0x##262626
+#define COLOR_VERT          0x##009eaf
+#define COLOR_VERT_HOVER    0x##FFFFFF
+#define COLOR_VERT_SEL      0x##ff4d00
+#define COLOR_VERT_FLASH    0x##00ff00
+#define COLOR_EDGE          0x##FFFFFF
+#define COLOR_EDGE_HOVER    0x##b0004c
+#define COLOR_EDGE_SEL      0x##FF4C7F
+#define COLOR_EDGE_FLASH    0x##fffa6b
+#define COLOR_FACE          0x##6200cb
+#define COLOR_FACE_HOVER    0x##603be5
+#define COLOR_FACE_SEL      0x##a200ff
+#define COLOR_FACE_FLASH    0x##ff00ff
+#define COLOR_FACE_ERROR    0x##FF0000
+#define COLOR_DRAW_POINT    0x##FFFFFF
+#define COLOR_DRAW_LINE     0x##FFFFFF
+#define COLOR_GRID          0x##333333
+#define COLOR_X_AXIS        0x##FF0000
+#define COLOR_Y_AXIS        0x##00FF00
+#define COLOR_Z_AXIS        0x##0000FF
 
 
 static EditorState g_state;
@@ -427,7 +437,10 @@ static BOOL onCreate(HWND wnd, LPCREATESTRUCT) {
     if (!CHECKERR(context)) return false;
     CHECKERR(wglMakeCurrent(dc, context));
 
-    glClearColor(.15f, .15f, .15f, 1.0f);
+    glClearColor(
+        ((COLOR_CLEAR >> 16) & 0xFF) / 255.0f,
+        ((COLOR_CLEAR >> 8) & 0xFF) / 255.0f,
+        (COLOR_CLEAR & 0xFF) / 255.0f, 1.0f);
     glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_POLYGON_OFFSET_FILL);
@@ -584,6 +597,7 @@ static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
             }
         } else if (g_tool == TOOL_JOIN && hasSelection(g_state) && g_hover.type) {
             pushUndo(join(g_state));
+            g_hover = {};
             flashSel(wnd);
             if (!(GetKeyState(VK_SHIFT) < 0))
                 g_tool = TOOL_SELECT;
@@ -1046,7 +1060,7 @@ static void drawEdge(const Surface &surf, const HEdge &edge) {
 }
 
 static void drawState(const EditorState &state) {
-    glLineWidth(3);
+    glLineWidth(WIDTH_AXIS);
     glBegin(GL_LINES);
     glColorHex(COLOR_X_AXIS);
     glVertex3f(0, 0, 0); glVertex3f(8, 0, 0);
@@ -1056,17 +1070,8 @@ static void drawState(const EditorState &state) {
     glVertex3f(0, 0, 0); glVertex3f(0, 0, 8);
     glEnd();
 
-    glLineWidth(1);
-    glColorHex(COLOR_EDGE);
-    glBegin(GL_LINES);
-    for (auto &pair : state.surf.edges) {
-        if (isPrimary(pair))
-            drawEdge(state.surf, pair.second);
-    }
-    glEnd();
-
     if (g_state.selMode == SEL_ELEMENTS) {
-        glLineWidth(5);
+        glLineWidth(WIDTH_EDGE_SEL);
         glColorHex(g_flashSel ? COLOR_EDGE_FLASH : COLOR_EDGE_SEL);
         glBegin(GL_LINES);
         for (auto e : state.selEdges) {
@@ -1074,14 +1079,14 @@ static void drawState(const EditorState &state) {
         }
         glEnd();
         if (auto hoverEdge = g_hover.edge.find(state.surf)) {
-            glLineWidth(3);
+            glLineWidth(WIDTH_EDGE_HOVER);
             glColorHex(COLOR_EDGE_HOVER);
             glBegin(GL_LINES);
             drawEdge(state.surf, *hoverEdge);
             glEnd();
         }
 
-        glPointSize(7);
+        glPointSize(SIZE_VERT);
         glBegin(GL_POINTS);
         for (auto &pair : state.surf.verts) {
             if (state.selVerts.count(pair.first)) {
@@ -1108,7 +1113,7 @@ static void drawState(const EditorState &state) {
         }
         glEnd();
         if (g_hover.type == PICK_DRAWVERT || g_hover.vert.find(state.surf)) {
-            glPointSize(11);
+            glPointSize(SIZE_VERT_HOVER);
             glColorHex(COLOR_VERT_HOVER);
             glBegin(GL_POINTS);
             glVertex3fv(glm::value_ptr(g_hover.point));
@@ -1116,8 +1121,8 @@ static void drawState(const EditorState &state) {
         }
 
         if (numDrawPoints() + (g_hover.type ? 1 : 0) >= 2) {
+            glLineWidth(WIDTH_DRAW);
             glColorHex(COLOR_DRAW_LINE);
-            glLineWidth(1);
             glBegin(GL_LINE_STRIP);
             if (g_tool == TOOL_KNIFE)
                 glVertex3fv(glm::value_ptr(state.selVerts.begin()->in(state.surf).pos));
@@ -1128,6 +1133,15 @@ static void drawState(const EditorState &state) {
             glEnd();
         }
     }
+
+    glLineWidth(WIDTH_EDGE);
+    glColorHex(COLOR_EDGE);
+    glBegin(GL_LINES);
+    for (auto &pair : state.surf.edges) {
+        if (isPrimary(pair))
+            drawEdge(state.surf, pair.second);
+    }
+    glEnd();
 
     for (auto &pair : state.surf.faces) {
         if (state.selFaces.count(pair.first)) {
@@ -1156,7 +1170,7 @@ static void drawState(const EditorState &state) {
         vVec[axis] = -(norm[u] * vVec[u] + norm[v] * vVec[v]) / norm[axis];
         // snap origin to grid
         pt -= uVec * glm::fract(pt[u]) + vVec * glm::fract(pt[v]);
-        glLineWidth(1);
+        glLineWidth(WIDTH_GRID);
         glColorHex(COLOR_GRID);
         glBegin(GL_LINES);
         for (int i = -128; i <= 128; i++) {
