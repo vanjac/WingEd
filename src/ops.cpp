@@ -23,6 +23,22 @@ static void eraseAll(immer::map<K, V> *map, std::initializer_list<K> keys) {
 }
 
 
+static std::vector<edge_pair> makeEdgePairs(size_t count) {
+    std::vector<edge_pair> edges;
+    edges.reserve(count);
+    for (int i = 0; i < count; i++)
+        edges.push_back(makeEdgePair());
+    return edges;
+}
+
+static std::vector<vert_pair> makeVertPairs(size_t count) {
+    std::vector<vert_pair> verts;
+    verts.reserve(count);
+    for (int i = 0; i < count; i++)
+        verts.push_back(makeVertPair());
+    return verts;
+}
+
 static void linkTwins(edge_pair *p1, edge_pair *p2) {
     p1->second.twin = p2->first;
     p2->second.twin = p1->first;
@@ -475,55 +491,44 @@ Surface splitEdgeLoop(Surface surf, const std::vector<edge_id> &loop) {
     face_pair newFace1 = makeFacePair();
     face_pair newFace2 = makeFacePair();
 
-    edge_pair firstNewEdge1 = {}, firstNewEdge2 = {};
-    edge_pair lastNewEdge1 = {}, lastNewEdge2 = {};
-    std::vector<vert_pair> newVerts;
-    newVerts.reserve(loop.size());
-    for (auto &e : loop) {
-        edge_pair edge = e.pair(surf);
+    size_t size = loop.size();
+    std::vector<edge_pair> newEdges1 = makeEdgePairs(size);
+    std::vector<edge_pair> newEdges2 = makeEdgePairs(size);
+    std::vector<vert_pair> newVerts = makeVertPairs(size);
+    for (size_t i = 0, j = size - 1; i < size; j = i++) {
+        edge_pair edge = loop[i].pair(surf);
         edge_pair twin = edge.second.twin.pair(surf);
-        edge_pair newEdge1 = makeEdgePair();
-        edge_pair newEdge2 = makeEdgePair();
+        edge_pair *newEdge1 = &newEdges1[i];
+        edge_pair *newEdge2 = &newEdges2[i];
+        edge_pair *lastNewEdge1 = &newEdges1[j];
+        edge_pair *lastNewEdge2 = &newEdges2[j];
         vert_pair vert = edge.second.vert.pair(surf);
-        vert_pair newVert = makeVertPair();
+        vert_pair *newVert = &newVerts[i];
 
-        linkTwins(&edge, &newEdge1);
-        linkTwins(&twin, &newEdge2);
-        newEdge1.second.face = newFace1.first;
-        newEdge2.second.face = newFace2.first;
-        linkVert(&newEdge2, &vert);
-        newVert.second = vert.second; // copy pos
-        linkVert(&edge, &newVert);
+        linkTwins(&edge, newEdge1);
+        linkTwins(&twin, newEdge2);
+        linkNext(newEdge1, lastNewEdge1);
+        linkNext(lastNewEdge2, newEdge2);
+        newEdge1->second.face = newFace1.first;
+        newEdge2->second.face = newFace2.first;
+        newVert->second = vert.second; // copy pos
+        linkVert(lastNewEdge1, newVert);
+        linkVert(newEdge2, &vert);
+        linkVert(&edge, newVert);
 
-        if (lastNewEdge1.first != edge_id{}) {
-            linkNext(&newEdge1, &lastNewEdge1);
-            linkNext(&lastNewEdge2, &newEdge2);
-            linkVert(&lastNewEdge1, &newVert);
-            if (firstNewEdge1.first == edge_id{}) {
-                firstNewEdge1 = lastNewEdge1;
-                firstNewEdge2 = lastNewEdge2;
-            } else {
-                insertAll(&surf.edges, {lastNewEdge1, lastNewEdge2});
-            }
-        }
-        lastNewEdge1 = newEdge1;
-        lastNewEdge2 = newEdge2;
-        newVerts.push_back(newVert);
         insertAll(&surf.edges, {edge, twin});
         insertAll(&surf.verts, {vert});
     }
 
-    linkNext(&firstNewEdge1, &lastNewEdge1);
-    linkNext(&lastNewEdge2, &firstNewEdge2);
-    linkVert(&lastNewEdge1, &newVerts[0]);
-    newFace1.second.edge = firstNewEdge1.first;
-    newFace2.second.edge = firstNewEdge2.first;
-    insertAll(&surf.edges, {firstNewEdge1, firstNewEdge2, lastNewEdge1, lastNewEdge2});
+    newFace1.second.edge = newEdges1[0].first;
+    newFace2.second.edge = newEdges2[0].first;
     insertAll(&surf.faces, {newFace1, newFace2});
-
-    for (auto &newVert : newVerts) {
-        surf = assignVertEdges(std::move(surf), newVert.second, newVert.first);
-        insertAll(&surf.verts, {newVert});
+    for (int i = 0; i < size; i++)
+        insertAll(&surf.edges, {newEdges1[i], newEdges2[i]});
+    for (int i = 0; i < size; i++) {
+        vert_pair *newVert = &newVerts[i];
+        surf = assignVertEdges(std::move(surf), newVert->second, newVert->first);
+        insertAll(&surf.verts, {*newVert});
     }
     return surf;
 }

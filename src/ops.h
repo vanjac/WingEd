@@ -24,7 +24,9 @@ Surface splitFace(Surface surf, edge_id e1, edge_id e2,
 Surface mergeFaces(Surface surf, edge_id e);
 // Creates new quad faces for each side of the given face
 Surface extrudeFace(Surface surf, face_id f);
+// Create a pair of opposing faces from the edge loop
 Surface splitEdgeLoop(Surface surf, const std::vector<edge_id> &loop);
+// Join two faces into a single edge loop
 Surface joinEdgeLoops(Surface surf, edge_id e1, edge_id e2);
 
 Surface moveVertex(Surface surf, vert_id v, glm::vec3 amount);
