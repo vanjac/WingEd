@@ -1108,7 +1108,8 @@ static void drawState(const EditorState &state) {
         drawFace(state.surf, pair.second);
     }
 
-    if (tools[g_tool].flags & TOOLF_DRAW) {
+    if ((tools[g_tool].flags & TOOLF_DRAW)
+            && (g_state.gridOn || !(tools[g_tool].flags & TOOLF_HOVFACE))) {
         const glm::vec3 norm = g_state.workPlaneNorm, pt = g_state.workPlanePt;
         int axis = maxAxis(glm::abs(norm));
         glm::vec3 uVec = {}, vVec = {};
