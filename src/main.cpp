@@ -569,10 +569,19 @@ static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
                 refreshImmediate(wnd);
             }
             if (DragDetect(wnd, clientToScreen(wnd, {x, y}))) {
-                if (hasSelection(g_state) && (tools[g_tool].flags & TOOLF_TFORM))
+                if (hasSelection(g_state) && (tools[g_tool].flags & TOOLF_TFORM)) {
                     pushUndo();
+                    if (g_tool == TOOL_SELECT) {
+                        glm::vec3 forward = glm::inverse(g_mvMat)[2];
+                        g_state.workPlaneNorm = {};
+                        g_state.workPlaneNorm[maxAxis(glm::abs(forward))] = 1;
+                        g_state.workPlanePt =
+                            selAttachedVerts(g_state).begin()->in(g_state.surf).pos;
+                    }
+                }
                 lockMouse(wnd, {x, y}, MOUSE_ADJUST);
                 g_moveAccum = {};
+                g_hover = {};
             } else {
                 if (!(GetKeyState(VK_SHIFT) < 0))
                     g_state = clearSelection(std::move(g_state));
@@ -594,11 +603,12 @@ static void onMButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
     lockMouse(wnd, {x, y}, MOUSE_CAM_PAN);
 }
 
-static void onButtonUp(HWND, int, int, UINT) {
+static void onButtonUp(HWND wnd, int, int, UINT) {
     if (g_mouseMode) {
         g_mouseMode = MOUSE_NONE;
         ReleaseCapture();
         ShowCursor(true);
+        refresh(wnd);
     }
 }
 
@@ -1111,8 +1121,11 @@ static void drawState(const EditorState &state) {
         drawFace(state.surf, pair.second);
     }
 
-    if ((tools[g_tool].flags & TOOLF_DRAW)
-            && (g_state.gridOn || !(tools[g_tool].flags & TOOLF_HOVFACE))) {
+    bool drawGrid = (tools[g_tool].flags & TOOLF_DRAW)
+        && ((g_state.gridOn && g_hover.type) || !(tools[g_tool].flags & TOOLF_HOVFACE));
+    bool adjustGrid = g_tool == TOOL_SELECT && g_mouseMode == MOUSE_ADJUST
+        && GetKeyState(VK_CONTROL) >= 0 && !(GetKeyState(VK_SHIFT) < 0 && GetKeyState(VK_MENU) < 0);
+    if (drawGrid || adjustGrid) {
         // TODO duplicate logic in snapPlanePoint
         const glm::vec3 norm = g_state.workPlaneNorm, pt = g_state.workPlanePt;
         int axis = maxAxis(glm::abs(norm));
