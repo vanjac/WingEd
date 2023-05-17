@@ -119,8 +119,6 @@ static void pushUndo(EditorState newState) {
     validateSurface(newState.surf);
     pushUndo();
     g_state = cleanSelection(newState);
-    if (g_state.selFaces.size() == 1)
-        setWorkPlane(&g_state, g_state.selFaces.begin()->in(g_state.surf));
 }
 
 static bool hasSelection(EditorState state) {
@@ -649,8 +647,6 @@ static void toolAdjust(HWND, SIZE delta, UINT) {
             break;
         }
     }
-    if (g_state.selFaces.size() == 1)
-        setWorkPlane(&g_state, g_state.selFaces.begin()->in(g_state.surf));
 }
 
 static void onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
@@ -689,8 +685,11 @@ static void onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
 
         if (result.id != g_hover.id || result.point != g_hover.point) {
             g_hover = result;
-            if (result.type == PICK_FACE)
+            if (result.type == PICK_FACE) {
                 g_hoverFace = g_hover.face;
+                if ((tools[g_tool].flags & (TOOLF_DRAW | TOOLF_HOVFACE)))
+                    setWorkPlane(&g_state, g_hoverFace.in(g_state.surf));
+            }
             refresh(wnd);
             if (tools[g_tool].flags & TOOLF_DRAW)
                 updateStatus(wnd);
@@ -827,6 +826,8 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 break;
             case IDM_TOOL_POLY:
                 setTool(TOOL_POLY);
+                if (g_state.selFaces.size() == 1)
+                    setWorkPlane(&g_state, g_state.selFaces.begin()->in(g_state.surf));
                 break;
             case IDM_TOOL_KNIFE:
                 setTool(TOOL_KNIFE);
@@ -1105,6 +1106,26 @@ static void drawState(const EditorState &state) {
             glColor3f(0, 0, 1);
         }
         drawFace(state.surf, pair.second);
+    }
+
+    if (tools[g_tool].flags & TOOLF_DRAW) {
+        const glm::vec3 norm = g_state.workPlaneNorm, pt = g_state.workPlanePt;
+        int axis = maxAxis(glm::abs(norm));
+        glm::vec3 uVec = {}, vVec = {};
+        uVec[(axis + 1) % 3] = g_state.gridSize;
+        vVec[(axis + 2) % 3] = g_state.gridSize;
+        uVec -= norm * glm::dot(uVec, norm) / glm::dot(norm, norm); // project on plane
+        vVec -= norm * glm::dot(vVec, norm) / glm::dot(norm, norm);
+        glLineWidth(1);
+        glColor3f(0.2f, 0.2f, 0.2f);
+        glBegin(GL_LINES);
+        for (int i = -100; i <= 100; i++) {
+            glVertex3fv(glm::value_ptr(pt - vVec * 100.0f + uVec * (float)i));
+            glVertex3fv(glm::value_ptr(pt + vVec * 100.0f + uVec * (float)i));
+            glVertex3fv(glm::value_ptr(pt - uVec * 100.0f + vVec * (float)i));
+            glVertex3fv(glm::value_ptr(pt + uVec * 100.0f + vVec * (float)i));
+        }
+        glEnd();
     }
 }
 
