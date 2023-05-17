@@ -1131,21 +1131,23 @@ static void drawState(const EditorState &state) {
         && GetKeyState(VK_CONTROL) >= 0 && !(GetKeyState(VK_SHIFT) < 0 && GetKeyState(VK_MENU) < 0);
     if (drawGrid || adjustGrid) {
         // TODO duplicate logic in snapPlanePoint
-        const glm::vec3 norm = g_state.workPlaneNorm, pt = g_state.workPlanePt;
+        glm::vec3 norm = g_state.workPlaneNorm, pt = g_state.workPlanePt;
         int axis = maxAxis(glm::abs(norm));
         int u = (axis + 1) % 3, v = (axis + 2) % 3;
         glm::vec3 uVec = {}, vVec = {};
         uVec[u] = g_state.gridSize; vVec[v] = g_state.gridSize;
         uVec[axis] = -(norm[u] * uVec[u] + norm[v] * uVec[v]) / norm[axis];
         vVec[axis] = -(norm[u] * vVec[u] + norm[v] * vVec[v]) / norm[axis];
+        // snap origin to grid
+        pt -= uVec * glm::fract(pt[u]) + vVec * glm::fract(pt[v]);
         glLineWidth(1);
         glColor3f(0.2f, 0.2f, 0.2f);
         glBegin(GL_LINES);
-        for (int i = -100; i <= 100; i++) {
-            glVertex3fv(glm::value_ptr(pt - vVec * 100.0f + uVec * (float)i));
-            glVertex3fv(glm::value_ptr(pt + vVec * 100.0f + uVec * (float)i));
-            glVertex3fv(glm::value_ptr(pt - uVec * 100.0f + vVec * (float)i));
-            glVertex3fv(glm::value_ptr(pt + uVec * 100.0f + vVec * (float)i));
+        for (int i = -128; i <= 128; i++) {
+            glVertex3fv(glm::value_ptr(pt - vVec * 128.0f + uVec * (float)i));
+            glVertex3fv(glm::value_ptr(pt + vVec * 128.0f + uVec * (float)i));
+            glVertex3fv(glm::value_ptr(pt - uVec * 128.0f + vVec * (float)i));
+            glVertex3fv(glm::value_ptr(pt + uVec * 128.0f + vVec * (float)i));
         }
         glEnd();
     }
