@@ -685,7 +685,8 @@ static void onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
                 (g_tool == TOOL_KNIFE) ? grid : 0);
         }
 
-        if (result.id != g_hover.id || result.point != g_hover.point) {
+        if (result.id != g_hover.id || result.point != g_hover.point
+                || result.type != g_hover.type) {
             g_hover = result;
             if (result.type == PICK_FACE) {
                 g_hoverFace = g_hover.face;
