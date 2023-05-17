@@ -34,6 +34,7 @@ Surface makePolygonPlane(Surface surf, const std::vector<glm::vec3> points, face
 Surface moveVertex(Surface surf, vert_id v, glm::vec3 amount);
 Surface scaleVertex(Surface surf, vert_id v, glm::vec3 center, glm::vec3 factor);
 
+Surface flipAllNormals(Surface surf);
 Surface flipNormals(Surface surf,
     const immer::set<edge_id> &edges, const immer::set<vert_id> &verts);
 

@@ -619,23 +619,36 @@ Surface scaleVertex(Surface surf, vert_id v, glm::vec3 center, glm::vec3 factor)
     return surf;
 }
 
+Surface flipAllNormals(Surface surf) {
+    Surface newSurf = surf;
+    for (auto edge : surf.edges) {
+        std::swap(edge.second.prev, edge.second.next);
+        edge.second.vert = edge.second.twin.in(surf).vert;
+        insertAll(&newSurf.edges, {edge});
+    }
+    for (auto vert : surf.verts) {
+        vert.second.edge = vert.second.edge.in(surf).twin;
+        insertAll(&newSurf.verts, {vert});
+    }
+    return newSurf;
+}
+
 Surface flipNormals(Surface surf,
         const immer::set<edge_id> &edges, const immer::set<vert_id> &verts) {
-    Surface newSurf = surf;
     for (auto e : edges) {
         edge_pair edge = e.pair(surf);
         edge_pair twin = edge.second.twin.pair(surf);
         std::swap(edge.second.prev, edge.second.next);
         std::swap(twin.second.prev, twin.second.next);
         std::swap(edge.second.vert, twin.second.vert);
-        insertAll(&newSurf.edges, {edge, twin});
+        insertAll(&surf.edges, {edge, twin});
     }
     for (auto v : verts) {
         vert_pair vert = v.pair(surf);
         vert.second.edge = vert.second.edge.in(surf).twin;
-        insertAll(&newSurf.verts, {vert});
+        insertAll(&surf.verts, {vert});
     }
-    return newSurf;
+    return surf;
 }
 
 

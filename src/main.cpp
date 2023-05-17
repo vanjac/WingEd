@@ -938,7 +938,10 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
             /* solid */
             case IDM_FLIP_NORMALS: {
                 EditorState newState = g_state;
-                newState.surf = flipNormals(g_state.surf, g_state.selEdges, g_state.selVerts);
+                if (g_state.selMode == SEL_SOLIDS && hasSelection(g_state))
+                    newState.surf = flipNormals(g_state.surf, g_state.selEdges, g_state.selVerts);
+                else
+                    newState.surf = flipAllNormals(g_state.surf);
                 pushUndo(std::move(newState));
                 break;
             }
@@ -953,7 +956,6 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
 static void onInitMenu(HWND, HMENU menu) {
     bool hasSel = hasSelection(g_state);
     bool selElem = g_state.selMode == SEL_ELEMENTS;
-    bool selSolid = g_state.selMode == SEL_SOLIDS;
     EnableMenuItem(menu, IDM_CLEAR_SELECT, hasSel ? MF_ENABLED : MF_GRAYED);
     EnableMenuItem(menu, IDM_UNDO, g_undoStack.empty() ? MF_GRAYED : MF_ENABLED);
     EnableMenuItem(menu, IDM_REDO, g_redoStack.empty() ? MF_GRAYED : MF_ENABLED);
@@ -963,7 +965,6 @@ static void onInitMenu(HWND, HMENU menu) {
         MF_ENABLED : MF_GRAYED);
     EnableMenuItem(menu, IDM_SPLIT_LOOP, (!g_state.selEdges.empty() && selElem) ?
         MF_ENABLED : MF_GRAYED);
-    EnableMenuItem(menu, IDM_FLIP_NORMALS, (hasSel && selSolid) ? MF_ENABLED : MF_GRAYED);
     CheckMenuItem(menu, IDM_FLY_CAM, g_view.flyCam ? MF_CHECKED : MF_UNCHECKED);
 
     MENUITEMINFO selMenu = {sizeof(selMenu), MIIM_SUBMENU};
