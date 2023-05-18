@@ -518,16 +518,13 @@ static EditorState join(EditorState state) {
     if (g_hover.vert.find(state.surf) && state.selVerts.size() == 1) {
         edge_id e1 = edgeOnHoverFace(state.surf, *state.selVerts.begin()).first;
         edge_id e2 = edgeOnHoverFace(state.surf, g_hover.vert).first;
-        state.surf = mergeVerts(std::move(state.surf), e1, e2);
+        state.surf = joinVerts(std::move(state.surf), e1, e2);
     } else if (auto hovEdge = g_hover.edge.find(state.surf)) {
-        // TODO move to ops
         if (state.selEdges.size() != 1) throw winged_error();
         edge_pair edge1 = state.selEdges.begin()->pair(state.surf);
         edge_pair twin1 = edge1.second.twin.pair(state.surf);
         edge_pair edge2 = {g_hover.edge, *hovEdge};
         edge_pair twin2 = edge2.second.twin.pair(state.surf);
-        if (edge1.first == edge2.first)
-            throw winged_error();
         if (edge1.second.face == edge2.second.face) {} // do nothing
         else if (edge1.second.face == twin2.second.face) {
             std::swap(edge2, twin2);
@@ -535,14 +532,8 @@ static EditorState join(EditorState state) {
             std::swap(edge1, twin1);
         } else if (twin1.second.face == twin2.second.face) {
             std::swap(edge1, twin1); std::swap(edge2, twin2);
-        } else {
-            throw winged_error(); // edges don't share a face
         }
-
-        if (edge2.second.next != edge1.first)
-            state.surf = mergeVerts(std::move(state.surf), edge1.first, edge2.second.next);
-        if (edge1.second.next != edge2.first)
-            state.surf = mergeVerts(std::move(state.surf), edge1.second.next, edge2.first);
+        state.surf = joinEdges(state.surf, edge1.first, edge2.first);
     } else if (auto face2 = g_hover.face.find(state.surf)) {
         if (state.selFaces.size() != 1) throw winged_error();
         Face face1 = state.selFaces.begin()->in(state.surf);
@@ -584,7 +575,6 @@ static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
             if (g_hover.type == PICK_WORKPLANE) {
                 g_drawVerts.push_back(g_hover.point);
             } else if (g_hover.type == PICK_DRAWVERT && g_hover.val == 0) {
-                if (g_drawVerts.size() < 3) throw winged_error();
                 EditorState newState = clearSelection(g_state);
                 face_id newFace;
                 newState.surf = makePolygonPlane(g_state.surf, g_drawVerts, &newFace);
@@ -810,8 +800,7 @@ static EditorState erase(EditorState state) {
                 const HEdge &twin = edge.twin.in(newState.surf);
                 const HEdge &twinNext = twin.next.in(newState.surf);
                 if (twinNext.twin.in(newState.surf).next == vert->edge) {
-                    newState.surf = mergeVerts(std::move(newState.surf),
-                        edge.prev, vert->edge);
+                    newState.surf = joinVerts(std::move(newState.surf), edge.prev, vert->edge);
                     anyDeleted = true;
                 }
             }

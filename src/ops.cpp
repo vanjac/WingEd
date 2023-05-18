@@ -121,7 +121,7 @@ Surface splitEdge(Surface surf, edge_id e, glm::vec3 pos) {
     return surf;
 }
 
-// helper for mergeVerts
+// helper for joinVerts
 static Surface joinFaceEdges(Surface surf, edge_pair prev, edge_pair edge, bool *collapsedFace) {
     // AFTER:    X prevVert
     //           ╮
@@ -155,8 +155,8 @@ static Surface joinFaceEdges(Surface surf, edge_pair prev, edge_pair edge, bool 
     return surf;
 }
 
-// helper for mergeVerts
-static Surface mergeVertsSharedEdge(Surface surf, edge_pair edge, edge_pair next) {
+// helper for joinVerts
+static Surface joinVertsSharedEdge(Surface surf, edge_pair edge, edge_pair next) {
     // BEFORE:   ╮
     //           │prev
     //       vert╰  edge     next
@@ -184,7 +184,7 @@ static Surface mergeVertsSharedEdge(Surface surf, edge_pair edge, edge_pair next
     return surf;
 }
 
-Surface mergeVerts(Surface surf, edge_id e1, edge_id e2) {
+Surface joinVerts(Surface surf, edge_id e1, edge_id e2) {
     // BEFORE:   ╮
     //           │prev1
     //   keepVert╰          edge2 
@@ -221,7 +221,7 @@ Surface mergeVerts(Surface surf, edge_id e1, edge_id e2) {
     //      prev2│
     // newFace   ╰
     if (sharedEdge.first != edge_id{}) {
-        surf = mergeVertsSharedEdge(std::move(surf), sharedEdge, sharedEdgeNext);
+        surf = joinVertsSharedEdge(std::move(surf), sharedEdge, sharedEdgeNext);
     } else {
         edge_pair prev1 = edge1.second.prev.pair(surf);
         edge_pair prev2 = edge2.second.prev.pair(surf);
@@ -240,6 +240,21 @@ Surface mergeVerts(Surface surf, edge_id e1, edge_id e2) {
         }
     }
 
+    return surf;
+}
+
+Surface joinEdges(Surface surf, edge_id e1, edge_id e2) {
+    edge_pair edge1 = e1.pair(surf);
+    edge_pair edge2 = e2.pair(surf);
+    if (edge1.first == edge2.first)
+        throw winged_error();
+    if (edge1.second.face != edge2.second.face)
+        throw winged_error(L"Edges must share a common face!");
+
+    if (edge2.second.next != edge1.first)
+        surf = joinVerts(std::move(surf), edge1.first, edge2.second.next);
+    if (edge1.second.next != edge2.first)
+        surf = joinVerts(std::move(surf), edge1.second.next, edge2.first);
     return surf;
 }
 
@@ -570,6 +585,8 @@ Surface joinEdgeLoops(Surface surf, edge_id e1, edge_id e2) {
 
 Surface makePolygonPlane(Surface surf, const std::vector<glm::vec3> points, face_id *newFace) {
     size_t size = points.size();
+    if (size < 3)
+        throw winged_error();
     std::vector<edge_pair> edges1 = makeEdgePairs(size);
     std::vector<edge_pair> edges2 = makeEdgePairs(size);
     std::vector<vert_pair> verts = makeVertPairs(size);

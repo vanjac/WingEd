@@ -16,7 +16,9 @@ uint32_t name(std::pair<T, V> pair) {
 // Create a new vertex/edge in the middle of the given edge
 Surface splitEdge(Surface surf, edge_id e, glm::vec3 pos);
 // Join two vertices on the same face
-Surface mergeVerts(Surface surf, edge_id e1, edge_id e2);
+Surface joinVerts(Surface surf, edge_id e1, edge_id e2);
+// Join two edges on the same face
+Surface joinEdges(Surface surf, edge_id e1, edge_id e2);
 // Create a new edge between two vertices on the same face
 Surface splitFace(Surface surf, edge_id e1, edge_id e2,
     const std::vector<glm::vec3> points, edge_id *splitEdge);
