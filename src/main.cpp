@@ -857,6 +857,14 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 else
                     writeFile(g_fileName, g_state, g_view);
                 break;
+            case IDM_EXPORT_OBJ: {
+                TCHAR fileName[MAX_PATH];
+                fileName[0] = 0;
+                const TCHAR filters[] = L"OBJ file (.obj)\0*.obj\0All Files\0*.*\0\0";
+                if (GetSaveFileName(tempPtr(makeOpenFileName(fileName, wnd, filters, L"obj"))))
+                    writeObj(fileName, g_state.surf);
+                break;
+            }
             /* Tool */
             case IDM_TOOL_SELECT:
                 setTool(TOOL_SELECT);

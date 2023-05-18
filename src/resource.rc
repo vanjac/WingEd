@@ -26,6 +26,7 @@ WINGED MENUEX
         MENUITEM "&Open\tCtrl+O", IDM_OPEN
         MENUITEM "&Save\tCtrl+S", IDM_SAVE
         MENUITEM "Save &as...\tCtrl+Shift+S", IDM_SAVE_AS
+        MENUITEM "&Export OBJ", IDM_EXPORT_OBJ
     }
     POPUP "&Select", IDM_SEL_MENU
     {

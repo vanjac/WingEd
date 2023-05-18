@@ -1,4 +1,5 @@
 #include "file.h"
+#include <unordered_map>
 #include "winchroma.h"
 #include "atlbase.h"
 
@@ -96,6 +97,33 @@ std::tuple<EditorState, ViewState> readFile(TCHAR *file) {
     read(handle, &state.SAVE_DATA, sizeof(EditorState) - offsetof(EditorState, SAVE_DATA));
     ViewState view = readVal<ViewState>(handle);
     return {state, view};
+}
+
+
+void writeObj(TCHAR *file, const Surface &surf) {
+    CHandle handle(CreateFile(file, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+        FILE_ATTRIBUTE_NORMAL, NULL));
+    if (handle == INVALID_HANDLE_VALUE)
+        throw winged_error(L"Error saving file");
+    char buf[256];
+
+    std::unordered_map<vert_id, int> vertIndices;
+    int i = 1;
+    for (auto &vert : surf.verts) {
+        auto pos = vert.second.pos;
+        int len = sprintf(buf, "v %f %f %f\n", pos.x, pos.y, pos.z);
+        write(handle, buf, len);
+        vertIndices[vert.first] = i++;
+    }
+
+    for (auto &face : surf.faces) {
+        write(handle, "\nf", 2);
+        for (auto edge : FaceEdges(surf, face.second)) {
+            int v = vertIndices[edge.second.vert];
+            int len = sprintf(buf, " %d", v);
+            write(handle, buf, len);
+        }
+    }
 }
 
 } // namespace

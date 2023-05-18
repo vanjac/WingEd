@@ -36,12 +36,13 @@
 #define IDM_DRAW_BKSP                       133
 #define IDM_TOOL_POLY                       134
 #define IDM_NEW                             135
+#define IDM_EXPORT_OBJ                      136
 
 #ifdef APSTUDIO_INVOKED
     #ifndef APSTUDIO_READONLY_SYMBOLS
         #define _APS_NO_MFC                 1
         #define _APS_NEXT_RESOURCE_VALUE    100
-        #define _APS_NEXT_COMMAND_VALUE     136
+        #define _APS_NEXT_COMMAND_VALUE     137
         #define _APS_NEXT_CONTROL_VALUE     1000
         #define _APS_NEXT_SYMED_VALUE       300
     #endif
