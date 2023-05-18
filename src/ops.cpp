@@ -708,8 +708,6 @@ void validateSurface(const Surface &surf) {
                 "Edge %08X attached to vert %08X references a different vert %08X!",
                 name(vertEdge), name(pair), name(vertEdge.second.vert));
         }
-        CHECK_VALID(pair.second.edge.in(surf).twin.in(surf).next != pair.second.edge,
-            "Vert %08X only has one edge %08X!", name(pair), name(pair.second.edge));
     }
     for (auto &pair : surf.faces) {
         for (auto &faceEdge : FaceEdges(surf, pair.second)) {
@@ -717,8 +715,6 @@ void validateSurface(const Surface &surf) {
                 "Edge %08X attached to face %08X references a different face %08X!",
                 name(faceEdge), name(pair), name(faceEdge.second.face));
         }
-        CHECK_VALID(pair.second.edge.in(surf).next.in(surf).next != pair.second.edge,
-            "Face %08X only has two sides!", name(pair));
     }
     for (auto &pair : surf.edges) {
         CHECK_VALID(pair.second.twin != pair.first, "Edge %08X twin is itself!", name(pair));
@@ -732,6 +728,10 @@ void validateSurface(const Surface &surf) {
             name(pair), name(pair.second.next), name(pair.second.next.in(surf).prev));
         CHECK_VALID(pair.second.twin.in(surf).vert != pair.second.vert,
             "Edge %08X between single vert %08X!", name(pair), name(pair.second.vert));
+        CHECK_VALID(pair.second.next != pair.second.twin,
+            "Edge %08X forms an endpoint!", name(pair));
+        CHECK_VALID(pair.second.next != pair.second.prev,
+            "Edge %08X forms a two-sided face!", name(pair));
         bool foundEdge = false;
         for (auto &faceEdge : FaceEdges(surf, pair.second.face.in(surf))) {
             if (faceEdge.first == pair.first) {
