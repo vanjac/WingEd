@@ -1169,7 +1169,8 @@ static void drawState(const EditorState &state) {
         uVec[axis] = -(norm[u] * uVec[u] + norm[v] * uVec[v]) / norm[axis];
         vVec[axis] = -(norm[u] * vVec[u] + norm[v] * vVec[v]) / norm[axis];
         // snap origin to grid
-        pt -= uVec * glm::fract(pt[u]) + vVec * glm::fract(pt[v]);
+        pt -= uVec * glm::fract(pt[u] / g_state.gridSize)
+            + vVec * glm::fract(pt[v] / g_state.gridSize);
         glLineWidth(WIDTH_GRID);
         glColorHex(COLOR_GRID);
         glBegin(GL_LINES);
