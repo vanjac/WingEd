@@ -1,5 +1,6 @@
 #include "mathutil.h"
 #include <glm/gtx/associated_min_max.hpp>
+#include <glm/gtx/intersect.hpp>
 
 namespace winged {
 
@@ -14,6 +15,10 @@ glm::vec3 accumPolyNormal(glm::vec3 v1, glm::vec3 v2) {
     glm::vec3 sum = v1 + v2;
     glm::vec3 diff = v1 - v2;
     return glm::vec3(diff.y * sum.z, diff.z * sum.x, diff.x * sum.y);
+}
+
+bool intersectRayPlane(const Ray &ray, const Plane &plane, float *t) {
+    return glm::intersectRayPlane(ray.org, ray.dir, plane.org, plane.norm, *t);
 }
 
 } // namespace

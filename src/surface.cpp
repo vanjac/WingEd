@@ -48,6 +48,10 @@ glm::vec3 faceNormal(const Surface &surf, const Face &face) {
     return glm::normalize(faceNormalNonUnit(surf, face));
 }
 
+Plane facePlane(const Surface &surf, const Face &face) {
+    return {face.edge.in(surf).vert.in(surf).pos, faceNormal(surf, face)};
+}
+
 
 EdgeIter::EdgeIter(const Surface &surf, edge_id edge, bool first)
     : surf(surf), edge(edge), first(first) {}

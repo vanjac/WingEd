@@ -23,7 +23,7 @@ struct EditorState {
     };
     bool gridOn = true;
     float gridSize = 1;
-    glm::vec3 workPlanePt = {}, workPlaneNorm = {0, 1, 0};
+    Plane workPlane = {{}, {0, 1, 0}};
 };
 
 // saved in file but not undo stack

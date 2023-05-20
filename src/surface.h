@@ -5,6 +5,7 @@
 #include <guiddef.h>
 #include <glm/vec3.hpp>
 #include <immer/map.hpp>
+#include "mathutil.h"
 
 namespace winged {
 
@@ -132,9 +133,10 @@ struct Surface {
 // for each pair of twins there is one primary edge (arbitrary)
 bool isPrimary(const edge_pair &pair);
 edge_id primaryEdge(const edge_pair &pair);
-// faster than faceNormal
-glm::vec3 faceNormalNonUnit(const Surface &surf, const Face &face);
+
+glm::vec3 faceNormalNonUnit(const Surface &surf, const Face &face); // faster than faceNormal
 glm::vec3 faceNormal(const Surface &surf, const Face &face);
+Plane facePlane(const Surface &surf, const Face &face);
 
 /* iteration utils */
 

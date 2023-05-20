@@ -8,7 +8,6 @@
 #include <gl/GLU.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include <glm/gtx/intersect.hpp>
 #include "editor.h"
 #include "ops.h"
 #include "picking.h"
@@ -135,12 +134,6 @@ static EditorState cleanSelection(const EditorState &state) {
     return newState;
 }
 
-static void setWorkPlane(EditorState *state, Face face) {
-    HEdge faceEdge = face.edge.in(state->surf);
-    state->workPlanePt = faceEdge.vert.in(state->surf).pos;
-    state->workPlaneNorm = faceNormal(state->surf, face);
-}
-
 static void pushUndo() {
     g_undoStack.push(g_state);
     g_redoStack = {};
@@ -188,7 +181,7 @@ static EditorState select(EditorState state, const PickResult pick) {
             case PICK_FACE:
                 if (auto face = pick.face.find(state.surf)) {
                     state.selFaces = std::move(state.selFaces).insert(pick.face);
-                    setWorkPlane(&state, *face);
+                    state.workPlane = facePlane(state.surf, *face);
                 }
                 break;
             case PICK_EDGE:
@@ -601,9 +594,9 @@ static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
                     pushUndo();
                     if (g_tool == TOOL_SELECT) {
                         glm::vec3 forward = glm::inverse(g_mvMat)[2];
-                        g_state.workPlaneNorm = {};
-                        g_state.workPlaneNorm[maxAxis(glm::abs(forward))] = 1;
-                        g_state.workPlanePt =
+                        g_state.workPlane.norm = {};
+                        g_state.workPlane.norm[maxAxis(glm::abs(forward))] = 1;
+                        g_state.workPlane.org =
                             selAttachedVerts(g_state).begin()->in(g_state.surf).pos;
                     }
                 }
@@ -705,10 +698,8 @@ static void onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
             } else {
                 Ray ray = viewPosToRay(normCur, project);
                 float t;
-                if (glm::intersectRayPlane(ray.org, ray.dir,
-                        g_state.workPlanePt, g_state.workPlaneNorm, /*out*/t)) {
-                    result.point = snapPlanePoint(ray.org + t * ray.dir,
-                        g_state.workPlanePt, g_state.workPlaneNorm, grid);
+                if (intersectRayPlane(ray, g_state.workPlane, &t)) {
+                    result.point = snapPlanePoint(ray.org + t * ray.dir, g_state.workPlane, grid);
                     if (!g_drawVerts.empty() && result.point == g_drawVerts[0]) {
                         result.type = PICK_DRAWVERT;
                         result.val = 0;
@@ -729,7 +720,7 @@ static void onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
             if (result.type == PICK_FACE) {
                 g_hoverFace = g_hover.face;
                 if ((tools[g_tool].flags & (TOOLF_DRAW | TOOLF_HOVFACE)))
-                    setWorkPlane(&g_state, g_hoverFace.in(g_state.surf));
+                    g_state.workPlane = facePlane(g_state.surf, g_hoverFace.in(g_state.surf));
             }
             refresh(wnd);
             if (tools[g_tool].flags & TOOLF_DRAW)
@@ -874,8 +865,10 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 break;
             case IDM_TOOL_POLY:
                 setTool(TOOL_POLY);
-                if (g_state.selFaces.size() == 1)
-                    setWorkPlane(&g_state, g_state.selFaces.begin()->in(g_state.surf));
+                if (g_state.selFaces.size() == 1) {
+                    g_state.workPlane = facePlane(g_state.surf,
+                        g_state.selFaces.begin()->in(g_state.surf));
+                }
                 break;
             case IDM_TOOL_KNIFE:
                 setTool(TOOL_KNIFE);
@@ -1158,24 +1151,24 @@ static void drawState(const EditorState &state) {
         && GetKeyState(VK_CONTROL) >= 0 && !(GetKeyState(VK_SHIFT) < 0 && GetKeyState(VK_MENU) < 0);
     if (drawGrid || adjustGrid) {
         // TODO duplicate logic in snapPlanePoint
-        glm::vec3 norm = g_state.workPlaneNorm, pt = g_state.workPlanePt;
-        int axis = maxAxis(glm::abs(norm));
+        auto p = g_state.workPlane;
+        int axis = maxAxis(glm::abs(p.norm));
         int u = (axis + 1) % 3, v = (axis + 2) % 3;
         glm::vec3 uVec = {}, vVec = {};
         uVec[u] = g_state.gridSize; vVec[v] = g_state.gridSize;
-        uVec[axis] = -(norm[u] * uVec[u] + norm[v] * uVec[v]) / norm[axis];
-        vVec[axis] = -(norm[u] * vVec[u] + norm[v] * vVec[v]) / norm[axis];
+        uVec[axis] = -(p.norm[u] * uVec[u] + p.norm[v] * uVec[v]) / p.norm[axis];
+        vVec[axis] = -(p.norm[u] * vVec[u] + p.norm[v] * vVec[v]) / p.norm[axis];
         // snap origin to grid
-        pt -= uVec * glm::fract(pt[u] / g_state.gridSize)
-            + vVec * glm::fract(pt[v] / g_state.gridSize);
+        p.org -= uVec * glm::fract(p.org[u] / g_state.gridSize)
+               + vVec * glm::fract(p.org[v] / g_state.gridSize);
         glLineWidth(WIDTH_GRID);
         glColorHex(COLOR_GRID);
         glBegin(GL_LINES);
         for (int i = -128; i <= 128; i++) {
-            glVertex3fv(glm::value_ptr(pt - vVec * 128.0f + uVec * (float)i));
-            glVertex3fv(glm::value_ptr(pt + vVec * 128.0f + uVec * (float)i));
-            glVertex3fv(glm::value_ptr(pt - uVec * 128.0f + vVec * (float)i));
-            glVertex3fv(glm::value_ptr(pt + uVec * 128.0f + vVec * (float)i));
+            glVertex3fv(glm::value_ptr(p.org - vVec * 128.0f + uVec * (float)i));
+            glVertex3fv(glm::value_ptr(p.org + vVec * 128.0f + uVec * (float)i));
+            glVertex3fv(glm::value_ptr(p.org - uVec * 128.0f + vVec * (float)i));
+            glVertex3fv(glm::value_ptr(p.org + uVec * 128.0f + vVec * (float)i));
         }
         glEnd();
     }

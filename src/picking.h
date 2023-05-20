@@ -36,7 +36,7 @@ struct PickResult {
 glm::vec2 screenPosToNDC(glm::vec2 pos, glm::vec2 windowDim);
 Ray viewPosToRay(glm::vec2 normPos, const glm::mat4 &project);
 
-glm::vec3 snapPlanePoint(glm::vec3 point, glm::vec3 planePt, glm::vec3 planeNorm, float grid);
+glm::vec3 snapPlanePoint(glm::vec3 point, const Plane &plane, float grid);
 
 bool pickVert(glm::vec3 vertPos, glm::vec2 normCur, glm::vec2 windowDim, const glm::mat4 &project,
     float *depth);
