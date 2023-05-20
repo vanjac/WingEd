@@ -54,7 +54,7 @@ const ToolInfo tools[] = {
 };
 
 enum MouseMode {
-    MOUSE_NONE = 0, MOUSE_ADJUST, MOUSE_CAM_ROTATE, MOUSE_CAM_PAN
+    MOUSE_NONE = 0, MOUSE_TOOL, MOUSE_CAM_ROTATE, MOUSE_CAM_PAN
 };
 
 const PickType
@@ -102,7 +102,7 @@ static Tool g_tool = TOOL_SELECT;
 static PickResult g_hover;
 static face_id g_hoverFace = {};
 static MouseMode g_mouseMode = MOUSE_NONE;
-static POINT g_curLockPos;
+static POINT g_lastCurPos;
 static glm::vec2 g_moveAccum;
 static bool g_flashSel = false;
 static std::vector<glm::vec3> g_drawVerts;
@@ -376,11 +376,11 @@ static void flashSel(HWND wnd) {
 }
 
 static void lockMouse(HWND wnd, POINT clientPos, MouseMode mode) {
-    if (!g_mouseMode) {
+    if (mode != MOUSE_TOOL && (g_mouseMode == MOUSE_NONE || g_mouseMode == MOUSE_TOOL)) {
         SetCapture(wnd);
         ShowCursor(false);
     }
-    g_curLockPos = clientToScreen(wnd, clientPos);
+    g_lastCurPos = clientPos;
     g_mouseMode = mode;
 }
 
@@ -608,7 +608,7 @@ static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
                         }
                     }
                 }
-                lockMouse(wnd, {x, y}, MOUSE_ADJUST);
+                lockMouse(wnd, {x, y}, MOUSE_TOOL);
                 g_moveAccum = {};
                 g_hover = {};
             } else {
@@ -634,10 +634,11 @@ static void onMButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
 
 static void onButtonUp(HWND wnd, int, int, UINT) {
     if (g_mouseMode) {
-        g_mouseMode = MOUSE_NONE;
         ReleaseCapture();
-        ShowCursor(true);
+        if (g_mouseMode != MOUSE_TOOL)
+            ShowCursor(true);
         refresh(wnd);
+        g_mouseMode = MOUSE_NONE;
     }
 }
 
@@ -691,6 +692,7 @@ static void toolAdjust(HWND, SIZE delta, UINT) {
 }
 
 static void onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
+    POINT curPos = {x, y};
     if (g_mouseMode == MOUSE_NONE) {
         glm::vec2 normCur = screenPosToNDC({x, y}, g_windowDim);
         glm::mat4 project = g_projMat * g_mvMat;
@@ -735,35 +737,37 @@ static void onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
                 updateStatus(wnd);
         }
         return;
-    }
-
-    POINT screenPos = clientToScreen(wnd, {x, y});
-    if (screenPos == g_curLockPos || g_mouseMode == MOUSE_NONE)
-        return;
-    SIZE delta = {screenPos.x - g_curLockPos.x, screenPos.y - g_curLockPos.y};
-    switch (g_mouseMode) {
-        case MOUSE_ADJUST:
-            toolAdjust(wnd, delta, keyFlags);
-            break;
-        case MOUSE_CAM_ROTATE:
-            g_view.rotX += glm::radians((float)delta.cy) * 0.5f;
-            g_view.rotY += glm::radians((float)delta.cx) * 0.5f;
-            break;
-        case MOUSE_CAM_PAN: {
-            bool shift = GetKeyState(VK_SHIFT) < 0;
-            glm::vec3 deltaPos;
-            if (g_view.flyCam) {
-                deltaPos = shift ? glm::vec3(-delta.cx, delta.cy, 0)
-                    : glm::vec3(-delta.cx, 0, -delta.cy);
-            } else {
-                deltaPos = shift ? glm::vec3(0, 0, -delta.cy) : glm::vec3(delta.cx, -delta.cy, 0);
+    } else if (curPos != g_lastCurPos) { // g_mouseMode != MOUSE_NONE
+        SIZE delta = {curPos.x - g_lastCurPos.x, curPos.y - g_lastCurPos.y};
+        switch (g_mouseMode) {
+            case MOUSE_TOOL:
+                toolAdjust(wnd, delta, keyFlags);
+                break;
+            case MOUSE_CAM_ROTATE:
+                g_view.rotX += glm::radians((float)delta.cy) * 0.5f;
+                g_view.rotY += glm::radians((float)delta.cx) * 0.5f;
+                break;
+            case MOUSE_CAM_PAN: {
+                bool shift = GetKeyState(VK_SHIFT) < 0;
+                glm::vec3 deltaPos;
+                if (g_view.flyCam) {
+                    deltaPos = shift ? glm::vec3(-delta.cx, delta.cy, 0)
+                        : glm::vec3(-delta.cx, 0, -delta.cy);
+                } else {
+                    deltaPos = shift ? glm::vec3(0, 0, -delta.cy) : glm::vec3(delta.cx, -delta.cy, 0);
+                }
+                deltaPos = glm::inverse(g_mvMat) * glm::vec4(deltaPos, 0);
+                g_view.camPivot += deltaPos * g_view.zoom / 600.0f;
             }
-            deltaPos = glm::inverse(g_mvMat) * glm::vec4(deltaPos, 0);
-            g_view.camPivot += deltaPos * g_view.zoom / 600.0f;
+        }
+        refresh(wnd);
+        if (g_mouseMode != MOUSE_TOOL) {
+            POINT screenPos = clientToScreen(wnd, g_lastCurPos);
+            SetCursorPos(screenPos.x, screenPos.y);
+        } else {
+            g_lastCurPos = curPos;
         }
     }
-    refresh(wnd);
-    SetCursorPos(g_curLockPos.x, g_curLockPos.y);
 }
 
 void onMouseWheel(HWND wnd, int, int, int delta, UINT) {
@@ -1155,7 +1159,7 @@ static void drawState(const EditorState &state) {
 
     bool drawGrid = (tools[g_tool].flags & TOOLF_DRAW)
         && ((g_state.gridOn && g_hover.type) || !(tools[g_tool].flags & TOOLF_HOVFACE));
-    bool adjustGrid = g_tool == TOOL_SELECT && g_mouseMode == MOUSE_ADJUST
+    bool adjustGrid = g_tool == TOOL_SELECT && g_mouseMode == MOUSE_TOOL
         && GetKeyState(VK_CONTROL) >= 0 && !(GetKeyState(VK_SHIFT) < 0 && GetKeyState(VK_MENU) < 0);
     if (drawGrid || adjustGrid) {
         // TODO duplicate logic in snapPlanePoint
