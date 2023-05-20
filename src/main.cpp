@@ -595,9 +595,17 @@ static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
                     if (g_tool == TOOL_SELECT) {
                         glm::vec3 forward = glm::inverse(g_mvMat)[2];
                         g_state.workPlane.norm = {};
-                        g_state.workPlane.norm[maxAxis(glm::abs(forward))] = 1;
-                        g_state.workPlane.org =
-                            selAttachedVerts(g_state).begin()->in(g_state.surf).pos;
+                        int axis = maxAxis(glm::abs(forward));
+                        g_state.workPlane.norm[axis] = -glm::sign(forward[axis]); // toward cam
+                        float closestDist = FLT_MAX;
+                        for (auto &vert : selAttachedVerts(g_state)) {
+                            glm::vec3 pos = vert.in(g_state.surf).pos;
+                            float dist = glm::dot(pos, g_state.workPlane.norm);
+                            if (dist < closestDist) {
+                                g_state.workPlane.org = pos;
+                                closestDist = dist;
+                            }
+                        }
                     }
                 }
                 lockMouse(wnd, {x, y}, MOUSE_ADJUST);
