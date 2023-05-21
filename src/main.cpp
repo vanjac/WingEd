@@ -432,7 +432,6 @@ static void updateProjMat() {
     g_projMat = glm::perspective(glm::radians(g_view.flyCam ? 90.0f : 60.0f), aspect, 0.1f, 100.0f);
     glLoadMatrixf(glm::value_ptr(g_projMat));
     glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
 }
 
 static BOOL onCreate(HWND wnd, LPCREATESTRUCT) {
@@ -459,6 +458,12 @@ static BOOL onCreate(HWND wnd, LPCREATESTRUCT) {
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_POLYGON_OFFSET_FILL);
     glPolygonOffset(1.0, 1.0);
+
+    glEnable(GL_LIGHT0);
+    glEnable(GL_COLOR_MATERIAL);
+    glShadeModel(GL_FLAT);
+    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, glm::value_ptr(glm::vec4(.4, .4, .4, 1)));
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, glm::value_ptr(glm::vec4(.6, .6, .6, 1)));
 
     g_tess = gluNewTess();
     gluTessCallback(g_tess, GLU_TESS_BEGIN, (GLvoid (CALLBACK*) ())glBegin);
@@ -1091,6 +1096,7 @@ static void drawFace(const Surface &surf, const Face &face) {
     // https://www.glprogramming.com/red/chapter11.html
     g_tess_error = 0;
     glm::vec3 normal = faceNormal(surf, face);
+    glNormal3fv(glm::value_ptr(normal));
     gluTessNormal(g_tess, normal.x, normal.y, normal.z);
     gluTessBeginPolygon(g_tess, NULL);
     gluTessBeginContour(g_tess);
@@ -1204,14 +1210,18 @@ static void drawState(const EditorState &state) {
     for (auto &pair : state.surf.faces) {
         if (state.selFaces.count(pair.first)) {
             glColorHex(g_flashSel ? COLOR_FACE_FLASH : COLOR_FACE_SEL);
+            glDisable(GL_LIGHTING);
         } else if (g_hover.type && pair.first == g_hoverFace
                 && (g_hover.type == PICK_FACE || (tools[g_tool].flags & TOOLF_HOVFACE))) {
             glColorHex(COLOR_FACE_HOVER);
+            glDisable(GL_LIGHTING);
         } else {
             glColorHex(COLOR_FACE);
+            glEnable(GL_LIGHTING);
         }
         drawFace(state.surf, pair.second);
     }
+    glDisable(GL_LIGHTING);
 
     bool drawGrid = (tools[g_tool].flags & TOOLF_DRAW)
         && ((g_state.gridOn && g_hover.type) || !(tools[g_tool].flags & TOOLF_HOVFACE));
