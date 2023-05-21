@@ -557,13 +557,11 @@ static void startToolAdjust(HWND wnd, POINT pos) {
             }
         }
         Ray ray = viewPosToRay(screenPosToNDC({pos.x, pos.y}, g_windowDim), g_projMat * g_mvMat);
-        float t;
-        if (intersectRayPlane(ray, g_state.workPlane, &t)) {
-            g_lastPlanePos = ray.org + t * ray.dir;
-            g_snapAccum = glm::vec3(0.5);
-            lockMouse(wnd, pos, MOUSE_TOOL);
-            pushUndo();
-        }
+        g_lastPlanePos = g_state.workPlane.org; // fallback
+        intersectRayPlane(ray, g_state.workPlane, &g_lastPlanePos);
+        g_snapAccum = glm::vec3(0.5);
+        lockMouse(wnd, pos, MOUSE_TOOL);
+        pushUndo();
     } else if (g_tool == TOOL_SCALE && hasSelection(g_state)) {
         lockMouse(wnd, pos, MOUSE_TOOL);
         pushUndo();
@@ -657,10 +655,8 @@ static void toolAdjust(HWND, POINT pos, SIZE delta, UINT) {
     switch (g_tool) {
         case TOOL_SELECT: {
             Ray ray = viewPosToRay(screenPosToNDC({pos.x, pos.y}, g_windowDim), g_projMat*g_mvMat);
-            float t;
-            if (!intersectRayPlane(ray, g_state.workPlane, &t))
-                break;
-            glm::vec3 planePos = ray.org + t * ray.dir;
+            glm::vec3 planePos = g_state.workPlane.org;
+            intersectRayPlane(ray, g_state.workPlane, &planePos);
             glm::vec3 deltaPos;
             bool ortho = GetKeyState(VK_SHIFT) < 0;
             if (ortho)
@@ -709,9 +705,9 @@ static void onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
                 result.point = g_drawVerts[0];
             } else {
                 Ray ray = viewPosToRay(normCur, project);
-                float t;
-                if (intersectRayPlane(ray, g_state.workPlane, &t)) {
-                    result.point = snapPlanePoint(ray.org + t * ray.dir, g_state.workPlane, grid);
+                glm::vec3 planePoint;
+                if (intersectRayPlane(ray, g_state.workPlane, &planePoint)) {
+                    result.point = snapPlanePoint(planePoint, g_state.workPlane, grid);
                     if (!g_drawVerts.empty() && result.point == g_drawVerts[0]) {
                         result.type = PICK_DRAWVERT;
                         result.val = 0;

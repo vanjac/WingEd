@@ -149,9 +149,8 @@ PickResult pickElement(const Surface &surf, PickType types, glm::vec2 normCur,
                 last = vert;
             }
             Plane plane = {prevVertPos, normal}; // not normalized. should be fine
-            float t;
-            if (inside && intersectRayPlane(ray, plane, &t)) {
-                glm::vec3 point = ray.org + t * ray.dir;
+            glm::vec3 point;
+            if (inside && intersectRayPlane(ray, plane, &point)) {
                 glm::vec3 normPoint = projectPoint(point, project);
                 if (normPoint.z < result.depth) {
                     // DON'T update normPoint (preserve depth)
