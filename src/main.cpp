@@ -173,28 +173,40 @@ static EditorState clearSelection(EditorState state) {
     return state;
 }
 
-static EditorState select(EditorState state, const PickResult pick) {
+static EditorState select(EditorState state, const PickResult pick, bool toggle) {
     if (state.selMode == SEL_ELEMENTS) {
         switch (pick.type) {
             case PICK_VERT:
-                if (state.surf.verts.count(pick.vert))
-                    state.selVerts = std::move(state.selVerts).insert(pick.vert);
+                if (state.surf.verts.count(pick.vert)) {
+                    if (toggle && state.selVerts.count(pick.vert))
+                        state.selVerts = std::move(state.selVerts).erase(pick.vert);
+                    else
+                        state.selVerts = std::move(state.selVerts).insert(pick.vert);
+                }
                 break;
             case PICK_FACE:
                 if (auto face = pick.face.find(state.surf)) {
-                    state.selFaces = std::move(state.selFaces).insert(pick.face);
-                    state.workPlane = facePlane(state.surf, *face);
+                    if (toggle && state.selFaces.count(pick.face)) {
+                        state.selFaces = std::move(state.selFaces).erase(pick.face);
+                    } else {
+                        state.selFaces = std::move(state.selFaces).insert(pick.face);
+                        state.workPlane = facePlane(state.surf, *face);
+                    }
                 }
                 break;
             case PICK_EDGE:
                 if (auto edge = pick.edge.find(state.surf)) {
-                    state.selEdges = std::move(state.selEdges).insert(
-                        primaryEdge({pick.edge, *edge}));
+                    edge_id e = primaryEdge({pick.edge, *edge});
+                    if (toggle && state.selEdges.count(pick.edge))
+                        state.selEdges = std::move(state.selEdges).erase(e);
+                    else
+                        state.selEdges = std::move(state.selEdges).insert(e);
                 }
                 break;
         }
     } else if (state.selMode == SEL_SOLIDS) {
         if (auto face = pick.face.find(state.surf)) {
+            bool erase = toggle && state.selFaces.count(pick.face);
             auto verts = state.selVerts.transient();
             auto faces = state.selFaces.transient();
             auto edges = state.selEdges.transient();
@@ -208,10 +220,15 @@ static EditorState select(EditorState state, const PickResult pick) {
                 if (!visited.count(e)) {
                     edge_pair edge = e.pair(state.surf);
                     visited.insert(e);
-                    if (isPrimary(edge))
-                        edges.insert(e);
-                    verts.insert(edge.second.vert);
-                    faces.insert(edge.second.face);
+                    if (erase) {
+                        if (isPrimary(edge)) edges.erase(e);
+                        verts.erase(edge.second.vert);
+                        faces.erase(edge.second.face);
+                    } else {
+                        if (isPrimary(edge)) edges.insert(e);
+                        verts.insert(edge.second.vert);
+                        faces.insert(edge.second.face);
+                    }
                     toSelect.push(edge.second.twin);
                     toSelect.push(edge.second.next);
                 }
@@ -613,17 +630,19 @@ static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
             if (!(GetKeyState(VK_SHIFT) < 0))
                 g_tool = TOOL_SELECT;
         } else {
-            if (!hasSelection(g_state)) {
-                g_state = select(std::move(g_state), g_hover);
+            bool toggle = GetKeyState(VK_SHIFT) < 0;
+            bool alreadySelected = hasSelection(g_state);
+            if (!alreadySelected) {
+                g_state = select(std::move(g_state), g_hover, toggle);
                 refreshImmediate(wnd);
             }
             if (DragDetect(wnd, clientToScreen(wnd, {x, y}))) {
                 startToolAdjust(wnd, {x, y});
                 g_hover = {};
-            } else {
-                if (!(GetKeyState(VK_SHIFT) < 0))
+            } else if (alreadySelected) {
+                if (!toggle)
                     g_state = clearSelection(std::move(g_state));
-                g_state = select(std::move(g_state), g_hover);
+                g_state = select(std::move(g_state), g_hover, toggle);
             }
         }
     } catch (winged_error err) {
