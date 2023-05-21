@@ -49,6 +49,8 @@ WINGED MENUEX
         MENUITEM "E&xtrude Face\tCtrl+P", IDM_EXTRUDE
         MENUITEM "&Split Edge Loop\tCtrl+L", IDM_SPLIT_LOOP
         MENUITEM "", 0, MFT_SEPARATOR
+        MENUITEM "&Duplicate\tCtrl+D", IDM_DUPLICATE
+        MENUITEM "", 0, MFT_SEPARATOR
         MENUITEM "&Flip Normals\tCtrl+F", IDM_FLIP_NORMALS
         MENUITEM "Snap &Vertices\tCtrl+G", IDM_SNAP
     }
@@ -101,6 +103,7 @@ ACCEL ACCELERATORS
     "P", IDM_TOOL_POLY, VIRTKEY
     "N", IDM_NEW, CONTROL, VIRTKEY
     "G", IDM_SNAP, CONTROL, VIRTKEY
+    "D", IDM_DUPLICATE, CONTROL, VIRTKEY
 }
 
 //////////////////////////////////////////////////////////////////////////////

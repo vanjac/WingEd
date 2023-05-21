@@ -38,6 +38,8 @@ Surface scaleVertices(Surface surf, const immer::set<vert_id> &verts,
     glm::vec3 center, glm::vec3 factor);
 Surface snapVertices(Surface surf, const immer::set<vert_id> &verts, float grid);
 
+Surface duplicate(Surface surf, const immer::set<edge_id> &edges, 
+    const immer::set<vert_id> &verts, const immer::set<face_id> &faces);
 Surface flipAllNormals(Surface surf);
 Surface flipNormals(Surface surf,
     const immer::set<edge_id> &edges, const immer::set<vert_id> &verts);

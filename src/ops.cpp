@@ -1,4 +1,5 @@
 #include "ops.h"
+#include <unordered_map>
 #include <glm/common.hpp>
 #include "winchroma.h"
 
@@ -647,6 +648,42 @@ Surface snapVertices(Surface surf, const immer::set<vert_id> &verts, float grid)
         vert_pair vert = v.pair(surf);
         vert.second.pos = glm::round(vert.second.pos / grid) * grid;
         insertAll(&surf.verts, {vert});
+    }
+    return surf;
+}
+
+Surface duplicate(Surface surf, const immer::set<edge_id> &edges, 
+        const immer::set<vert_id> &verts, const immer::set<face_id> &faces) {
+    std::unordered_map<edge_id, edge_id> edgeMap;
+    std::unordered_map<vert_id, vert_id> vertMap;
+    std::unordered_map<face_id, face_id> faceMap;
+    for (auto e : edges) {
+        edgeMap[e] = genId();
+        edgeMap[e.in(surf).twin] = genId();
+    }
+    for (auto v : verts)
+        vertMap[v] = genId();
+    for (auto f : faces)
+        faceMap[f] = genId();
+
+    for (auto pair : edgeMap) {
+        edge_pair edge = {pair.second, pair.first.in(surf)};
+        edge.second.twin = edgeMap[edge.second.twin];
+        edge.second.next = edgeMap[edge.second.next];
+        edge.second.prev = edgeMap[edge.second.prev];
+        edge.second.vert = vertMap[edge.second.vert];
+        edge.second.face = faceMap[edge.second.face];
+        insertAll(&surf.edges, {edge});
+    }
+    for (auto pair : vertMap) {
+        vert_pair vert = {pair.second, pair.first.in(surf)};
+        vert.second.edge = edgeMap[vert.second.edge];
+        insertAll(&surf.verts, {vert});
+    }
+    for (auto pair : faceMap) {
+        face_pair face = {pair.second, pair.first.in(surf)};
+        face.second.edge = edgeMap[face.second.edge];
+        insertAll(&surf.faces, {face});
     }
     return surf;
 }
