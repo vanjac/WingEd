@@ -1,4 +1,5 @@
 #include "ops.h"
+#include <glm/common.hpp>
 #include "winchroma.h"
 
 namespace winged {
@@ -622,17 +623,31 @@ Surface makePolygonPlane(Surface surf, const std::vector<glm::vec3> points, face
     return surf;
 }
 
-Surface moveVertex(Surface surf, vert_id v, glm::vec3 amount) {
-    vert_pair vert = v.pair(surf);
-    vert.second.pos += amount;
-    insertAll(&surf.verts, {vert});
+Surface moveVertices(Surface surf, const immer::set<vert_id> &verts, glm::vec3 amount) {
+    for (auto &v : verts) {
+        vert_pair vert = v.pair(surf);
+        vert.second.pos += amount;
+        insertAll(&surf.verts, {vert});
+    }
     return surf;
 }
 
-Surface scaleVertex(Surface surf, vert_id v, glm::vec3 center, glm::vec3 factor) {
-    vert_pair vert = v.pair(surf);
-    vert.second.pos = (vert.second.pos - center) * factor + center;
-    insertAll(&surf.verts, {vert});
+Surface scaleVertices(Surface surf, const immer::set<vert_id> &verts,
+        glm::vec3 center, glm::vec3 factor) {
+    for (auto &v : verts) {
+        vert_pair vert = v.pair(surf);
+        vert.second.pos = (vert.second.pos - center) * factor + center;
+        insertAll(&surf.verts, {vert});
+    }
+    return surf;
+}
+
+Surface snapVertices(Surface surf, const immer::set<vert_id> &verts, float grid) {
+    for (auto &v : verts) {
+        vert_pair vert = v.pair(surf);
+        vert.second.pos = glm::round(vert.second.pos / grid) * grid;
+        insertAll(&surf.verts, {vert});
+    }
     return surf;
 }
 

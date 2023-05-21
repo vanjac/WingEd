@@ -673,8 +673,8 @@ static void toolAdjust(HWND, POINT pos, SIZE delta, UINT) {
                 g_snapAccum -= steps;
                 deltaPos = steps * g_state.gridSize;
             }
-            for (auto v : selAttachedVerts(g_state))
-                g_state.surf = moveVertex(std::move(g_state.surf), v, deltaPos);
+            g_state.surf = moveVertices(std::move(g_state.surf),
+                selAttachedVerts(g_state), deltaPos);
             g_lastPlanePos = planePos;
             if (ortho)
                 g_state.workPlane.org += deltaPos;
@@ -687,8 +687,7 @@ static void toolAdjust(HWND, POINT pos, SIZE delta, UINT) {
             for (auto v : verts)
                 center += v.in(g_state.surf).pos;
             center /= verts.size();
-            for (auto v : verts)
-                g_state.surf = scaleVertex(std::move(g_state.surf), v, center, factor);
+            g_state.surf = scaleVertices(std::move(g_state.surf), verts, center, factor);
             break;
         }
     }
@@ -985,6 +984,13 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                     newState.surf = flipNormals(g_state.surf, g_state.selEdges, g_state.selVerts);
                 else
                     newState.surf = flipAllNormals(g_state.surf);
+                pushUndo(std::move(newState));
+                break;
+            }
+            case IDM_SNAP: {
+                EditorState newState = g_state;
+                newState.surf = snapVertices(g_state.surf,
+                    selAttachedVerts(g_state), g_state.gridSize);
                 pushUndo(std::move(newState));
                 break;
             }

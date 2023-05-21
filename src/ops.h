@@ -33,8 +33,10 @@ Surface joinEdgeLoops(Surface surf, edge_id e1, edge_id e2);
 
 Surface makePolygonPlane(Surface surf, const std::vector<glm::vec3> points, face_id *newFace);
 
-Surface moveVertex(Surface surf, vert_id v, glm::vec3 amount);
-Surface scaleVertex(Surface surf, vert_id v, glm::vec3 center, glm::vec3 factor);
+Surface moveVertices(Surface surf, const immer::set<vert_id> &verts, glm::vec3 amount);
+Surface scaleVertices(Surface surf, const immer::set<vert_id> &verts,
+    glm::vec3 center, glm::vec3 factor);
+Surface snapVertices(Surface surf, const immer::set<vert_id> &verts, float grid);
 
 Surface flipAllNormals(Surface surf);
 Surface flipNormals(Surface surf,

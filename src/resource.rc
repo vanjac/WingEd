@@ -50,6 +50,7 @@ WINGED MENUEX
         MENUITEM "&Split Edge Loop\tCtrl+L", IDM_SPLIT_LOOP
         MENUITEM "", 0, MFT_SEPARATOR
         MENUITEM "&Flip Normals\tCtrl+F", IDM_FLIP_NORMALS
+        MENUITEM "Snap &Vertices\tCtrl+G", IDM_SNAP
     }
     POPUP "&Tool", IDM_TOOL_MENU
     {
@@ -99,6 +100,7 @@ ACCEL ACCELERATORS
     VK_BACK, IDM_DRAW_BKSP, VIRTKEY
     "P", IDM_TOOL_POLY, VIRTKEY
     "N", IDM_NEW, CONTROL, VIRTKEY
+    "G", IDM_SNAP, CONTROL, VIRTKEY
 }
 
 //////////////////////////////////////////////////////////////////////////////
