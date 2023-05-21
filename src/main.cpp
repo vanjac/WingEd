@@ -414,6 +414,8 @@ static void setSelMode(SelectMode mode) {
 static void setTool(Tool tool) {
     g_tool = tool;
     g_drawVerts.clear();
+    if (!(tools[tool].flags & (1 << g_state.selMode)))
+        g_state.selMode = SEL_ELEMENTS; // TODO
 }
 
 
@@ -1075,10 +1077,6 @@ static void onInitMenu(HWND, HMENU menu) {
     MENUITEMINFO toolMenu = {sizeof(toolMenu), MIIM_SUBMENU};
     GetMenuItemInfo(menu, IDM_TOOL_MENU, false, &toolMenu);
     CheckMenuRadioItem(toolMenu.hSubMenu, 0, NUM_TOOLS - 1, g_tool, MF_BYPOSITION);
-    for (int i = 0; i < NUM_TOOLS; i++) {
-        EnableMenuItem(toolMenu.hSubMenu, GetMenuItemID(toolMenu.hSubMenu, i),
-            (tools[i].flags & (1 << g_state.selMode)) ? MF_ENABLED : MF_GRAYED);
-    }
 }
 
 static void onSize(HWND, UINT, int cx, int cy) {
