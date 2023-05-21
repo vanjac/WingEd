@@ -339,7 +339,9 @@ static void updateStatus(HWND wnd) {
     TCHAR buf[256];
     TCHAR *str = buf;
 
-    if (numDrawPoints() > 0 && g_hover.type) {
+    if (g_mouseMode == MOUSE_TOOL && g_tool == TOOL_SELECT) {
+        str += _stprintf(str, L"Len: %f    ", glm::length(g_moved));
+    } else if (numDrawPoints() > 0 && g_hover.type) {
         glm::vec3 lastPos = g_drawVerts.empty()
             ? g_state.selVerts.begin()->in(g_state.surf).pos
             : g_drawVerts.back();
@@ -673,49 +675,55 @@ static void onButtonUp(HWND wnd, int, int, UINT) {
         ReleaseCapture();
         if (g_mouseMode != MOUSE_TOOL)
             ShowCursor(true);
-        refresh(wnd);
         g_mouseMode = MOUSE_NONE;
+        updateStatus(wnd);
+        refresh(wnd);
     }
 }
 
-static void toolAdjust(HWND, POINT pos, SIZE delta, UINT keyFlags) {
+static void toolAdjust(HWND wnd, POINT pos, SIZE delta, UINT keyFlags) {
     switch (g_tool) {
         case TOOL_SELECT: {
             Ray ray = viewPosToRay(screenPosToNDC({pos.x, pos.y}, g_windowDim), g_projMat*g_mvMat);
             glm::vec3 planePos = g_state.workPlane.org;
             intersectRayPlane(ray, g_state.workPlane, &planePos);
             glm::vec3 absNorm = glm::abs(g_state.workPlane.norm);
+            int normAxis = maxAxis(absNorm);
             bool ortho = keyFlags & MK_CONTROL;
             glm::vec3 amount;
             if (ortho) {
                 float push = (float)delta.cy * g_view.zoom / CAM_MOVE_SCALE;
                 if (g_state.gridOn) {
-                    float snap = g_state.gridSize / absNorm[maxAxis(absNorm)];
+                    float snap = g_state.gridSize / absNorm[normAxis];
                     g_snapAccum += push / snap;
                     int steps = (int)glm::floor(g_snapAccum);
                     g_snapAccum -= steps;
                     push = steps * snap;
                 }
                 amount = push * g_state.workPlane.norm;
-                g_startPlanePos = planePos;
-                g_moved = {};
+                g_moved += amount;
                 g_state.workPlane.org += amount;
             } else {
                 glm::vec3 diff = planePos - g_startPlanePos;
                 if (keyFlags & MK_SHIFT) {
-                    int axis = maxAxis(glm::abs(diff));
-                    diff[(axis + 1) % 3] = 0;
-                    diff[(axis + 2) % 3] = 0;
+                    int a = (normAxis + 1) % 3, b = (normAxis + 2) % 3;
+                    if (abs(diff[a]) < abs(diff[b]))
+                        diff[a] = 0;
+                    else
+                        diff[b] = 0;
                 }
                 if (g_state.gridOn) {
                     diff = glm::round(diff / g_state.gridSize) * g_state.gridSize;
-                    int axis = maxAxis(absNorm);
-                    diff[axis] = solvePlane(diff, g_state.workPlane.norm, axis);
+                    diff[normAxis] += solvePlane(diff, g_state.workPlane.norm, normAxis);
                 }
                 amount = diff - g_moved;
                 g_moved = diff;
             }
-            g_state.surf = moveVertices(std::move(g_state.surf), selAttachedVerts(g_state), amount);
+            if (amount != glm::vec3(0)) {
+                g_state.surf = moveVertices(std::move(g_state.surf),
+                    selAttachedVerts(g_state), amount);
+                updateStatus(wnd);
+            }
             break;
         }
         case TOOL_SCALE: {
