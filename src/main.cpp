@@ -429,7 +429,7 @@ static void CALLBACK tessErrorCallback(GLenum error) {
 static void updateProjMat() {
     glMatrixMode(GL_PROJECTION);
     float aspect = g_windowDim.x / g_windowDim.y;
-    g_projMat = glm::perspective(glm::radians(g_view.flyCam ? 90.0f : 60.0f), aspect, 0.1f, 100.0f);
+    g_projMat = glm::perspective(glm::radians(g_view.flyCam ? 90.0f : 60.0f), aspect, 0.5f, 500.0f);
     glLoadMatrixf(glm::value_ptr(g_projMat));
     glMatrixMode(GL_MODELVIEW);
 }
