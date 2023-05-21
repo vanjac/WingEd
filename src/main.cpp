@@ -64,8 +64,8 @@ const GLfloat
     SIZE_VERT           = 7,
     SIZE_VERT_HOVER     = 11,
     WIDTH_EDGE          = 1,
-    WIDTH_EDGE_HOVER    = 2,
-    WIDTH_EDGE_SEL      = 3,
+    WIDTH_EDGE_HOVER    = 3,
+    WIDTH_EDGE_SEL      = 4,
     WIDTH_DRAW          = 2,
     WIDTH_GRID          = 1,
     WIDTH_AXIS          = 1;
@@ -459,7 +459,7 @@ static BOOL onCreate(HWND wnd, LPCREATESTRUCT) {
     glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_POLYGON_OFFSET_FILL);
-    glPolygonOffset(1.0, 1.0);
+    glPolygonOffset(2.0, 1.0);
 
     glEnable(GL_LIGHT0);
     glEnable(GL_COLOR_MATERIAL);
@@ -775,6 +775,8 @@ static void onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
             }
         } else {
             PickType type = (g_state.selMode == SEL_ELEMENTS) ? PICK_ELEMENT : PICK_FACE;
+            if (g_tool == TOOL_KNIFE && GetKeyState(VK_MENU) < 0)
+                type &= ~PICK_VERT;
             result = pickElement(g_state.surf, type, normCur, g_windowDim, project,
                 (g_tool == TOOL_KNIFE) ? grid : 0);
         }
