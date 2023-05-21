@@ -36,7 +36,6 @@ enum ToolFlags {
     TOOLF_ELEMENTS = 1<<SEL_ELEMENTS, // allowed in element select mode
     TOOLF_SOLIDS = 1<<SEL_SOLIDS, // allowed in solid select mode
     TOOLF_ALLSEL = TOOLF_ELEMENTS | TOOLF_SOLIDS, // allowed in all select modes
-    TOOLF_TFORM = 0x10, // transformation tool (click and drag to transform)
     TOOLF_DRAW = 0x20, // drawing tool (click to add point)
     TOOLF_HOVFACE = 0x40, // show last hovered face while hovering over other elements
 };
@@ -46,8 +45,8 @@ struct ToolInfo {
     HCURSOR cursor;
 };
 const ToolInfo tools[] = {
-    /*select*/  {TOOLF_ALLSEL | TOOLF_TFORM, LoadCursor(NULL, IDC_ARROW)},
-    /*scale*/   {TOOLF_ALLSEL | TOOLF_TFORM, LoadCursor(NULL, IDC_SIZEWE)},
+    /*select*/  {TOOLF_ALLSEL, LoadCursor(NULL, IDC_ARROW)},
+    /*scale*/   {TOOLF_ALLSEL, LoadCursor(NULL, IDC_SIZEWE)},
     /*poly*/    {TOOLF_ELEMENTS | TOOLF_DRAW, drawCur},
     /*knife*/   {TOOLF_ELEMENTS | TOOLF_DRAW | TOOLF_HOVFACE, knifeCur},
     /*join*/    {TOOLF_ELEMENTS | TOOLF_HOVFACE, LoadCursor(NULL, IDC_CROSS)},
@@ -92,6 +91,8 @@ const GLfloat
 #define COLOR_Y_AXIS        0x##00FF00
 #define COLOR_Z_AXIS        0x##0000FF
 
+const float CAM_MOVE_SCALE = 600;
+
 
 static EditorState g_state;
 static std::stack<EditorState> g_undoStack;
@@ -103,7 +104,8 @@ static PickResult g_hover;
 static face_id g_hoverFace = {};
 static MouseMode g_mouseMode = MOUSE_NONE;
 static POINT g_lastCurPos;
-static glm::vec2 g_moveAccum;
+static glm::vec3 g_lastPlanePos;
+static glm::vec3 g_snapAccum;
 static bool g_flashSel = false;
 static std::vector<glm::vec3> g_drawVerts;
 
@@ -376,10 +378,9 @@ static void flashSel(HWND wnd) {
 }
 
 static void lockMouse(HWND wnd, POINT clientPos, MouseMode mode) {
-    if (mode != MOUSE_TOOL && (g_mouseMode == MOUSE_NONE || g_mouseMode == MOUSE_TOOL)) {
-        SetCapture(wnd);
+    if (mode != MOUSE_TOOL && (g_mouseMode == MOUSE_NONE || g_mouseMode == MOUSE_TOOL))
         ShowCursor(false);
-    }
+    SetCapture(wnd);
     g_lastCurPos = clientPos;
     g_mouseMode = mode;
 }
@@ -540,6 +541,35 @@ static EditorState join(EditorState state) {
     return state;
 }
 
+static void startToolAdjust(HWND wnd, POINT pos) {
+    if (g_tool == TOOL_SELECT && hasSelection(g_state)) {
+        glm::vec3 forward = glm::inverse(g_mvMat)[2];
+        int axis = maxAxis(glm::abs(forward));
+        g_state.workPlane.norm = {};
+        g_state.workPlane.norm[axis] = -glm::sign(forward[axis]);
+        float closestDist = FLT_MAX;
+        for (auto &vert : selAttachedVerts(g_state)) {
+            glm::vec3 point = vert.in(g_state.surf).pos;
+            float dist = glm::dot(point, g_state.workPlane.norm);
+            if (dist < closestDist) {
+                g_state.workPlane.org = point;
+                closestDist = dist;
+            }
+        }
+        Ray ray = viewPosToRay(screenPosToNDC({pos.x, pos.y}, g_windowDim), g_projMat * g_mvMat);
+        float t;
+        if (intersectRayPlane(ray, g_state.workPlane, &t)) {
+            g_lastPlanePos = ray.org + t * ray.dir;
+            g_snapAccum = glm::vec3(0.5);
+            lockMouse(wnd, pos, MOUSE_TOOL);
+            pushUndo();
+        }
+    } else if (g_tool == TOOL_SCALE && hasSelection(g_state)) {
+        lockMouse(wnd, pos, MOUSE_TOOL);
+        pushUndo();
+    }
+}
+
 static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
     try {
         if (g_tool == TOOL_KNIFE) {
@@ -590,26 +620,7 @@ static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
                 refreshImmediate(wnd);
             }
             if (DragDetect(wnd, clientToScreen(wnd, {x, y}))) {
-                if (hasSelection(g_state) && (tools[g_tool].flags & TOOLF_TFORM)) {
-                    pushUndo();
-                    if (g_tool == TOOL_SELECT) {
-                        glm::vec3 forward = glm::inverse(g_mvMat)[2];
-                        g_state.workPlane.norm = {};
-                        int axis = maxAxis(glm::abs(forward));
-                        g_state.workPlane.norm[axis] = -glm::sign(forward[axis]); // toward cam
-                        float closestDist = FLT_MAX;
-                        for (auto &vert : selAttachedVerts(g_state)) {
-                            glm::vec3 pos = vert.in(g_state.surf).pos;
-                            float dist = glm::dot(pos, g_state.workPlane.norm);
-                            if (dist < closestDist) {
-                                g_state.workPlane.org = pos;
-                                closestDist = dist;
-                            }
-                        }
-                    }
-                }
-                lockMouse(wnd, {x, y}, MOUSE_TOOL);
-                g_moveAccum = {};
+                startToolAdjust(wnd, {x, y});
                 g_hover = {};
             } else {
                 if (!(GetKeyState(VK_SHIFT) < 0))
@@ -642,39 +653,31 @@ static void onButtonUp(HWND wnd, int, int, UINT) {
     }
 }
 
-static glm::vec3 snapAxis(glm::vec3 v) {
-    int axis = maxAxis(glm::abs(v));
-    glm::vec3 dir = {};
-    dir[axis] = v[axis] >= 0 ? 1.0f : -1.0f;
-    return dir;
-}
-
-static void toolAdjust(HWND, SIZE delta, UINT) {
+static void toolAdjust(HWND, POINT pos, SIZE delta, UINT) {
     switch (g_tool) {
         case TOOL_SELECT: {
-            glm::vec2 scaled = glm::vec2(delta.cx, delta.cy) * g_view.zoom / 600.0f;
+            Ray ray = viewPosToRay(screenPosToNDC({pos.x, pos.y}, g_windowDim), g_projMat*g_mvMat);
+            float t;
+            if (!intersectRayPlane(ray, g_state.workPlane, &t))
+                break;
+            glm::vec3 planePos = ray.org + t * ray.dir;
+            glm::vec3 deltaPos;
+            bool ortho = GetKeyState(VK_SHIFT) < 0;
+            if (ortho)
+                deltaPos = -g_state.workPlane.norm * (float)delta.cy * g_view.zoom / CAM_MOVE_SCALE;
+            else
+                deltaPos = planePos - g_lastPlanePos;
             if (g_state.gridOn) {
-                g_moveAccum = glm::modf(g_moveAccum + (scaled / g_state.gridSize), scaled);
-                scaled *= g_state.gridSize;
+                g_snapAccum += deltaPos / g_state.gridSize;
+                auto steps = glm::floor(g_snapAccum);
+                g_snapAccum -= steps;
+                deltaPos = steps * g_state.gridSize;
             }
-
-            glm::mat4 invMV = glm::inverse(g_mvMat);
-            glm::vec3 right = {}, down = {};
-            if (GetKeyState(VK_CONTROL) < 0) {
-                if (g_state.selFaces.size() == 1) { // TODO: move along each face's normal?
-                    down = faceNormal(g_state.surf, g_state.selFaces.begin()->in(g_state.surf));
-                    if (g_state.gridOn)
-                        down /= down[maxAxis(glm::abs(down))]; // scale to cartesian grid
-                }
-            } else if (GetKeyState(VK_SHIFT) < 0 && GetKeyState(VK_MENU) < 0)
-                down = snapAxis(invMV[2]);
-            else if (GetKeyState(VK_SHIFT) < 0) down = snapAxis(-invMV[1]);
-            else if (GetKeyState(VK_MENU) < 0) right = snapAxis(invMV[0]);
-            else { right = snapAxis(invMV[0]), down = snapAxis(-invMV[1]); }
-
-            glm::vec3 deltaPos = right * scaled.x + down * scaled.y;
             for (auto v : selAttachedVerts(g_state))
                 g_state.surf = moveVertex(std::move(g_state.surf), v, deltaPos);
+            g_lastPlanePos = planePos;
+            if (ortho)
+                g_state.workPlane.org += deltaPos;
             break;
         }
         case TOOL_SCALE: {
@@ -741,7 +744,7 @@ static void onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
         SIZE delta = {curPos.x - g_lastCurPos.x, curPos.y - g_lastCurPos.y};
         switch (g_mouseMode) {
             case MOUSE_TOOL:
-                toolAdjust(wnd, delta, keyFlags);
+                toolAdjust(wnd, curPos, delta, keyFlags);
                 break;
             case MOUSE_CAM_ROTATE:
                 g_view.rotX += glm::radians((float)delta.cy) * 0.5f;
@@ -757,7 +760,7 @@ static void onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
                     deltaPos = shift ? glm::vec3(0, 0, -delta.cy) : glm::vec3(delta.cx, -delta.cy, 0);
                 }
                 deltaPos = glm::inverse(g_mvMat) * glm::vec4(deltaPos, 0);
-                g_view.camPivot += deltaPos * g_view.zoom / 600.0f;
+                g_view.camPivot += deltaPos * g_view.zoom / CAM_MOVE_SCALE;
             }
         }
         refresh(wnd);
@@ -1159,8 +1162,7 @@ static void drawState(const EditorState &state) {
 
     bool drawGrid = (tools[g_tool].flags & TOOLF_DRAW)
         && ((g_state.gridOn && g_hover.type) || !(tools[g_tool].flags & TOOLF_HOVFACE));
-    bool adjustGrid = g_tool == TOOL_SELECT && g_mouseMode == MOUSE_TOOL
-        && GetKeyState(VK_CONTROL) >= 0 && !(GetKeyState(VK_SHIFT) < 0 && GetKeyState(VK_MENU) < 0);
+    bool adjustGrid = g_tool == TOOL_SELECT && g_mouseMode == MOUSE_TOOL;
     if (drawGrid || adjustGrid) {
         // TODO duplicate logic in snapPlanePoint
         auto p = g_state.workPlane;
