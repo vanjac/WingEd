@@ -15,5 +15,6 @@ struct Plane {
 int maxAxis(glm::vec3 v);
 glm::vec3 accumPolyNormal(glm::vec3 v1, glm::vec3 v2); // single step of calculating polygon normal
 bool intersectRayPlane(const Ray &ray, const Plane &plane, glm::vec3 *point);
+float solvePlane(glm::vec3 vec, glm::vec3 norm, int axis);
 
 } // namespace

@@ -33,16 +33,10 @@ Ray viewPosToRay(glm::vec2 normPos, const glm::mat4 &project) {
 glm::vec3 snapPlanePoint(glm::vec3 point, const Plane &plane, float grid) {
     if (grid == 0)
         return point;
+    point = glm::round(point / grid) * grid;
     int axis = maxAxis(glm::abs(plane.norm));
-    int a = (axis + 1) % 3, b = (axis + 2) % 3; // orthogonal axes
-    glm::vec3 rounded;
-    rounded[a] = glm::round(point[a] / grid) * grid;
-    rounded[b] = glm::round(point[b] / grid) * grid;
-    glm::vec3 diff = rounded - plane.org;
-    // solve plane equation:
-    rounded[axis] = plane.org[axis] -
-        (plane.norm[a] * diff[a] + plane.norm[b] * diff[b]) / plane.norm[axis];
-    return rounded;
+    point[axis] = plane.org[axis] + solvePlane(point - plane.org, plane.norm, axis);
+    return point;
 }
 
 bool pickVert(glm::vec3 vertPos, glm::vec2 normCur, glm::vec2 windowDim, const glm::mat4 &project,

@@ -26,4 +26,9 @@ bool intersectRayPlane(const Ray &ray, const Plane &plane, glm::vec3 *point) {
     return false;
 }
 
+float solvePlane(glm::vec3 vec, glm::vec3 norm, int axis) {
+    int a = (axis + 1) % 3, b = (axis + 2) % 3;
+    return -(norm[a] * vec[a] + norm[b] * vec[b]) / norm[axis];
+}
+
 } // namespace

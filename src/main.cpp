@@ -561,17 +561,24 @@ static EditorState join(EditorState state) {
 
 static void startToolAdjust(HWND wnd, POINT pos) {
     if (g_tool == TOOL_SELECT && hasSelection(g_state)) {
-        glm::vec3 forward = glm::inverse(g_mvMat)[2];
-        int axis = maxAxis(glm::abs(forward));
-        g_state.workPlane.norm = {};
-        g_state.workPlane.norm[axis] = -glm::sign(forward[axis]);
-        float closestDist = FLT_MAX;
-        for (auto &vert : selAttachedVerts(g_state)) {
-            glm::vec3 point = vert.in(g_state.surf).pos;
-            float dist = glm::dot(point, g_state.workPlane.norm);
-            if (dist < closestDist) {
-                g_state.workPlane.org = point;
-                closestDist = dist;
+        if ((GetKeyState(VK_MENU) < 0)) {
+            if (g_state.selFaces.size() == 1) {
+                g_state.workPlane = facePlane(g_state.surf,
+                    g_state.selFaces.begin()->in(g_state.surf));
+            }
+        } else {
+            glm::vec3 forward = glm::inverse(g_mvMat)[2];
+            int axis = maxAxis(glm::abs(forward));
+            g_state.workPlane.norm = {};
+            g_state.workPlane.norm[axis] = glm::sign(forward[axis]);
+            float closestDist = -FLT_MAX;
+            for (auto &vert : selAttachedVerts(g_state)) {
+                glm::vec3 point = vert.in(g_state.surf).pos;
+                float dist = glm::dot(point, g_state.workPlane.norm);
+                if (dist > closestDist) {
+                    g_state.workPlane.org = point;
+                    closestDist = dist;
+                }
             }
         }
         Ray ray = viewPosToRay(screenPosToNDC({pos.x, pos.y}, g_windowDim), g_projMat * g_mvMat);
@@ -677,28 +684,33 @@ static void toolAdjust(HWND, POINT pos, SIZE delta, UINT keyFlags) {
             Ray ray = viewPosToRay(screenPosToNDC({pos.x, pos.y}, g_windowDim), g_projMat*g_mvMat);
             glm::vec3 planePos = g_state.workPlane.org;
             intersectRayPlane(ray, g_state.workPlane, &planePos);
+            glm::vec3 absNorm = glm::abs(g_state.workPlane.norm);
             bool ortho = keyFlags & MK_CONTROL;
             glm::vec3 amount;
             if (ortho) {
                 float push = (float)delta.cy * g_view.zoom / CAM_MOVE_SCALE;
                 if (g_state.gridOn) {
-                    g_snapAccum += push / g_state.gridSize;
+                    float snap = g_state.gridSize / absNorm[maxAxis(absNorm)];
+                    g_snapAccum += push / snap;
                     int steps = (int)glm::floor(g_snapAccum);
                     g_snapAccum -= steps;
-                    push = steps * g_state.gridSize;
+                    push = steps * snap;
                 }
-                amount = push * -g_state.workPlane.norm;
+                amount = push * g_state.workPlane.norm;
                 g_startPlanePos = planePos;
                 g_moved = {};
                 g_state.workPlane.org += amount;
             } else {
                 glm::vec3 diff = planePos - g_startPlanePos;
-                if (g_state.gridOn)
-                    diff = glm::round(diff / g_state.gridSize) * g_state.gridSize;
                 if (keyFlags & MK_SHIFT) {
                     int axis = maxAxis(glm::abs(diff));
                     diff[(axis + 1) % 3] = 0;
                     diff[(axis + 2) % 3] = 0;
+                }
+                if (g_state.gridOn) {
+                    diff = glm::round(diff / g_state.gridSize) * g_state.gridSize;
+                    int axis = maxAxis(absNorm);
+                    diff[axis] = solvePlane(diff, g_state.workPlane.norm, axis);
                 }
                 amount = diff - g_moved;
                 g_moved = diff;
@@ -1197,14 +1209,13 @@ static void drawState(const EditorState &state) {
         && ((g_state.gridOn && g_hover.type) || !(tools[g_tool].flags & TOOLF_HOVFACE));
     bool adjustGrid = g_tool == TOOL_SELECT && g_mouseMode == MOUSE_TOOL;
     if (drawGrid || adjustGrid) {
-        // TODO duplicate logic in snapPlanePoint
         auto p = g_state.workPlane;
         int axis = maxAxis(glm::abs(p.norm));
         int u = (axis + 1) % 3, v = (axis + 2) % 3;
         glm::vec3 uVec = {}, vVec = {};
         uVec[u] = g_state.gridSize; vVec[v] = g_state.gridSize;
-        uVec[axis] = -(p.norm[u] * uVec[u] + p.norm[v] * uVec[v]) / p.norm[axis];
-        vVec[axis] = -(p.norm[u] * vVec[u] + p.norm[v] * vVec[v]) / p.norm[axis];
+        uVec[axis] = solvePlane(uVec, p.norm, axis);
+        vVec[axis] = solvePlane(vVec, p.norm, axis);
         // snap origin to grid
         p.org -= uVec * glm::fract(p.org[u] / g_state.gridSize)
                + vVec * glm::fract(p.org[v] / g_state.gridSize);
