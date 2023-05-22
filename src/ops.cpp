@@ -41,6 +41,14 @@ static std::vector<vert_pair> makeVertPairs(size_t count) {
     return verts;
 }
 
+static std::vector<face_pair> makeFacePairs(size_t count) {
+    std::vector<face_pair> faces;
+    faces.reserve(count);
+    for (int i = 0; i < count; i++)
+        faces.push_back(makeFacePair());
+    return faces;
+}
+
 static void linkTwins(edge_pair *p1, edge_pair *p2) {
     p1->second.twin = p2->first;
     p2->second.twin = p1->first;
@@ -310,23 +318,23 @@ Surface splitFace(Surface surf, edge_id e1, edge_id e2,
     linkFace(&newEdge1, &face);
 
     for (auto &v : points) {
-        edge_pair nextEdge1 = makeEdgePair();
-        edge_pair nextEdge2 = makeEdgePair();
+        edge_pair fwdEdge1 = makeEdgePair();
+        edge_pair fwdEdge2 = makeEdgePair();
         vert_pair newVert = makeVertPair();
 
-        linkTwins(&nextEdge1, &nextEdge2);
-        linkNext(&newEdge1, &nextEdge1);
-        linkNext(&nextEdge2, &newEdge2);
+        linkTwins(&fwdEdge1, &fwdEdge2);
+        linkNext(&newEdge1, &fwdEdge1);
+        linkNext(&fwdEdge2, &newEdge2);
         newVert.second.pos = v;
-        linkVert(&nextEdge1, &newVert);
+        linkVert(&fwdEdge1, &newVert);
         newEdge2.second.vert = newVert.first;
-        nextEdge1.second.face = face.first;
-        nextEdge2.second.face = newFace.first;
+        fwdEdge1.second.face = face.first;
+        fwdEdge2.second.face = newFace.first;
 
-        insertAll(&surf.edges, {newEdge1, newEdge2, nextEdge1, nextEdge2});
+        insertAll(&surf.edges, {newEdge1, newEdge2, fwdEdge1, fwdEdge2});
         insertAll(&surf.verts, {newVert});
-        newEdge1 = nextEdge1;
-        newEdge2 = nextEdge2;
+        newEdge1 = fwdEdge1;
+        newEdge2 = fwdEdge2;
     }
 
     insertAll(&surf.edges, {edge1, prev1});
@@ -429,9 +437,18 @@ Surface extrudeFace(Surface surf, face_id f) {
     // │╱          ╲│
     // └────────────┘
     face_pair face = f.pair(surf);
-    edge_pair topPrev, topFirst;
-    edge_id topFirstId = {};
-    for (auto baseEdge : FaceEdges(surf, face.second)) {
+    std::vector<edge_pair> baseEdges;
+    for (auto baseEdge : FaceEdges(surf, face.second))
+        baseEdges.push_back(baseEdge);
+    size_t size = baseEdges.size();
+    std::vector<edge_pair> topEdges = makeEdgePairs(size);
+    std::vector<edge_pair> topTwins = makeEdgePairs(size);
+    std::vector<edge_pair> joinEdges = makeEdgePairs(size);
+    std::vector<edge_pair> joinTwins = makeEdgePairs(size);
+    std::vector<vert_pair> topVerts = makeVertPairs(size);
+    std::vector<face_pair> sideFaces = makeFacePairs(size);
+
+    for (size_t i = 0, j = size - 1; i < size; j = i++) {
         //    topVert│  topEdge  │    │
         //           X───────────┘    │
         //          ╱   topTwin   ╲   │
@@ -439,67 +456,33 @@ Surface extrudeFace(Surface surf, face_id f) {
         //        ╱ joinEdge        ╲ │
         //       ╱      baseEdge     ╲│
         //      ──────────────────────┘
-        edge_pair topEdge = makeEdgePair();
-        edge_pair topTwin = makeEdgePair();
-        edge_pair joinEdge = makeEdgePair();
-        edge_pair joinTwin = makeEdgePair();
-        vert_pair topVert = makeVertPair();
-        face_pair sideFace = makeFacePair();
+        linkTwins(&topEdges[i], &topTwins[i]);
+        linkTwins(&joinEdges[i], &joinTwins[i]);
+        linkNext(&topEdges[j], &topEdges[i]);
+        linkNext(&topTwins[i], &joinEdges[i]);
+        linkNext(&joinEdges[i], &baseEdges[i]);
+        linkNext(&baseEdges[j], &joinTwins[i]);
+        linkNext(&joinTwins[i], &topTwins[j]);
 
-        linkTwins(&topEdge, &topTwin);
-        linkTwins(&joinEdge, &joinTwin);
-        // incomplete side face loop
-        linkNext(&topTwin, &joinEdge);
-        linkNext(&joinEdge, &baseEdge);
+        topVerts[i].second = baseEdges[i].second.vert.in(surf); // copy position
+        linkVert(&joinEdges[i], &topVerts[i]);
+        joinTwins[i].second.vert = baseEdges[i].second.vert;
+        topEdges[i].second.vert = topVerts[i].first;
+        topTwins[j].second.vert = topVerts[i].first;
 
-        topVert.second = baseEdge.second.vert.in(surf); // copy position
-        linkVert(&joinEdge, &topVert);
-        topEdge.second.vert = topVert.first;
-        joinTwin.second.vert = baseEdge.second.vert;
-
-        linkFace(&joinEdge, &sideFace);
-        topTwin.second.face = sideFace.first;
-        baseEdge.second.face = sideFace.first;
-        topEdge.second.face = face.first;
-
-        // top face loop
-        if (topPrev.first != edge_id{}) {
-            linkNext(&topPrev, &topEdge);
-            if (topFirst.first == edge_id{})
-                topFirst = topPrev;
-            else
-                insertAll(&surf.edges, {topPrev});
-        }
-        topPrev = topEdge;
-
-        insertAll(&surf.edges, {baseEdge, topTwin, joinEdge, joinTwin});
-        insertAll(&surf.verts, {topVert});
-        insertAll(&surf.faces, {sideFace});
+        linkFace(&joinEdges[i], &sideFaces[i]);
+        topTwins[i].second.face = sideFaces[i].first;
+        baseEdges[i].second.face = sideFaces[i].first;
+        joinTwins[i].second.face = sideFaces[j].first;
+        topEdges[i].second.face = face.first;
     }
-    linkNext(&topPrev, &topFirst);
-    face.second.edge = topFirst.first;
-    insertAll(&surf.edges, {topFirst, topPrev});
-    insertAll(&surf.faces, {face});
 
-    for (auto &topEdge : FaceEdges(surf, face.second)) {
-        //           topNext│    │
-        //         topEdge  │    │
-        //      X───────────┘    │
-        //     ╱   topTwin   ╲   │
-        //    ╱               ╲  │
-        //   ╱      topTwinPrev╲ │
-        //  ╱    baseEdge       ╲│
-        // ──────────────────────┘
-        edge_pair topTwin = topEdge.second.twin.pair(surf);
-        const edge_pair topNext = topEdge.second.next.pair(surf);
-        edge_pair topTwinPrev = topNext.second.twin.in(surf).next.in(surf).twin.pair(surf);
-        edge_pair baseEdge = topTwin.second.next.in(surf).next.pair(surf);
-        // complete side face loop
-        linkNext(&topTwinPrev, &topTwin);
-        linkNext(&baseEdge, &topTwinPrev);
-        topTwinPrev.second.face = topTwin.second.face;
-        topTwin.second.vert = topNext.second.vert;
-        insertAll(&surf.edges, {topTwin, topTwinPrev, baseEdge});
+    face.second.edge = topEdges[0].first;
+    insertAll(&surf.faces, {face});
+    for (size_t i = 0; i < size; i++) {
+        insertAll(&surf.edges, {baseEdges[i],topEdges[i],topTwins[i],joinEdges[i],joinTwins[i]});
+        insertAll(&surf.verts, {topVerts[i]});
+        insertAll(&surf.faces, {sideFaces[i]});
     }
     return surf;
 }
