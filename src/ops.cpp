@@ -624,20 +624,10 @@ Surface makePolygonPlane(Surface surf, const std::vector<glm::vec3> points, face
     return surf;
 }
 
-Surface moveVertices(Surface surf, const immer::set<vert_id> &verts, glm::vec3 amount) {
+Surface transformVertices(Surface surf, const immer::set<vert_id> &verts, const glm::mat4 &m) {
     for (auto &v : verts) {
         vert_pair vert = v.pair(surf);
-        vert.second.pos += amount;
-        insertAll(&surf.verts, {vert});
-    }
-    return surf;
-}
-
-Surface scaleVertices(Surface surf, const immer::set<vert_id> &verts,
-        glm::vec3 center, glm::vec3 factor) {
-    for (auto &v : verts) {
-        vert_pair vert = v.pair(surf);
-        vert.second.pos = (vert.second.pos - center) * factor + center;
+        vert.second.pos = m * glm::vec4(vert.second.pos, 1);
         insertAll(&surf.verts, {vert});
     }
     return surf;
@@ -646,7 +636,7 @@ Surface scaleVertices(Surface surf, const immer::set<vert_id> &verts,
 Surface snapVertices(Surface surf, const immer::set<vert_id> &verts, float grid) {
     for (auto &v : verts) {
         vert_pair vert = v.pair(surf);
-        vert.second.pos = glm::round(vert.second.pos / grid) * grid;
+        vert.second.pos = glm::roundEven(vert.second.pos / grid) * grid;
         insertAll(&surf.verts, {vert});
     }
     return surf;

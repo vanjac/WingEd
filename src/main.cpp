@@ -727,8 +727,8 @@ static void toolAdjust(HWND wnd, POINT pos, SIZE delta, UINT keyFlags) {
                 g_moved = diff;
             }
             if (amount != glm::vec3(0)) {
-                g_state.surf = moveVertices(std::move(g_state.surf),
-                    selAttachedVerts(g_state), amount);
+                g_state.surf = transformVertices(std::move(g_state.surf), selAttachedVerts(g_state),
+                    glm::translate(glm::mat4(1), amount));
                 updateStatus(wnd);
             }
             break;
@@ -740,7 +740,8 @@ static void toolAdjust(HWND wnd, POINT pos, SIZE delta, UINT keyFlags) {
             for (auto v : verts)
                 center += v.in(g_state.surf).pos;
             center /= verts.size();
-            g_state.surf = scaleVertices(std::move(g_state.surf), verts, center, factor);
+            g_state.surf = transformVertices(std::move(g_state.surf), verts,
+                glm::translate(glm::scale(glm::translate(glm::mat4(1), center), factor), -center));
             break;
         }
     }

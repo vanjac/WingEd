@@ -2,6 +2,7 @@
 #include "common.h"
 
 #include <vector>
+#include <glm/mat4x4.hpp>
 #include <immer/set.hpp>
 #include "surface.h"
 
@@ -33,9 +34,7 @@ Surface joinEdgeLoops(Surface surf, edge_id e1, edge_id e2);
 
 Surface makePolygonPlane(Surface surf, const std::vector<glm::vec3> points, face_id *newFace);
 
-Surface moveVertices(Surface surf, const immer::set<vert_id> &verts, glm::vec3 amount);
-Surface scaleVertices(Surface surf, const immer::set<vert_id> &verts,
-    glm::vec3 center, glm::vec3 factor);
+Surface transformVertices(Surface surf, const immer::set<vert_id> &verts, const glm::mat4 &m);
 Surface snapVertices(Surface surf, const immer::set<vert_id> &verts, float grid);
 
 Surface duplicate(Surface surf, const immer::set<edge_id> &edges, 
