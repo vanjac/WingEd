@@ -1092,9 +1092,11 @@ static void onInitMenu(HWND, HMENU menu) {
 }
 
 static void onSize(HWND, UINT, int cx, int cy) {
-    g_windowDim = {cx, cy};
-    glViewport(0, 0, cx, cy);
-    updateProjMat();
+    if (cx > 0 && cy > 0) {
+        g_windowDim = {cx, cy};
+        glViewport(0, 0, cx, cy);
+        updateProjMat();
+    }
 }
 
 static void glColorHex(uint32_t color) {
