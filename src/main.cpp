@@ -70,26 +70,26 @@ const GLfloat
     WIDTH_GRID          = 1,
     WIDTH_AXIS          = 1;
 
-#define COLOR_CLEAR         0x##262626
-#define COLOR_VERT          0x##90ffed
-#define COLOR_VERT_HOVER    0x##FFFFFF
-#define COLOR_VERT_SEL      0x##ff4d00
-#define COLOR_VERT_FLASH    0x##00ff00
-#define COLOR_EDGE          0x##FFFFFF
-#define COLOR_EDGE_HOVER    0x##b0004c
-#define COLOR_EDGE_SEL      0x##FF4C7F
-#define COLOR_EDGE_FLASH    0x##fffa6b
-#define COLOR_FACE          0x##6200cb
-#define COLOR_FACE_HOVER    0x##603be5
-#define COLOR_FACE_SEL      0x##a200ff
-#define COLOR_FACE_FLASH    0x##ff00ff
-#define COLOR_FACE_ERROR    0x##FF0000
-#define COLOR_DRAW_POINT    0x##FFFFFF
-#define COLOR_DRAW_LINE     0x##FFFFFF
-#define COLOR_GRID          0x##333333
-#define COLOR_X_AXIS        0x##FF0000
-#define COLOR_Y_AXIS        0x##00FF00
-#define COLOR_Z_AXIS        0x##0000FF
+#define COLOR_CLEAR         0xff##262626
+#define COLOR_VERT          0xff##90ffed
+#define COLOR_VERT_HOVER    0xff##ffffff
+#define COLOR_VERT_SEL      0xff##ff4d00
+#define COLOR_VERT_FLASH    0xff##00ff00
+#define COLOR_EDGE          0xff##ffffff
+#define COLOR_EDGE_HOVER    0xff##b0004c
+#define COLOR_EDGE_SEL      0xff##ff4c7f
+#define COLOR_EDGE_FLASH    0xff##fffa6b
+#define COLOR_FACE          0xff##6200cb
+#define COLOR_FACE_HOVER    0xff##603be5
+#define COLOR_FACE_SEL      0xff##a200ff
+#define COLOR_FACE_FLASH    0xff##ff00ff
+#define COLOR_FACE_ERROR    0xff##ff0000
+#define COLOR_DRAW_POINT    0xff##ffffff
+#define COLOR_DRAW_LINE     0xff##ffffff
+#define COLOR_GRID          0xaa##575757
+#define COLOR_X_AXIS        0xff##ff0000
+#define COLOR_Y_AXIS        0xff##00ff00
+#define COLOR_Z_AXIS        0xff##0000ff
 
 const float CAM_MOVE_SCALE = 600;
 
@@ -455,11 +455,13 @@ static BOOL onCreate(HWND wnd, LPCREATESTRUCT) {
     glClearColor(
         ((COLOR_CLEAR >> 16) & 0xFF) / 255.0f,
         ((COLOR_CLEAR >> 8) & 0xFF) / 255.0f,
-        (COLOR_CLEAR & 0xFF) / 255.0f, 1.0f);
+        (COLOR_CLEAR & 0xFF) / 255.0f,
+        ((COLOR_CLEAR >> 24) & 0xFF) / 255.0f);
     glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_POLYGON_OFFSET_FILL);
     glPolygonOffset(2.0, 1.0);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     glEnable(GL_LIGHT0);
     glEnable(GL_COLOR_MATERIAL);
@@ -1116,7 +1118,7 @@ static void onSize(HWND, UINT, int cx, int cy) {
 }
 
 static void glColorHex(uint32_t color) {
-    glColor3ub((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF);
+    glColor4ub((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF, (color >> 24) & 0xFF);
 }
 
 static void drawFace(const Surface &surf, const Face &face) {
@@ -1265,6 +1267,8 @@ static void drawState(const EditorState &state) {
         // snap origin to grid
         p.org -= uVec * glm::fract(p.org[u] / g_state.gridSize)
                + vVec * glm::fract(p.org[v] / g_state.gridSize);
+        glEnable(GL_BLEND);
+        glEnable(GL_LINE_SMOOTH);
         glLineWidth(WIDTH_GRID);
         glColorHex(COLOR_GRID);
         glBegin(GL_LINES);
@@ -1275,6 +1279,8 @@ static void drawState(const EditorState &state) {
             glVertex3fv(glm::value_ptr(p.org + uVec * 128.0f + vVec * (float)i));
         }
         glEnd();
+        glDisable(GL_BLEND);
+        glDisable(GL_LINE_SMOOTH);
     }
 }
 
