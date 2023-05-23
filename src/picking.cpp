@@ -77,80 +77,71 @@ PickResult pickElement(const Surface &surf, PickType types, glm::vec2 normCur,
             if (!isPrimary(edge)) continue;
             glm::vec3 v1 = edge.second.vert.in(surf).pos;
             glm::vec3 v2 = edge.second.twin.in(surf).vert.in(surf).pos;
-            glm::vec3 normV1 = projectPoint(v1, project), normV2 = projectPoint(v2, project);
-            glm::vec2 min = glm::vec2(glm::min(normV1, normV2)) - normEdgeDist;
-            glm::vec2 max = glm::vec2(glm::max(normV1, normV2)) + normEdgeDist;
-            if (glm::abs(normV1.z) <= 1 && glm::abs(normV2.z) <= 1
-                    && normCur.x >= min.x && normCur.x <= max.x
-                    && normCur.y >= min.y && normCur.y <= max.y) {
-                // https://math.stackexchange.com/a/3436386
-                // see also: https://stackoverflow.com/q/2316490/11525734
-                glm::vec3 lineDir = glm::normalize(v2 - v1);
-                glm::vec3 cDir = glm::normalize(glm::cross(lineDir, ray.dir));
-                glm::vec3 oDiff = v1 - ray.org;
-                glm::vec3 projection = glm::dot(oDiff, ray.dir) * ray.dir;
-                glm::vec3 rejection = oDiff - projection - glm::dot(oDiff, cDir) * cDir;
-                if (glm::length2(rejection) == 0)
-                    continue;
-                glm::vec3 vDiff = v2 - v1;
-                float t = -glm::length(rejection) / glm::dot(vDiff, glm::normalize(rejection));
-                t = glm::clamp(t, 0.0f, 1.0f);
-                glm::vec3 point = v1 + t * vDiff;
-                glm::vec3 normPoint = projectPoint(point, project);
-                normPoint.z += EDGE_Z_OFFSET;
-                if (glm::abs(normPoint.z) <= 1 && normPoint.z < result.depth
-                        && glm::abs(normPoint.x - normCur.x) < normEdgeDist.x
-                        && glm::abs(normPoint.y - normCur.y) < normEdgeDist.y) {
-                    if (grid != 0) {
-                        int axis = maxAxis(glm::abs(vDiff));
-                        float rounded = glm::round(point[axis] / grid) * grid;
-                        t = glm::clamp((rounded - v1[axis]) / vDiff[axis], 0.0f, 1.0f);
-                        point = v1 + t * vDiff; // DON'T update normPoint (preserve depth)
-                    }
-                    if (t == 0 && (types & PICK_VERT))
-                        result = PickResult(PICK_VERT, edge.second.vert, point, normPoint.z);
-                    else if (t == 1 && (types & PICK_VERT))
-                        result = PickResult(PICK_VERT, edge.second.twin.in(surf).vert, point,
-                            normPoint.z);
-                    else
-                        result = PickResult(PICK_EDGE, edge.first, point, normPoint.z);
+            // https://math.stackexchange.com/a/3436386
+            // see also: https://stackoverflow.com/q/2316490/11525734
+            glm::vec3 lineDir = glm::normalize(v2 - v1);
+            glm::vec3 cDir = glm::normalize(glm::cross(lineDir, ray.dir));
+            glm::vec3 oDiff = v1 - ray.org;
+            glm::vec3 projection = glm::dot(oDiff, ray.dir) * ray.dir;
+            glm::vec3 rejection = oDiff - projection - glm::dot(oDiff, cDir) * cDir;
+            if (glm::length2(rejection) == 0)
+                continue;
+            glm::vec3 vDiff = v2 - v1;
+            float t = -glm::length(rejection) / glm::dot(vDiff, glm::normalize(rejection));
+            t = glm::clamp(t, 0.0f, 1.0f);
+            glm::vec3 point = v1 + t * vDiff;
+            glm::vec3 normPoint = projectPoint(point, project);
+            normPoint.z += EDGE_Z_OFFSET;
+            if (glm::abs(normPoint.z) <= 1 && normPoint.z < result.depth
+                    && glm::abs(normPoint.x - normCur.x) < normEdgeDist.x
+                    && glm::abs(normPoint.y - normCur.y) < normEdgeDist.y) {
+                if (grid != 0) {
+                    int axis = maxAxis(glm::abs(vDiff));
+                    float rounded = glm::round(point[axis] / grid) * grid;
+                    t = glm::clamp((rounded - v1[axis]) / vDiff[axis], 0.0f, 1.0f);
+                    point = v1 + t * vDiff; // DON'T update normPoint (preserve depth)
                 }
+                if (t == 0 && (types & PICK_VERT))
+                    result = PickResult(PICK_VERT, edge.second.vert, point, normPoint.z);
+                else if (t == 1 && (types & PICK_VERT))
+                    result = PickResult(PICK_VERT, edge.second.twin.in(surf).vert, point,
+                        normPoint.z);
+                else
+                    result = PickResult(PICK_EDGE, edge.first, point, normPoint.z);
             }
         }
     }
     if (types & PICK_FACE) {
         for (auto &face : surf.faces) {
-            // TODO: only loop through face edges once
             glm::vec3 normal = faceNormalNonUnit(surf, face.second);
             if (glm::dot(ray.dir, normal) >= 0)
                 continue;
+            glm::vec3 last = face.second.edge.in(surf).prev.in(surf).vert.in(surf).pos;
+            Plane plane = {last, normal}; // not normalized. should be fine
+            glm::vec3 pt;
+            if (!intersectRayPlane(ray, plane, &pt))
+                continue;
 
+            int axis = maxAxis(glm::abs(normal));
+            int a = (axis + 1) % 3, b = (axis + 2) % 3;
             bool inside = false;
-            glm::vec3 prevVertPos = face.second.edge.in(surf).prev.in(surf).vert.in(surf).pos;
-            glm::vec3 last = projectPoint(prevVertPos, project);
             for (auto &faceEdge : FaceEdges(surf, face.second)) {
-                glm::vec3 vert = projectPoint(faceEdge.second.vert.in(surf).pos, project);
-                if (glm::abs(vert.z) > 1) {
-                    inside = false;
-                    break;
-                }
+                glm::vec3 vert = faceEdge.second.vert.in(surf).pos;
                 // count intersections with horizontal ray
                 // thank you Arguru
-                if (((vert.y <= normCur.y && normCur.y < last.y)
-                        || (last.y <= normCur.y && normCur.y < vert.y))
-                        && (normCur.x < (last.x-vert.x)*(normCur.y-vert.y)/(last.y-vert.y)+vert.x))
+                if (((vert[b] <= pt[b] && pt[b] < last[b])
+                        || (last[b] <= pt[b] && pt[b] < vert[b]))
+                        && (pt[a] < (last[a]-vert[a])*(pt[b]-vert[b])/(last[b]-vert[b])+vert[a]))
 			        inside = !inside;
                 last = vert;
             }
-            Plane plane = {prevVertPos, normal}; // not normalized. should be fine
-            glm::vec3 point;
-            if (inside && intersectRayPlane(ray, plane, &point)) {
-                glm::vec3 normPoint = projectPoint(point, project);
+            if (inside) {
+                glm::vec3 normPoint = projectPoint(pt, project);
                 if (normPoint.z < result.depth) {
                     // DON'T update normPoint (preserve depth)
-                    point = snapPlanePoint(point, plane, grid);
+                    pt = snapPlanePoint(pt, plane, grid);
                     // TODO: constrain to edge/vertex if outside face boundary!
-                    result = PickResult(PICK_FACE, face.first, point, normPoint.z);
+                    result = PickResult(PICK_FACE, face.first, pt, normPoint.z);
                 }
             }
         }
