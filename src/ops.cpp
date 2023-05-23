@@ -269,7 +269,7 @@ Surface joinEdges(Surface surf, edge_id e1, edge_id e2) {
 }
 
 Surface splitFace(Surface surf, edge_id e1, edge_id e2,
-        const std::vector<glm::vec3> points, edge_id *splitEdge) {
+        const std::vector<glm::vec3> &points, edge_id *splitEdge) {
     // BEFORE:
     // ╮               ╮
     // │prev1     edge2│
@@ -426,7 +426,7 @@ Surface mergeFaces(Surface surf, edge_id e) {
     return surf;
 }
 
-Surface extrudeFace(Surface surf, face_id f, const immer::set<edge_id> extEdges) {
+Surface extrudeFace(Surface surf, face_id f, const immer::set<edge_id> &extEdges) {
     // ┌────────────┐
     // │╲   side   ╱│
     // │ ╲        ╱ │ base (previous edges of face)
@@ -602,7 +602,7 @@ Surface joinEdgeLoops(Surface surf, edge_id e1, edge_id e2) {
     return surf;
 }
 
-Surface makePolygonPlane(Surface surf, const std::vector<glm::vec3> points, face_id *newFace) {
+Surface makePolygonPlane(Surface surf, const std::vector<glm::vec3> &points, face_id *newFace) {
     size_t size = points.size();
     if (size < 3)
         throw winged_error();

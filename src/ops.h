@@ -22,17 +22,17 @@ Surface joinVerts(Surface surf, edge_id e1, edge_id e2);
 Surface joinEdges(Surface surf, edge_id e1, edge_id e2);
 // Create a new edge between two vertices on the same face
 Surface splitFace(Surface surf, edge_id e1, edge_id e2,
-    const std::vector<glm::vec3> points, edge_id *splitEdge);
+    const std::vector<glm::vec3> &points, edge_id *splitEdge);
 // Merge two faces along a chain of edges that joins them (given one edge on the chain)
 Surface mergeFaces(Surface surf, edge_id e);
 // Creates new quad faces for each side of the given face
-Surface extrudeFace(Surface surf, face_id f, const immer::set<edge_id> extEdges);
+Surface extrudeFace(Surface surf, face_id f, const immer::set<edge_id> &extEdges);
 // Create a pair of opposing faces from the edge loop
 Surface splitEdgeLoop(Surface surf, const std::vector<edge_id> &loop);
 // Join two faces into a single edge loop
 Surface joinEdgeLoops(Surface surf, edge_id e1, edge_id e2);
 
-Surface makePolygonPlane(Surface surf, const std::vector<glm::vec3> points, face_id *newFace);
+Surface makePolygonPlane(Surface surf, const std::vector<glm::vec3> &points, face_id *newFace);
 
 Surface transformVertices(Surface surf, const immer::set<vert_id> &verts, const glm::mat4 &m);
 Surface snapVertices(Surface surf, const immer::set<vert_id> &verts, float grid);
