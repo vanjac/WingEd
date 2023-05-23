@@ -21,7 +21,8 @@
 #pragma comment(lib, "Glu32.lib")
 
 using namespace chroma;
-using namespace winged;
+
+namespace winged {
 
 const TCHAR APP_NAME[] = _T("WingEd");
 
@@ -1325,6 +1326,10 @@ static LRESULT CALLBACK MainWindowProc(HWND wnd, UINT msg, WPARAM wParam, LPARAM
     }
     return DefWindowProc(wnd, msg, wParam, lParam);
 }
+
+} // namespace
+
+using namespace winged;
 
 int APIENTRY WinMain(HINSTANCE instance, HINSTANCE, LPSTR, int showCmd) {
     WNDCLASSEX wndClass = makeClass(APP_NAME, MainWindowProc);

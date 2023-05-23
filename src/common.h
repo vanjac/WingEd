@@ -11,8 +11,10 @@
 #pragma warning(disable: 4201) // for glm
 #pragma warning(disable: 4996) // :3
 
+namespace winged {
 struct winged_error : std::exception {
     const wchar_t *message = nullptr;
     winged_error() = default;
     winged_error(const wchar_t *message) : message(message) {}
 };
+}
