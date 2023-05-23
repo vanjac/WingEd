@@ -8,11 +8,13 @@
 
 namespace winged {
 
+#ifdef CHROMA_DEBUG
 uint32_t name(id_t id); // for debugging
 template<typename T, typename V>
 uint32_t name(std::pair<T, V> pair) {
     return name(pair.first);
 }
+#endif
 
 // Create a new vertex/edge in the middle of the given edge
 Surface splitEdge(Surface surf, edge_id e, glm::vec3 pos);
@@ -43,6 +45,6 @@ Surface flipAllNormals(Surface surf);
 Surface flipNormals(Surface surf,
     const immer::set<edge_id> &edges, const immer::set<vert_id> &verts);
 
-void validateSurface(const Surface &surf); // slow!
+void validateSurface(const Surface &surf); // debug builds only
 
 } // namespace

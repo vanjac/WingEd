@@ -252,11 +252,13 @@ static PickType hoverType() {
     }
 }
 
+#ifdef CHROMA_DEBUG
 static const HEdge expectSingleSelEdge() {
     if (g_state.selEdges.size() == 1)
         return g_state.selEdges.begin()->in(g_state.surf);
     throw winged_error(L"No selected edge");
 }
+#endif
 
 static edge_pair edgeOnHoverFace(const Surface &surf, vert_id v) {
     // TODO: what if there are multiple?
@@ -356,11 +358,15 @@ static void updateStatus(HWND wnd) {
 
     size_t numSel = g_state.selVerts.size() + g_state.selFaces.size() + g_state.selEdges.size();
     if (numSel) {
+#ifdef CHROMA_DEBUG
         uint32_t selName = 0;
         if (!g_state.selVerts.empty()) selName = name(*g_state.selVerts.begin());
         else if (!g_state.selFaces.empty()) selName = name(*g_state.selFaces.begin());
         else if (!g_state.selEdges.empty()) selName = name(*g_state.selEdges.begin());
         str += _stprintf(str, L"Sel: %08X (%zd)    ", selName, numSel);
+#else
+        str += _stprintf(str, L"%zd selected    ", numSel);
+#endif
     }
 
     HMENU menu = GetMenu(wnd);
@@ -967,6 +973,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 }
                 setSelMode(SEL_SOLIDS);
                 break;
+#ifdef CHROMA_DEBUG
             case IDM_EDGE_TWIN:
                 g_state.selEdges = immer::set<edge_id>{}.insert(expectSingleSelEdge().twin);
                 break;
@@ -976,6 +983,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
             case IDM_PREV_FACE_EDGE:
                 g_state.selEdges = immer::set<edge_id>{}.insert(expectSingleSelEdge().prev);
                 break;
+#endif
             /* View */
             case IDM_FLY_CAM:
                 g_view.flyCam ^= true;

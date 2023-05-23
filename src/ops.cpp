@@ -1,15 +1,19 @@
 #include "ops.h"
 #include <unordered_map>
 #include <glm/common.hpp>
+#ifdef CHROMA_DEBUG
 #include "winchroma.h"
+#endif
 
 namespace winged {
 
+#ifdef CHROMA_DEBUG
 uint32_t name(id_t id) {
     if (id == id_t{})
         return 0;
     return (uint32_t)std::hash<GUID>{}(id);
 }
+#endif
 
 
 template<typename K, typename V>
@@ -728,6 +732,9 @@ Surface flipNormals(Surface surf,
 }
 
 
+#ifndef CHROMA_DEBUG
+void validateSurface(const Surface &) {}
+#else
 void validateSurface(const Surface &surf) {
     auto tooMany = winged_error(L"Too many geometry errors (see log)");
     #define CHECK_VALID(cond, message, ...)     \
@@ -817,5 +824,6 @@ void validateSurface(const Surface &surf) {
     }
     #undef CHECK_VALID
 }
+#endif
 
 } // namespace
