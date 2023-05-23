@@ -523,6 +523,7 @@ static EditorState knifeToVert(EditorState state, vert_id vert) {
     }
 
     state.selVerts = immer::set<vert_id>{}.insert(vert);
+    state.selFaces = {};
     g_drawVerts.clear();
     return state;
 }
@@ -1014,6 +1015,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
             /* element */
             case IDM_EXTRUDE: {
                 EditorState newState = g_state;
+                newState.selVerts = {};
                 newState.selEdges = {};
                 for (auto f : g_state.selFaces) {
                     immer::set_transient<edge_id> extEdges;
