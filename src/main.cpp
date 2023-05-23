@@ -32,7 +32,6 @@ const HCURSOR drawCur = LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_DR
 enum Tool {
     TOOL_SELECT, TOOL_SCALE, TOOL_POLY, TOOL_KNIFE, TOOL_JOIN, NUM_TOOLS
 };
-// tool flags
 enum ToolFlags {
     TOOLF_ELEMENTS = 1<<SEL_ELEMENTS, // allowed in element select mode
     TOOLF_SOLIDS = 1<<SEL_SOLIDS, // allowed in solid select mode
@@ -1339,7 +1338,7 @@ static LRESULT CALLBACK MainWindowProc(HWND wnd, UINT msg, WPARAM wParam, LPARAM
 
 using namespace winged;
 
-int APIENTRY WinMain(HINSTANCE instance, HINSTANCE, LPSTR, int showCmd) {
+int APIENTRY _tWinMain(HINSTANCE instance, HINSTANCE, LPTSTR, int showCmd) {
     WNDCLASSEX wndClass = makeClass(APP_NAME, MainWindowProc);
     wndClass.style = CS_HREDRAW | CS_VREDRAW;
     wndClass.lpszMenuName = APP_NAME;
