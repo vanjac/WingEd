@@ -426,7 +426,7 @@ Surface mergeFaces(Surface surf, edge_id e) {
     return surf;
 }
 
-Surface extrudeFace(Surface surf, face_id f) {
+Surface extrudeFace(Surface surf, face_id f, const immer::set<edge_id> extEdges) {
     // ┌────────────┐
     // │╲   side   ╱│
     // │ ╲        ╱ │ base (previous edges of face)
@@ -437,52 +437,86 @@ Surface extrudeFace(Surface surf, face_id f) {
     // │╱          ╲│
     // └────────────┘
     face_pair face = f.pair(surf);
-    std::vector<edge_pair> baseEdges;
-    for (auto baseEdge : FaceEdges(surf, face.second))
-        baseEdges.push_back(baseEdge);
-    size_t size = baseEdges.size();
-    std::vector<edge_pair> topEdges = makeEdgePairs(size);
+    std::vector<edge_pair> topEdges, baseTwins;
+    std::vector<vert_pair> baseVerts;
+    for (auto topEdge : FaceEdges(surf, face.second)) {
+        topEdges.push_back(topEdge);
+        baseTwins.push_back(topEdge.second.twin.pair(surf));
+        baseVerts.push_back(topEdge.second.vert.pair(surf));
+    }
+    size_t size = topEdges.size();
+    std::vector<edge_pair> baseEdges = makeEdgePairs(size);
     std::vector<edge_pair> topTwins = makeEdgePairs(size);
     std::vector<edge_pair> joinEdges = makeEdgePairs(size);
     std::vector<edge_pair> joinTwins = makeEdgePairs(size);
     std::vector<vert_pair> topVerts = makeVertPairs(size);
     std::vector<face_pair> sideFaces = makeFacePairs(size);
+    //    topVert│  topEdge  │    │
+    //           X───────────┘    │
+    //          ╱   topTwin   ╲   │
+    // joinTwin╱               ╲  │
+    //        ╱joinEdge         ╲ │
+    //       ╱      baseEdge     ╲│
+    //      X─────────────────────┘
+    // baseVert     baseTwin
 
     for (size_t i = 0, j = size - 1; i < size; j = i++) {
-        //    topVert│  topEdge  │    │
-        //           X───────────┘    │
-        //          ╱   topTwin   ╲   │
-        // joinTwin╱               ╲  │
-        //        ╱ joinEdge        ╲ │
-        //       ╱      baseEdge     ╲│
-        //      ──────────────────────┘
-        linkTwins(&topEdges[i], &topTwins[i]);
-        linkTwins(&joinEdges[i], &joinTwins[i]);
-        linkNext(&topEdges[j], &topEdges[i]);
-        linkNext(&topTwins[i], &joinEdges[i]);
-        linkNext(&joinEdges[i], &baseEdges[i]);
-        linkNext(&baseEdges[j], &joinTwins[i]);
-        linkNext(&joinTwins[i], &topTwins[j]);
+        bool extrudeEdgeI = extEdges.empty() || extEdges.count(topEdges[i].first);
+        bool extrudeEdgeJ = extEdges.empty() || extEdges.count(topEdges[j].first);
+        if (!extrudeEdgeI && !extrudeEdgeJ)
+            continue;
 
-        topVerts[i].second = baseEdges[i].second.vert.in(surf); // copy position
+        linkTwins(&joinEdges[i], &joinTwins[i]);
+        if (extrudeEdgeI) {
+            linkTwins(&topEdges[i], &topTwins[i]);
+            linkTwins(&baseEdges[i], &baseTwins[i]);
+            linkNext(&joinEdges[i], &baseEdges[i]);
+        } else {
+            edge_pair baseTwinNextI = baseTwins[i].second.next.pair(surf);
+            if (baseTwinNextI.first == baseTwins[j].first) throw winged_error(L"Can't extrude!");
+            linkNext(&joinEdges[i], &baseTwinNextI);
+            insertAll(&surf.edges, {baseTwinNextI});
+        }
+        if (extrudeEdgeJ) {
+            linkNext(&baseEdges[j], &joinTwins[i]);
+        } else {
+            edge_pair baseTwinPrevJ = baseTwins[j].second.prev.pair(surf);
+            if (baseTwinPrevJ.first == baseTwins[i].first) throw winged_error(L"Can't extrude!");
+            linkNext(&baseTwinPrevJ, &joinTwins[i]);
+            insertAll(&surf.edges, {baseTwinPrevJ});
+        }
+        linkNext(extrudeEdgeI ? &topTwins[i] : &baseTwins[i], &joinEdges[i]);
+        linkNext(&joinTwins[i], extrudeEdgeJ ? &topTwins[j] : &baseTwins[j]);
+
+        topVerts[i].second = baseVerts[i].second; // copy position
         linkVert(&joinEdges[i], &topVerts[i]);
-        joinTwins[i].second.vert = baseEdges[i].second.vert;
+        linkVert(&joinTwins[i], &baseVerts[i]);
         topEdges[i].second.vert = topVerts[i].first;
         topTwins[j].second.vert = topVerts[i].first;
+        baseEdges[i].second.vert = baseVerts[i].first;
+        if (!extrudeEdgeJ) baseTwins[j].second.vert = topVerts[i].first;
 
-        linkFace(&joinEdges[i], &sideFaces[i]);
+        linkFace(&baseEdges[i], &sideFaces[i]);
         topTwins[i].second.face = sideFaces[i].first;
-        baseEdges[i].second.face = sideFaces[i].first;
-        joinTwins[i].second.face = sideFaces[j].first;
         topEdges[i].second.face = face.first;
+        joinEdges[i].second.face = extrudeEdgeI ? sideFaces[i].first : baseTwins[i].second.face;
+        joinTwins[i].second.face = extrudeEdgeJ ? sideFaces[j].first : baseTwins[j].second.face;
     }
 
     face.second.edge = topEdges[0].first;
     insertAll(&surf.faces, {face});
-    for (size_t i = 0; i < size; i++) {
-        insertAll(&surf.edges, {baseEdges[i],topEdges[i],topTwins[i],joinEdges[i],joinTwins[i]});
-        insertAll(&surf.verts, {topVerts[i]});
-        insertAll(&surf.faces, {sideFaces[i]});
+    for (size_t i = 0, j = size - 1; i < size; j = i++) {
+        insertAll(&surf.edges, {topEdges[i], baseTwins[i]});
+        insertAll(&surf.verts, {baseVerts[i]});
+        bool extrudeEdgeI = extEdges.empty() || extEdges.count(topEdges[i].first);
+        if (extrudeEdgeI) {
+            insertAll(&surf.edges, {baseEdges[i], topTwins[i]});
+            insertAll(&surf.faces, {sideFaces[i]});
+        }
+        if (extrudeEdgeI || extEdges.count(topEdges[j].first)) {
+            insertAll(&surf.edges, {joinEdges[i], joinTwins[i]});
+            insertAll(&surf.verts, {topVerts[i]});
+        }
     }
     return surf;
 }
@@ -695,13 +729,14 @@ Surface flipNormals(Surface surf,
 
 
 void validateSurface(const Surface &surf) {
-    #define CHECK_VALID(cond, message, ...) \
-        if (!(cond)) {                  \
-            LOG(message, __VA_ARGS__);  \
-            valid = false;              \
+    auto tooMany = winged_error(L"Too many geometry errors (see log)");
+    #define CHECK_VALID(cond, message, ...)     \
+        if (!(cond)) {                          \
+            LOG(message, __VA_ARGS__);          \
+            if (++invalid > 100) throw tooMany; \
         }
 
-    bool valid = true;
+    int invalid = 0;
     for (auto &pair : surf.verts) {
         CHECK_VALID(pair.second.edge.find(surf), "Vert %08X has invalid edge ID %08X!",
             name(pair), name(pair.second.edge));
@@ -722,7 +757,7 @@ void validateSurface(const Surface &surf) {
         CHECK_VALID(pair.second.face.find(surf), "Edge %08X has invalid face ID %08X!",
             name(pair), name(pair.second.face));
     }
-    if (!valid) {
+    if (invalid) {
         LOG("---------");
         throw winged_error(L"Invalid element IDs (see log)"); // can't do any more checks
     }
@@ -776,7 +811,7 @@ void validateSurface(const Surface &surf) {
         CHECK_VALID(foundEdge, "Edge %08X can't be reached from vert %08X!",
             name(pair), name(pair.second.face));
     }
-    if (!valid) {
+    if (invalid) {
         LOG("---------");
         throw winged_error(L"Invalid geometry (see log)"); // can't do any more checks
     }

@@ -1014,8 +1014,22 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
             /* element */
             case IDM_EXTRUDE: {
                 EditorState newState = g_state;
-                for (auto f : g_state.selFaces)
-                    newState.surf = extrudeFace(newState.surf, f);
+                newState.selEdges = {};
+                for (auto f : g_state.selFaces) {
+                    immer::set_transient<edge_id> extEdges;
+                    for (auto e : g_state.selEdges) {
+                        HEdge edge = e.in(newState.surf);
+                        if (edge.face == f)
+                            extEdges.insert(e);
+                        else if (edge.twin.in(newState.surf).face == f)
+                            extEdges.insert(edge.twin);
+                    }
+                    newState.surf = extrudeFace(newState.surf, f, extEdges.persistent());
+                    for (auto e : extEdges) {
+                        auto primary = primaryEdge(e.pair(newState.surf));
+                        newState.selEdges = std::move(newState.selEdges).insert(primary);
+                    }
+                }
                 pushUndo(std::move(newState));
                 flashSel(wnd);
                 break;

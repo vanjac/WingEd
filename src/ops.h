@@ -26,7 +26,7 @@ Surface splitFace(Surface surf, edge_id e1, edge_id e2,
 // Merge two faces along a chain of edges that joins them (given one edge on the chain)
 Surface mergeFaces(Surface surf, edge_id e);
 // Creates new quad faces for each side of the given face
-Surface extrudeFace(Surface surf, face_id f);
+Surface extrudeFace(Surface surf, face_id f, const immer::set<edge_id> extEdges);
 // Create a pair of opposing faces from the edge loop
 Surface splitEdgeLoop(Surface surf, const std::vector<edge_id> &loop);
 // Join two faces into a single edge loop
