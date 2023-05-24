@@ -328,6 +328,18 @@ static std::vector<edge_id> sortEdgeLoop(const Surface &surf, immer::set<edge_id
     return loop;
 }
 
+static glm::vec3 vertsCenter(immer::set<vert_id> verts) {
+    if (verts.empty())
+        return {};
+    glm::vec3 min = verts.begin()->in(g_state.surf).pos, max = min;
+    for (auto v : verts) {
+        auto pos = v.in(g_state.surf).pos;
+        min = glm::min(min, pos);
+        max = glm::max(max, pos);
+    }
+    return (min + max) / 2.0f;
+}
+
 
 static void refresh(HWND wnd) {
     InvalidateRect(wnd, NULL, false);
@@ -779,10 +791,7 @@ static void toolAdjust(HWND wnd, POINT pos, SIZE delta, UINT keyFlags) {
         case TOOL_SCALE: {
             glm::vec3 factor = glm::vec3(glm::pow(1.001f, (float)delta.cx));
             auto verts = selAttachedVerts(g_state);
-            glm::vec3 center = {};
-            for (auto v : verts)
-                center += v.in(g_state.surf).pos;
-            center /= verts.size();
+            glm::vec3 center = vertsCenter(verts);
             g_state.surf = transformVertices(std::move(g_state.surf), verts,
                 glm::translate(glm::scale(glm::translate(glm::mat4(1), center), factor), -center));
             break;
@@ -1032,6 +1041,9 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 g_view.flyCam ^= true;
                 updateProjMat();
                 break;
+            case IDM_FOCUS:
+                g_view.camPivot = -vertsCenter(selAttachedVerts(g_state));
+                break;
             /* Edit */
             case IDM_UNDO:
                 if (!g_undoStack.empty()) {
@@ -1151,6 +1163,7 @@ static void onInitMenu(HWND, HMENU menu) {
         MF_ENABLED : MF_GRAYED);
     EnableMenuItem(menu, IDM_DUPLICATE, (hasSel && selSolid) ? MF_ENABLED : MF_GRAYED);
     CheckMenuItem(menu, IDM_FLY_CAM, g_view.flyCam ? MF_CHECKED : MF_UNCHECKED);
+    EnableMenuItem(menu, IDM_FOCUS, hasSel ? MF_ENABLED : MF_GRAYED);
 
     MENUITEMINFO selMenu = {sizeof(selMenu), MIIM_SUBMENU};
     GetMenuItemInfo(menu, IDM_SEL_MENU, false, &selMenu);

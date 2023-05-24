@@ -38,12 +38,13 @@
 #define IDM_EXPORT_OBJ                      136
 #define IDM_SNAP                            137
 #define IDM_DUPLICATE                       138
+#define IDM_FOCUS                           139
 
 #ifdef APSTUDIO_INVOKED
     #ifndef APSTUDIO_READONLY_SYMBOLS
         #define _APS_NO_MFC                 1
         #define _APS_NEXT_RESOURCE_VALUE    100
-        #define _APS_NEXT_COMMAND_VALUE     139
+        #define _APS_NEXT_COMMAND_VALUE     140
         #define _APS_NEXT_CONTROL_VALUE     1000
         #define _APS_NEXT_SYMED_VALUE       300
     #endif

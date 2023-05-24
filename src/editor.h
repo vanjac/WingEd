@@ -28,7 +28,7 @@ struct EditorState {
 
 // saved in file but not undo stack
 struct ViewState {
-    glm::vec3 camPivot = {};
+    glm::vec3 camPivot = {}; // TODO: actually negative
     float rotX = glm::radians(45.0f), rotY = glm::radians(-15.0f);
     float zoom = 16;
     bool flyCam = false;

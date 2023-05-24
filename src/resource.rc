@@ -65,6 +65,7 @@ WINGED MENUEX
     POPUP "&View"
     {
         MENUITEM "&First-person\tZ", IDM_FLY_CAM
+        MENUITEM "Focus &Selection\tF", IDM_FOCUS
     }
     MENUITEM "Ready", IDM_STATUS, MFT_RIGHTJUSTIFY
 }
@@ -103,6 +104,7 @@ ACCEL ACCELERATORS
     "N", IDM_NEW, CONTROL, VIRTKEY
     "G", IDM_SNAP, CONTROL, VIRTKEY
     "D", IDM_DUPLICATE, CONTROL, VIRTKEY
+    "F", IDM_FOCUS, VIRTKEY
 }
 
 //////////////////////////////////////////////////////////////////////////////
