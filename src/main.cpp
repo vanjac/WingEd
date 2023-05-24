@@ -945,6 +945,30 @@ static EditorState erase(EditorState state) {
     return newState;
 }
 
+INT_PTR CALLBACK matrixDlgProc(HWND dlg, UINT msg, WPARAM wParam, LPARAM lParam) {
+    switch (msg) {
+        case WM_INITDIALOG:
+            SetWindowLongPtr(dlg, DWLP_USER, lParam);
+            return true;
+        case WM_COMMAND:
+            switch (LOWORD(wParam)) {
+                case IDOK:
+                case IDCANCEL: {
+                    glm::mat4 &mat = *(glm::mat4 *)GetWindowLongPtr(dlg, DWLP_USER);
+                    for (int i = 0; i < 9; i++) {
+                        TCHAR buf[64];
+                        GetDlgItemText(dlg, 1000 + i, buf, _countof(buf));
+                        mat[i % 3][i / 3] = (float)_ttof(buf);
+                    }
+                    EndDialog(dlg, LOWORD(wParam));
+                    return true;
+                }
+            }
+            break;
+    }
+    return false;
+}
+
 static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
     if (ctl) return;
 
@@ -1138,6 +1162,19 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 newState.surf = snapVertices(g_state.surf,
                     selAttachedVerts(g_state), g_state.gridSize);
                 pushUndo(std::move(newState));
+                break;
+            }
+            case IDM_TRANSFORM_MATRIX: {
+                auto mat = glm::mat4(1);
+                if (DialogBoxParam(GetModuleHandle(NULL), L"IDD_MATRIX", wnd, matrixDlgProc,
+                        (LPARAM)&mat) == IDOK) {
+                    auto verts = selAttachedVerts(g_state);
+                    glm::vec3 center = vertsCenter(verts);
+                    EditorState newState = g_state;
+                    newState.surf = transformVertices(g_state.surf, verts,
+                        glm::translate(glm::translate(glm::mat4(1), center) * mat, -center));
+                    pushUndo(std::move(newState));
+                }
                 break;
             }
         }
