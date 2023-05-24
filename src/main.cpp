@@ -422,6 +422,9 @@ static void setTool(Tool tool) {
     g_drawVerts.clear();
     if (!(tools[tool].flags & (1 << g_state.selMode)))
         g_state.selMode = SEL_ELEMENTS; // TODO
+    if ((tools[tool].flags & TOOLF_DRAW) && (tools[tool].flags & TOOLF_HOVFACE))
+        if (auto face = g_hoverFace.find(g_state.surf))
+            g_state.workPlane = facePlane(g_state.surf, *face);
 }
 
 
@@ -837,7 +840,7 @@ static void onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
             g_hover = result;
             if (result.type == PICK_FACE) {
                 g_hoverFace = g_hover.face;
-                if ((tools[g_tool].flags & (TOOLF_DRAW | TOOLF_HOVFACE)))
+                if ((tools[g_tool].flags & TOOLF_DRAW) && (tools[g_tool].flags & TOOLF_HOVFACE))
                     g_state.workPlane = facePlane(g_state.surf, g_hoverFace.in(g_state.surf));
             }
             refresh(wnd);
