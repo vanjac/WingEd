@@ -43,6 +43,6 @@ bool pickVert(glm::vec3 vertPos, glm::vec2 normCur, glm::vec2 windowDim, const g
 
 PickResult pickElement(const Surface &surf, PickType types,
     glm::vec2 normCur, glm::vec2 windowDim, const glm::mat4 &project,
-    float grid = 0, float maxDepth = 2);
+    float grid = 0, PickResult existing = {});
 
 } // namespace

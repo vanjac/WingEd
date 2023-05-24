@@ -536,6 +536,32 @@ static EditorState knifeToVert(EditorState state, vert_id vert) {
     return state;
 }
 
+static EditorState knifeToDrawVert(EditorState state, int loopI) {
+    if (state.selVerts.size() != 1 || !g_hoverFace.find(state.surf))
+        throw winged_error();
+
+    glm::vec3 loopNorm = {};
+    for (size_t i = loopI, j = g_drawVerts.size() - 1; i < g_drawVerts.size(); j = i++)
+        loopNorm += accumPolyNormal(g_drawVerts[j], g_drawVerts[i]);
+    glm::vec3 faceNorm = faceNormalNonUnit(state.surf, g_hoverFace.in(state.surf));
+    if (glm::dot(loopNorm, faceNorm) > 0)
+        std::reverse(g_drawVerts.begin() + loopI + 1, g_drawVerts.end());
+
+    edge_pair e = edgeOnHoverFace(state.surf, *state.selVerts.begin());
+    edge_id newEdge;
+    state.surf = splitFace(std::move(state.surf), e.first, e.first, g_drawVerts, &newEdge, loopI);
+    for (int i = 0; i < g_drawVerts.size() + 1; i++) {
+        edge_pair pair = newEdge.pair(state.surf);
+        state.selEdges = std::move(state.selEdges).insert(primaryEdge(pair));
+        if (i - 1 == loopI)
+            state.selVerts = immer::set<vert_id>{}.insert(pair.second.vert);
+        newEdge = pair.second.next;
+    }
+    state.selFaces = {};
+    g_drawVerts.clear();
+    return state;
+}
+
 static bool onSetCursor(HWND wnd, HWND cursorWnd, UINT hitTest, UINT msg) {
     if (msg && hitTest == HTCLIENT) {
         SetCursor(tools[g_tool].cursor);
@@ -626,6 +652,9 @@ static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT keyFlags) {
                 case PICK_VERT:
                     pushUndo(knifeToVert(g_state, g_hover.vert));
                     break;
+                case PICK_DRAWVERT:
+                    pushUndo(knifeToDrawVert(g_state, (int)g_hover.val));
+                    break;
                 case PICK_FACE:
                     if (!g_state.selVerts.size() == 1)
                         throw winged_error(); // TODO
@@ -648,6 +677,8 @@ static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT keyFlags) {
                 flashSel(wnd);
                 if (!(keyFlags & MK_SHIFT))
                     g_tool = TOOL_SELECT;
+            } else {
+                throw winged_error();
             }
         } else if (g_tool == TOOL_JOIN && hasSelection(g_state) && g_hover.type) {
             pushUndo(join(g_state));
@@ -764,23 +795,25 @@ static void onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
         float grid = g_state.gridOn ? g_state.gridSize : 0;
         PickResult result = {};
 
+        if (tools[g_tool].flags & TOOLF_DRAW) {
+            for (size_t i = 0; i < g_drawVerts.size(); i++) {
+                float depth;
+                if (pickVert(g_drawVerts[i], normCur, g_windowDim, project, &depth)
+                        && depth < result.depth) {
+                    result.type = PICK_DRAWVERT;
+                    result.val = i;
+                    result.point = g_drawVerts[i];
+                    result.depth = depth;
+                }
+            }
+        }
         if (g_tool == TOOL_POLY) {
-            if (!g_drawVerts.empty() &&
-                    pickVert(g_drawVerts[0], normCur, g_windowDim, project, NULL)) {
-                result.type = PICK_DRAWVERT;
-                result.val = 0;
-                result.point = g_drawVerts[0];
-            } else {
+            if (!result.type) {
                 Ray ray = viewPosToRay(normCur, project);
                 glm::vec3 planePoint;
                 if (intersectRayPlane(ray, g_state.workPlane, &planePoint)) {
                     result.point = snapPlanePoint(planePoint, g_state.workPlane, grid);
-                    if (!g_drawVerts.empty() && result.point == g_drawVerts[0]) {
-                        result.type = PICK_DRAWVERT;
-                        result.val = 0;
-                    } else {
-                        result.type = PICK_WORKPLANE;
-                    }
+                    result.type = PICK_WORKPLANE;
                 }
             }
         } else {
@@ -788,7 +821,15 @@ static void onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
             if (g_tool == TOOL_KNIFE && GetKeyState(VK_MENU) < 0)
                 type &= ~PICK_VERT;
             result = pickElement(g_state.surf, type, normCur, g_windowDim, project,
-                (g_tool == TOOL_KNIFE) ? grid : 0);
+                (g_tool == TOOL_KNIFE) ? grid : 0, result);
+        }
+        if (tools[g_tool].flags & TOOLF_DRAW && result.type && result.type != PICK_DRAWVERT) {
+            for (size_t i = 0; i < g_drawVerts.size(); i++) {
+                if (result.point == g_drawVerts[i]) {
+                    result.type = PICK_DRAWVERT;
+                    result.val = i;
+                }
+            }
         }
 
         if (result.id != g_hover.id || result.point != g_hover.point

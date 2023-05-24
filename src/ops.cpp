@@ -273,7 +273,7 @@ Surface joinEdges(Surface surf, edge_id e1, edge_id e2) {
 }
 
 Surface splitFace(Surface surf, edge_id e1, edge_id e2,
-        const std::vector<glm::vec3> &points, edge_id *splitEdge) {
+        const std::vector<glm::vec3> &points, edge_id *splitEdge, int loopIndex) {
     // BEFORE:
     // ╮               ╮
     // │prev1     edge2│
@@ -311,6 +311,7 @@ Surface splitFace(Surface surf, edge_id e1, edge_id e2,
     // │               │
     // ╰    newFace    ╰
     size_t numPoints = points.size();
+    if (loopIndex >= 0 && loopIndex >= numPoints - 2) throw winged_error();
     std::vector<edge_pair> newEdges1 = makeEdgePairs(numPoints + 1);
     std::vector<edge_pair> newEdges2 = makeEdgePairs(numPoints + 1);
     std::vector<vert_pair> newVerts = makeVertPairs(numPoints);
@@ -332,12 +333,15 @@ Surface splitFace(Surface surf, edge_id e1, edge_id e2,
         newEdges2[i].second.vert = newVerts[i].first;
         newEdges1[i + 1].second.face = face.first;
     }
+    for (int i = 0; i < loopIndex + 1; i++)
+        newEdges2[i].second.face = face.first;
+
     // edge2 and prev2 could be the same as these edges!
     insertAll(&surf.edges, {edge1, prev1, newEdges1[0], newEdges2[0]});
     for (size_t i = 0; i < numPoints; i++)
         insertAll(&surf.edges, {newEdges1[i], newEdges2[i]});
 
-    edge2 = e2.pair(surf);
+    edge2 = loopIndex < 0 ? e2.pair(surf) : newEdges2[loopIndex];
     edge_pair prev2 = edge2.second.prev.pair(surf);
     linkNext(&newEdges1.back(), &edge2);
     linkNext(&prev2, &newEdges2.back());

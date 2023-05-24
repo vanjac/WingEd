@@ -24,7 +24,7 @@ Surface joinVerts(Surface surf, edge_id e1, edge_id e2);
 Surface joinEdges(Surface surf, edge_id e1, edge_id e2);
 // Create a new edge between two vertices on the same face
 Surface splitFace(Surface surf, edge_id e1, edge_id e2,
-    const std::vector<glm::vec3> &points, edge_id *splitEdge);
+    const std::vector<glm::vec3> &points, edge_id *splitEdge, int loopIndex = -1);
 // Merge two faces along a chain of edges that joins them (given one edge on the chain)
 Surface mergeFaces(Surface surf, edge_id e);
 // Creates new quad faces for each side of the given face

@@ -53,10 +53,7 @@ bool pickVert(glm::vec3 vertPos, glm::vec2 normCur, glm::vec2 windowDim, const g
 }
 
 PickResult pickElement(const Surface &surf, PickType types, glm::vec2 normCur,
-        glm::vec2 windowDim, const glm::mat4 &project, float grid, float maxDepth) {
-    PickResult result;
-    result.depth = maxDepth;
-
+        glm::vec2 windowDim, const glm::mat4 &project, float grid, PickResult result) {
     if (types & PICK_VERT) {
         for (auto &vert : surf.verts) {
             float depth;
