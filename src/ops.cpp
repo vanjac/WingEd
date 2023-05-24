@@ -310,48 +310,44 @@ Surface splitFace(Surface surf, edge_id e1, edge_id e2,
     // │edge1     prev2│
     // │               │
     // ╰    newFace    ╰
-    edge_pair newEdge1 = makeEdgePair();
-    edge_pair newEdge2 = makeEdgePair();
+    size_t numPoints = points.size();
+    std::vector<edge_pair> newEdges1 = makeEdgePairs(numPoints + 1);
+    std::vector<edge_pair> newEdges2 = makeEdgePairs(numPoints + 1);
+    std::vector<vert_pair> newVerts = makeVertPairs(numPoints);
     face_pair newFace = makeFacePair();
-    *splitEdge = newEdge1.first;
+    *splitEdge = newEdges1[0].first;
 
-    linkTwins(&newEdge1, &newEdge2);
-    linkNext(&prev1, &newEdge1);
-    linkNext(&newEdge2, &edge1);
-    newEdge1.second.vert = edge1.second.vert;
-    linkFace(&newEdge1, &face);
+    linkTwins(&newEdges1[0], &newEdges2[0]);
+    linkNext(&prev1, &newEdges1[0]);
+    linkNext(&newEdges2[0], &edge1);
+    newEdges1[0].second.vert = edge1.second.vert;
+    linkFace(&newEdges1[0], &face);
 
-    for (auto &v : points) {
-        edge_pair fwdEdge1 = makeEdgePair();
-        edge_pair fwdEdge2 = makeEdgePair();
-        vert_pair newVert = makeVertPair();
-
-        linkTwins(&fwdEdge1, &fwdEdge2);
-        linkNext(&newEdge1, &fwdEdge1);
-        linkNext(&fwdEdge2, &newEdge2);
-        newVert.second.pos = v;
-        linkVert(&fwdEdge1, &newVert);
-        newEdge2.second.vert = newVert.first;
-        fwdEdge1.second.face = face.first;
-        fwdEdge2.second.face = newFace.first;
-
-        insertAll(&surf.edges, {newEdge1, newEdge2, fwdEdge1, fwdEdge2});
-        insertAll(&surf.verts, {newVert});
-        newEdge1 = fwdEdge1;
-        newEdge2 = fwdEdge2;
+    for (size_t i = 0; i < numPoints; i++) {
+        linkTwins(&newEdges1[i + 1], &newEdges2[i + 1]);
+        linkNext(&newEdges1[i], &newEdges1[i + 1]);
+        linkNext(&newEdges2[i + 1], &newEdges2[i]);
+        newVerts[i].second.pos = points[i];
+        linkVert(&newEdges1[i + 1], &newVerts[i]);
+        newEdges2[i].second.vert = newVerts[i].first;
+        newEdges1[i + 1].second.face = face.first;
     }
+    // edge2 and prev2 could be the same as these edges!
+    insertAll(&surf.edges, {edge1, prev1, newEdges1[0], newEdges2[0]});
+    for (size_t i = 0; i < numPoints; i++)
+        insertAll(&surf.edges, {newEdges1[i], newEdges2[i]});
 
-    insertAll(&surf.edges, {edge1, prev1});
-    // refresh these edges, could be the same as other edges
     edge2 = e2.pair(surf);
     edge_pair prev2 = edge2.second.prev.pair(surf);
-    linkNext(&newEdge1, &edge2);
-    linkNext(&prev2, &newEdge2);
-    newEdge2.second.vert = edge2.second.vert;
-    newFace.second.edge = newEdge2.first;
+    linkNext(&newEdges1.back(), &edge2);
+    linkNext(&prev2, &newEdges2.back());
+    newEdges2.back().second.vert = edge2.second.vert;
+    newFace.second.edge = newEdges2.back().first;
 
-    insertAll(&surf.edges, {edge2, prev2, newEdge1, newEdge2});
+    insertAll(&surf.edges, {edge2, prev2, newEdges1.back(), newEdges2.back()});
     insertAll(&surf.faces, {face, newFace});
+    for (size_t i = 0; i < numPoints; i++)
+        insertAll(&surf.verts, {newVerts[i]});
     surf = assignFaceEdges(std::move(surf), newFace.second, newFace.first);
     return surf;
 }
