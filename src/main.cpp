@@ -108,6 +108,7 @@ static glm::vec3 g_moved;
 static float g_snapAccum;
 static bool g_flashSel = false;
 static std::vector<glm::vec3> g_drawVerts;
+static glm::mat4 g_userMatrix = glm::mat4(1);
 
 static ViewState g_view;
 static glm::mat4 g_projMat, g_mvMat;
@@ -934,9 +935,16 @@ static EditorState erase(EditorState state) {
 
 INT_PTR CALLBACK matrixDlgProc(HWND dlg, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
-        case WM_INITDIALOG:
+        case WM_INITDIALOG: {
             SetWindowLongPtr(dlg, DWLP_USER, lParam);
+            glm::mat4 &mat = *(glm::mat4 *)lParam;
+            for (int i = 0; i < 9; i++) {
+                TCHAR buf[64];
+                _stprintf(buf, L"%f", mat[i % 3][i / 3]);
+                SetDlgItemText(dlg, 1000 + i, buf);
+            }
             return true;
+        }
         case WM_COMMAND:
             switch (LOWORD(wParam)) {
                 case IDOK:
@@ -1149,14 +1157,13 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                 break;
             }
             case IDM_TRANSFORM_MATRIX: {
-                auto mat = glm::mat4(1);
                 if (DialogBoxParam(GetModuleHandle(NULL), L"IDD_MATRIX", wnd, matrixDlgProc,
-                        (LPARAM)&mat) == IDOK) {
+                        (LPARAM)&g_userMatrix) == IDOK) {
                     auto verts = selAttachedVerts(g_state);
                     glm::vec3 center = vertsCenter(verts);
                     EditorState newState = g_state;
-                    newState.surf = transformVertices(g_state.surf, verts,
-                        glm::translate(glm::translate(glm::mat4(1), center) * mat, -center));
+                    newState.surf = transformVertices(g_state.surf, verts, glm::translate(
+                        glm::translate(glm::mat4(1), center) * g_userMatrix, -center));
                     pushUndo(std::move(newState));
                 }
                 break;
