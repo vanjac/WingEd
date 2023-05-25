@@ -32,7 +32,7 @@ static void eraseAll(immer::map<K, V> *map, std::initializer_list<K> keys) {
 static std::vector<edge_pair> makeEdgePairs(size_t count) {
     std::vector<edge_pair> edges;
     edges.reserve(count);
-    for (int i = 0; i < count; i++)
+    for (size_t i = 0; i < count; i++)
         edges.push_back(makeEdgePair());
     return edges;
 }
@@ -40,7 +40,7 @@ static std::vector<edge_pair> makeEdgePairs(size_t count) {
 static std::vector<vert_pair> makeVertPairs(size_t count) {
     std::vector<vert_pair> verts;
     verts.reserve(count);
-    for (int i = 0; i < count; i++)
+    for (size_t i = 0; i < count; i++)
         verts.push_back(makeVertPair());
     return verts;
 }
@@ -48,7 +48,7 @@ static std::vector<vert_pair> makeVertPairs(size_t count) {
 static std::vector<face_pair> makeFacePairs(size_t count) {
     std::vector<face_pair> faces;
     faces.reserve(count);
-    for (int i = 0; i < count; i++)
+    for (size_t i = 0; i < count; i++)
         faces.push_back(makeFacePair());
     return faces;
 }
@@ -310,7 +310,7 @@ Surface splitFace(Surface surf, edge_id e1, edge_id e2,
     // │edge1     prev2│
     // │               │
     // ╰    newFace    ╰
-    size_t numPoints = points.size();
+    int numPoints = points.size();
     if (loopIndex >= 0 && loopIndex >= numPoints - 2) throw winged_error();
     std::vector<edge_pair> newEdges1 = makeEdgePairs(numPoints + 1);
     std::vector<edge_pair> newEdges2 = makeEdgePairs(numPoints + 1);
@@ -324,7 +324,7 @@ Surface splitFace(Surface surf, edge_id e1, edge_id e2,
     newEdges1[0].second.vert = edge1.second.vert;
     linkFace(&newEdges1[0], &face);
 
-    for (size_t i = 0; i < numPoints; i++) {
+    for (int i = 0; i < numPoints; i++) {
         linkTwins(&newEdges1[i + 1], &newEdges2[i + 1]);
         linkNext(&newEdges1[i], &newEdges1[i + 1]);
         linkNext(&newEdges2[i + 1], &newEdges2[i]);
@@ -338,7 +338,7 @@ Surface splitFace(Surface surf, edge_id e1, edge_id e2,
 
     // edge2 and prev2 could be the same as these edges!
     insertAll(&surf.edges, {edge1, prev1, newEdges1[0], newEdges2[0]});
-    for (size_t i = 0; i < numPoints; i++)
+    for (int i = 0; i < numPoints; i++)
         insertAll(&surf.edges, {newEdges1[i], newEdges2[i]});
 
     edge2 = loopIndex < 0 ? e2.pair(surf) : newEdges2[loopIndex];
@@ -350,7 +350,7 @@ Surface splitFace(Surface surf, edge_id e1, edge_id e2,
 
     insertAll(&surf.edges, {edge2, prev2, newEdges1.back(), newEdges2.back()});
     insertAll(&surf.faces, {face, newFace});
-    for (size_t i = 0; i < numPoints; i++)
+    for (int i = 0; i < numPoints; i++)
         insertAll(&surf.verts, {newVerts[i]});
     surf = assignFaceEdges(std::move(surf), newFace.second, newFace.first);
     return surf;

@@ -527,7 +527,7 @@ static EditorState knifeToVert(EditorState state, vert_id vert) {
             // loop must be clockwise in this case
             glm::vec3 start = vert.in(state.surf).pos;
             glm::vec3 loopNorm = accumPolyNormal(start, g_drawVerts[0]);
-            for (int i = 1; i < g_drawVerts.size(); i++)
+            for (size_t i = 1; i < g_drawVerts.size(); i++)
                 loopNorm += accumPolyNormal(g_drawVerts[i - 1], g_drawVerts[i]);
             loopNorm += accumPolyNormal(g_drawVerts.back(), start);
 
@@ -538,7 +538,7 @@ static EditorState knifeToVert(EditorState state, vert_id vert) {
 
         edge_id newEdge;
         state.surf = splitFace(std::move(state.surf), e1.first, e2.first, g_drawVerts, &newEdge);
-        for (int i = 0; i < g_drawVerts.size() + 1; i++) {
+        for (size_t i = 0; i < g_drawVerts.size() + 1; i++) {
             edge_pair pair = newEdge.pair(state.surf);
             state.selEdges = std::move(state.selEdges).insert(primaryEdge(pair));
             newEdge = pair.second.next;
@@ -565,10 +565,10 @@ static EditorState knifeToDrawVert(EditorState state, int loopI) {
     edge_pair e = edgeOnHoverFace(state.surf, *state.selVerts.begin());
     edge_id newEdge;
     state.surf = splitFace(std::move(state.surf), e.first, e.first, g_drawVerts, &newEdge, loopI);
-    for (int i = 0; i < g_drawVerts.size() + 1; i++) {
+    for (size_t i = 0; i < g_drawVerts.size() + 1; i++) {
         edge_pair pair = newEdge.pair(state.surf);
         state.selEdges = std::move(state.selEdges).insert(primaryEdge(pair));
-        if (i - 1 == loopI)
+        if ((int)i == loopI + 1)
             state.selVerts = immer::set<vert_id>{}.insert(pair.second.vert);
         newEdge = pair.second.next;
     }
@@ -1295,7 +1295,7 @@ static void drawState(const EditorState &state) {
         }
         if (tools[g_tool].flags & TOOLF_DRAW) {
             if (numDrawPoints() > 0) {
-                for (int i = 0; i < g_drawVerts.size(); i++) {
+                for (size_t i = 0; i < g_drawVerts.size(); i++) {
                     if (g_hover.type == PICK_DRAWVERT && g_hover.val == i)
                         glColorHex(COLOR_VERT);
                     else
