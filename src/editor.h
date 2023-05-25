@@ -24,6 +24,7 @@ struct EditorState {
     bool gridOn = true;
     float gridSize = 1;
     Plane workPlane = {{}, {0, 1, 0}};
+    char reserved[4];
 };
 
 // saved in file but not undo stack
