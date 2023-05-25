@@ -30,7 +30,7 @@ const HCURSOR knifeCur = LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_K
 const HCURSOR drawCur = LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_DRAW));
 
 enum Tool {
-    TOOL_SELECT, TOOL_SCALE, TOOL_POLY, TOOL_KNIFE, TOOL_JOIN, NUM_TOOLS
+    TOOL_SELECT, TOOL_POLY, TOOL_KNIFE, TOOL_JOIN, NUM_TOOLS
 };
 enum ToolFlags {
     TOOLF_ELEMENTS = 1<<SEL_ELEMENTS, // allowed in element select mode
@@ -46,7 +46,6 @@ struct ToolInfo {
 };
 const ToolInfo tools[] = {
     /*select*/  {TOOLF_ALLSEL, LoadCursor(NULL, IDC_ARROW)},
-    /*scale*/   {TOOLF_ALLSEL, LoadCursor(NULL, IDC_SIZEWE)},
     /*poly*/    {TOOLF_ELEMENTS | TOOLF_DRAW, drawCur},
     /*knife*/   {TOOLF_ELEMENTS | TOOLF_DRAW | TOOLF_HOVFACE, knifeCur},
     /*join*/    {TOOLF_ELEMENTS | TOOLF_HOVFACE, LoadCursor(NULL, IDC_CROSS)},
@@ -646,9 +645,6 @@ static void startToolAdjust(HWND wnd, POINT pos) {
         g_moved = {};
         lockMouse(wnd, pos, MOUSE_TOOL);
         pushUndo();
-    } else if (g_tool == TOOL_SCALE && hasSelection(g_state)) {
-        lockMouse(wnd, pos, MOUSE_TOOL);
-        pushUndo();
     }
 }
 
@@ -788,14 +784,6 @@ static void toolAdjust(HWND wnd, POINT pos, SIZE delta, UINT keyFlags) {
             }
             break;
         }
-        case TOOL_SCALE: {
-            glm::vec3 factor = glm::vec3(glm::pow(1.001f, (float)delta.cx));
-            auto verts = selAttachedVerts(g_state);
-            glm::vec3 center = vertsCenter(verts);
-            g_state.surf = transformVertices(std::move(g_state.surf), verts,
-                glm::translate(glm::scale(glm::translate(glm::mat4(1), center), factor), -center));
-            break;
-        }
     }
 }
 
@@ -881,8 +869,7 @@ static void onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
             }
         }
         refresh(wnd);
-        if (g_mouseMode != MOUSE_TOOL
-                || (g_tool == TOOL_SELECT && (keyFlags & MK_CONTROL)) || g_tool == TOOL_SCALE) {
+        if (g_mouseMode != MOUSE_TOOL || (g_tool == TOOL_SELECT && (keyFlags & MK_CONTROL))) {
             POINT screenPos = clientToScreen(wnd, g_lastCurPos);
             SetCursorPos(screenPos.x, screenPos.y);
         } else {
@@ -1016,9 +1003,6 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
             /* Tool */
             case IDM_TOOL_SELECT:
                 setTool(TOOL_SELECT);
-                break;
-            case IDM_TOOL_SCALE:
-                setTool(TOOL_SCALE);
                 break;
             case IDM_TOOL_POLY:
                 setTool(TOOL_POLY);

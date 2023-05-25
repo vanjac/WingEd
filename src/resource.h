@@ -17,7 +17,6 @@
 #define IDM_EXTRUDE                         115
 #define IDM_FLIP_NORMALS                    116
 #define IDM_TOOL_SELECT                     117
-#define IDM_TOOL_SCALE                      118
 #define IDM_TOOL_KNIFE                      119
 #define IDM_TOOL_JOIN                       120
 #define IDM_CLEAR_SELECT                    121
