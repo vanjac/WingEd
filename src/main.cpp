@@ -771,8 +771,10 @@ static void toolAdjust(HWND wnd, POINT pos, SIZE delta, UINT keyFlags) {
                         diff[b] = 0;
                 }
                 if (g_state.gridOn) {
-                    diff = glm::round(diff / g_state.gridSize) * g_state.gridSize;
-                    diff[normAxis] += solvePlane(diff, g_state.workPlane.norm, normAxis);
+                    glm::vec3 snapped = glm::round(diff / g_state.gridSize) * g_state.gridSize;
+                    snapped[normAxis] = diff[normAxis] +
+                        solvePlane(snapped - diff, g_state.workPlane.norm, normAxis);
+                    diff = snapped;
                 }
                 amount = diff - g_moved;
                 g_moved = diff;
