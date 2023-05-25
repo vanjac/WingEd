@@ -686,7 +686,6 @@ static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT keyFlags) {
                 newState.selFaces = std::move(newState.selFaces).insert(newFace);
                 pushUndo(std::move(newState));
                 g_drawVerts.clear();
-                flashSel(wnd);
                 if (!(keyFlags & MK_SHIFT))
                     g_tool = TOOL_SELECT;
             } else {
