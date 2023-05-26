@@ -25,6 +25,7 @@ using namespace chroma;
 namespace winged {
 
 const TCHAR APP_NAME[] = _T("WingEd");
+const TCHAR VIEWPORT_CLASS[] = _T("WingEd Viewport");
 
 const HCURSOR knifeCur = LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_KNIFE));
 const HCURSOR drawCur = LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_DRAW));
@@ -112,7 +113,10 @@ static glm::mat4 g_userMatrix = glm::mat4(1);
 
 static ViewState g_view;
 static glm::mat4 g_projMat, g_mvMat;
-static glm::vec2 g_windowDim;
+static glm::vec2 g_viewportDim;
+
+static HWND g_mainWnd;
+static HWND g_viewportWnd;
 
 static GLUtesselator *g_tess;
 static GLenum g_tess_error;
@@ -349,7 +353,7 @@ static void refreshImmediate(HWND wnd) {
     RedrawWindow(wnd, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
 }
 
-static void updateStatus(HWND wnd) {
+static void updateStatus() {
     TCHAR buf[256];
     TCHAR *str = buf;
 
@@ -380,7 +384,7 @@ static void updateStatus(HWND wnd) {
 #endif
     }
 
-    HMENU menu = GetMenu(wnd);
+    HMENU menu = GetMenu(g_mainWnd);
     MENUITEMINFO toolMenu = {sizeof(toolMenu), MIIM_SUBMENU};
     GetMenuItemInfo(menu, IDM_TOOL_MENU, false, &toolMenu);
     str += GetMenuString(toolMenu.hSubMenu, g_tool, str, 32, MF_BYPOSITION);
@@ -393,13 +397,13 @@ static void updateStatus(HWND wnd) {
 
     MENUITEMINFO info = {sizeof(info), MIIM_STRING};
     info.dwTypeData = buf;
-    SetMenuItemInfo(GetMenu(wnd), IDM_STATUS, false, &info);
-    DrawMenuBar(wnd);
+    SetMenuItemInfo(menu, IDM_STATUS, false, &info);
+    DrawMenuBar(g_mainWnd);
 }
 
-static void showError(HWND wnd, winged_error err) {
+static void showError(winged_error err) {
     if (err.message) {
-        MessageBox(wnd, err.message, APP_NAME, MB_ICONERROR);
+        MessageBox(g_mainWnd, err.message, APP_NAME, MB_ICONERROR);
     } else {
         MessageBeep(MB_OK);
         SetCursor(LoadCursor(NULL, IDC_NO));
@@ -444,6 +448,8 @@ static void setTool(Tool tool) {
 }
 
 
+/* VIEWPORT WINDOW */
+
 static void CALLBACK tessVertexCallback(Vertex *vertex) {
     glVertex3fv(glm::value_ptr(vertex->pos));
 }
@@ -452,16 +458,15 @@ static void CALLBACK tessErrorCallback(GLenum error) {
     g_tess_error = error;
 }
 
-
 static void updateProjMat() {
     glMatrixMode(GL_PROJECTION);
-    float aspect = g_windowDim.x / g_windowDim.y;
+    float aspect = g_viewportDim.x / g_viewportDim.y;
     g_projMat = glm::perspective(glm::radians(g_view.flyCam ? 90.0f : 60.0f), aspect, 0.5f, 500.0f);
     glLoadMatrixf(glm::value_ptr(g_projMat));
     glMatrixMode(GL_MODELVIEW);
 }
 
-static BOOL onCreate(HWND wnd, LPCREATESTRUCT) {
+static BOOL view_onCreate(HWND wnd, LPCREATESTRUCT) {
     PIXELFORMATDESCRIPTOR formatDesc = {sizeof(formatDesc)};
     formatDesc.nVersion = 1;
     formatDesc.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
@@ -501,12 +506,10 @@ static BOOL onCreate(HWND wnd, LPCREATESTRUCT) {
     gluTessCallback(g_tess, GLU_TESS_ERROR, (GLvoid (CALLBACK*) ())tessErrorCallback);
     // gluTessCallback(g_tess, GLU_TESS_COMBINE, (GLvoid (*) ())tessCombineCallback);
     // gluTessCallback(g_tess, GLU_TESS_EDGE_FLAG, (GLvoid (*) ())glEdgeFlag);
-
-    updateStatus(wnd);
     return true;
 }
 
-static void onDestroy(HWND wnd) {
+static void view_onDestroy(HWND wnd) {
     gluDeleteTess(g_tess);
     if (HGLRC context = wglGetCurrentContext()) {
         HDC dc = wglGetCurrentDC();
@@ -514,10 +517,6 @@ static void onDestroy(HWND wnd) {
         ReleaseDC(wnd, dc);
         wglDeleteContext(context);
     }
-}
-
-static void onNCDestroy(HWND) {
-    PostQuitMessage(0);
 }
 
 static EditorState knifeToVert(EditorState state, vert_id vert) {
@@ -581,7 +580,7 @@ static EditorState knifeToDrawVert(EditorState state, int loopI) {
     return state;
 }
 
-static bool onSetCursor(HWND wnd, HWND cursorWnd, UINT hitTest, UINT msg) {
+static bool view_onSetCursor(HWND wnd, HWND cursorWnd, UINT hitTest, UINT msg) {
     if (msg && hitTest == HTCLIENT) {
         SetCursor(tools[g_tool].cursor);
         return true;
@@ -644,7 +643,7 @@ static void startToolAdjust(HWND wnd, POINT pos) {
                 }
             }
         }
-        Ray ray = viewPosToRay(screenPosToNDC({pos.x, pos.y}, g_windowDim), g_projMat * g_mvMat);
+        Ray ray = viewPosToRay(screenPosToNDC({pos.x, pos.y}, g_viewportDim), g_projMat * g_mvMat);
         g_startPlanePos = g_state.workPlane.org; // fallback
         intersectRayPlane(ray, g_state.workPlane, &g_startPlanePos);
         g_moved = {};
@@ -653,7 +652,7 @@ static void startToolAdjust(HWND wnd, POINT pos) {
     }
 }
 
-static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT keyFlags) {
+static void view_onLButtonDown(HWND wnd, BOOL, int x, int y, UINT keyFlags) {
     try {
         if (g_tool == TOOL_KNIFE) {
             switch (hoverType()) {
@@ -718,35 +717,36 @@ static void onLButtonDown(HWND wnd, BOOL, int x, int y, UINT keyFlags) {
             }
         }
     } catch (winged_error err) {
-        showError(wnd, err);
+        showError(err);
     }
-    updateStatus(wnd);
+    updateStatus();
     refresh(wnd);
 }
 
-static void onRButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
+static void view_onRButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
     lockMouse(wnd, {x, y}, MOUSE_CAM_ROTATE);
 }
 
-static void onMButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
+static void view_onMButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
     lockMouse(wnd, {x, y}, MOUSE_CAM_PAN);
 }
 
-static void onButtonUp(HWND wnd, int, int, UINT) {
+static void view_onButtonUp(HWND wnd, int, int, UINT) {
     if (g_mouseMode) {
         ReleaseCapture();
         if (g_mouseMode != MOUSE_TOOL)
             ShowCursor(true);
         g_mouseMode = MOUSE_NONE;
-        updateStatus(wnd);
+        updateStatus();
         refresh(wnd);
     }
 }
 
-static void toolAdjust(HWND wnd, POINT pos, SIZE delta, UINT keyFlags) {
+static void toolAdjust(POINT pos, SIZE delta, UINT keyFlags) {
     switch (g_tool) {
         case TOOL_SELECT: {
-            Ray ray = viewPosToRay(screenPosToNDC({pos.x, pos.y}, g_windowDim), g_projMat*g_mvMat);
+            Ray ray = viewPosToRay(screenPosToNDC({pos.x, pos.y}, g_viewportDim),
+                g_projMat * g_mvMat);
             glm::vec3 planePos = g_state.workPlane.org;
             intersectRayPlane(ray, g_state.workPlane, &planePos);
             glm::vec3 absNorm = glm::abs(g_state.workPlane.norm);
@@ -786,17 +786,17 @@ static void toolAdjust(HWND wnd, POINT pos, SIZE delta, UINT keyFlags) {
             if (amount != glm::vec3(0)) {
                 g_state.surf = transformVertices(std::move(g_state.surf), selAttachedVerts(g_state),
                     glm::translate(glm::mat4(1), amount));
-                updateStatus(wnd);
+                updateStatus();
             }
             break;
         }
     }
 }
 
-static void onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
+static void view_onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
     POINT curPos = {x, y};
     if (g_mouseMode == MOUSE_NONE) {
-        glm::vec2 normCur = screenPosToNDC({x, y}, g_windowDim);
+        glm::vec2 normCur = screenPosToNDC({x, y}, g_viewportDim);
         glm::mat4 project = g_projMat * g_mvMat;
         float grid = g_state.gridOn ? g_state.gridSize : 0;
         PickResult result = {};
@@ -804,7 +804,7 @@ static void onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
         if (tools[g_tool].flags & TOOLF_DRAW) {
             for (size_t i = 0; i < g_drawVerts.size(); i++) {
                 float depth;
-                if (pickVert(g_drawVerts[i], normCur, g_windowDim, project, &depth)
+                if (pickVert(g_drawVerts[i], normCur, g_viewportDim, project, &depth)
                         && depth < result.depth) {
                     result.type = PICK_DRAWVERT;
                     result.val = i;
@@ -826,7 +826,7 @@ static void onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
             PickType type = (g_state.selMode == SEL_ELEMENTS) ? PICK_ELEMENT : PICK_FACE;
             if (g_tool == TOOL_KNIFE && GetKeyState(VK_MENU) < 0)
                 type &= ~PICK_VERT;
-            result = pickElement(g_state.surf, type, normCur, g_windowDim, project,
+            result = pickElement(g_state.surf, type, normCur, g_viewportDim, project,
                 (g_tool == TOOL_KNIFE) ? grid : 0, result);
         }
         if (tools[g_tool].flags & TOOLF_DRAW && result.type && result.type != PICK_DRAWVERT) {
@@ -848,14 +848,14 @@ static void onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
             }
             refresh(wnd);
             if (tools[g_tool].flags & TOOLF_DRAW)
-                updateStatus(wnd);
+                updateStatus();
         }
         return;
     } else if (curPos != g_lastCurPos) { // g_mouseMode != MOUSE_NONE
         SIZE delta = {curPos.x - g_lastCurPos.x, curPos.y - g_lastCurPos.y};
         switch (g_mouseMode) {
             case MOUSE_TOOL:
-                toolAdjust(wnd, curPos, delta, keyFlags);
+                toolAdjust(curPos, delta, keyFlags);
                 break;
             case MOUSE_CAM_ROTATE:
                 g_view.rotX += glm::radians((float)delta.cy) * 0.5f;
@@ -884,335 +884,14 @@ static void onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
     }
 }
 
-void onMouseWheel(HWND wnd, int, int, int delta, UINT) {
+void view_onMouseWheel(HWND wnd, int, int, int delta, UINT) {
     g_view.zoom *= glm::pow(1.001f, g_view.flyCam ? delta : -delta);
     refresh(wnd);
 }
 
-static void saveAs(HWND wnd) {
-    TCHAR fileName[MAX_PATH];
-    fileName[0] = 0;
-    const TCHAR filters[] = L"WingEd File (.wing)\0*.wing\0All Files\0*.*\0\0";
-    if (GetSaveFileName(tempPtr(makeOpenFileName(fileName, wnd, filters, L"wing")))) {
-        writeFile(fileName, g_state, g_view);
-        memcpy(g_fileName, fileName, sizeof(g_fileName));
-    }
-}
-
-static EditorState erase(EditorState state) {
-    EditorState newState = state;
-    if (state.selMode == SEL_ELEMENTS) {
-        // edges first, then vertices
-        bool anyDeleted = false;
-        for (auto &e : state.selEdges) {
-            if (e.find(newState.surf)) { // could have been deleted previously
-                newState.surf = mergeFaces(std::move(newState.surf), e);
-                anyDeleted = true;
-            }
-        }
-        for (auto &v : state.selVerts) {
-            if (auto vert = v.find(newState.surf)) {
-                // make sure vert has only two edges
-                const HEdge &edge = vert->edge.in(newState.surf);
-                const HEdge &twin = edge.twin.in(newState.surf);
-                const HEdge &twinNext = twin.next.in(newState.surf);
-                if (twinNext.twin.in(newState.surf).next == vert->edge) {
-                    newState.surf = joinVerts(std::move(newState.surf), edge.prev, vert->edge);
-                    anyDeleted = true;
-                }
-            }
-        }
-        if (!anyDeleted)
-            throw winged_error();
-    } else if (state.selMode == SEL_SOLIDS) {
-        for (auto &v : state.selVerts)
-            newState.surf.verts = std::move(newState.surf.verts).erase(v);
-        for (auto &f : state.selFaces)
-            newState.surf.faces = std::move(newState.surf.faces).erase(f);
-        for (auto &e : state.selEdges)
-            newState.surf.edges = std::move(newState.surf.edges).erase(e)
-                .erase(e.in(state.surf).twin);
-    } else {
-        throw winged_error();
-    }
-    return newState;
-}
-
-INT_PTR CALLBACK matrixDlgProc(HWND dlg, UINT msg, WPARAM wParam, LPARAM lParam) {
-    switch (msg) {
-        case WM_INITDIALOG: {
-            SetWindowLongPtr(dlg, DWLP_USER, lParam);
-            glm::mat4 &mat = *(glm::mat4 *)lParam;
-            for (int i = 0; i < 9; i++) {
-                TCHAR buf[64];
-                _stprintf(buf, L"%f", mat[i % 3][i / 3]);
-                SetDlgItemText(dlg, 1000 + i, buf);
-            }
-            return true;
-        }
-        case WM_COMMAND:
-            switch (LOWORD(wParam)) {
-                case IDOK:
-                case IDCANCEL: {
-                    glm::mat4 &mat = *(glm::mat4 *)GetWindowLongPtr(dlg, DWLP_USER);
-                    for (int i = 0; i < 9; i++) {
-                        TCHAR buf[64];
-                        GetDlgItemText(dlg, 1000 + i, buf, _countof(buf));
-                        mat[i % 3][i / 3] = (float)_ttof(buf);
-                    }
-                    EndDialog(dlg, LOWORD(wParam));
-                    return true;
-                }
-            }
-            break;
-    }
-    return false;
-}
-
-static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
-    if (ctl) return;
-
-    try {
-        switch (id) {
-            /* File */
-            case IDM_NEW:
-                if (MessageBox(wnd, L"Are you sure?", L"New File", MB_YESNO) == IDYES) {
-                    g_state = {};
-                    g_view = {};
-                    g_undoStack = {};
-                    g_redoStack = {};
-                    g_fileName[0] = 0;
-                    resetToolState();
-                }
-                break;
-            case IDM_OPEN: {
-                TCHAR fileName[MAX_PATH];
-                fileName[0] = 0;
-                const TCHAR filters[] = L"WingEd File (.wing)\0*.wing\0\0";
-                if (GetOpenFileName(tempPtr(makeOpenFileName(fileName, wnd, filters, L"wing")))) {
-                    std::tie(g_state, g_view) = readFile(fileName);
-                    g_undoStack = {};
-                    g_redoStack = {};
-                    memcpy(g_fileName, fileName, sizeof(g_fileName));
-                    resetToolState();
-                }
-                break;
-            }
-            case IDM_SAVE_AS:
-                saveAs(wnd);
-                break;
-            case IDM_SAVE:
-                if (!g_fileName[0])
-                    saveAs(wnd);
-                else
-                    writeFile(g_fileName, g_state, g_view);
-                break;
-            case IDM_EXPORT_OBJ: {
-                TCHAR fileName[MAX_PATH];
-                fileName[0] = 0;
-                const TCHAR filters[] = L"OBJ file (.obj)\0*.obj\0All Files\0*.*\0\0";
-                if (GetSaveFileName(tempPtr(makeOpenFileName(fileName, wnd, filters, L"obj"))))
-                    writeObj(fileName, g_state.surf);
-                break;
-            }
-            /* Tool */
-            case IDM_TOOL_SELECT:
-                setTool(TOOL_SELECT);
-                break;
-            case IDM_TOOL_POLY:
-                setTool(TOOL_POLY);
-                if (g_state.selFaces.size() == 1) {
-                    g_state.workPlane = facePlane(g_state.surf,
-                        g_state.selFaces.begin()->in(g_state.surf));
-                }
-                break;
-            case IDM_TOOL_KNIFE:
-                setTool(TOOL_KNIFE);
-                break;
-            case IDM_TOOL_JOIN:
-                setTool(TOOL_JOIN);
-                break;
-            /* Select */
-            case IDM_CLEAR_SELECT:
-                g_state = clearSelection(std::move(g_state));
-                resetToolState();
-                break;
-            case IDM_SEL_ELEMENTS:
-                setSelMode(SEL_ELEMENTS);
-                break;
-            case IDM_SEL_SOLIDS:
-                if (g_state.selMode != SEL_SOLIDS) {
-                    g_state = clearSelection(std::move(g_state));
-                    g_hoverFace = {};
-                    g_hover.type = PICK_NONE;
-                }
-                setSelMode(SEL_SOLIDS);
-                break;
-#ifdef CHROMA_DEBUG
-            case IDM_EDGE_TWIN:
-                g_state.selEdges = immer::set<edge_id>{}.insert(expectSingleSelEdge().twin);
-                break;
-            case IDM_NEXT_FACE_EDGE:
-                g_state.selEdges = immer::set<edge_id>{}.insert(expectSingleSelEdge().next);
-                break;
-            case IDM_PREV_FACE_EDGE:
-                g_state.selEdges = immer::set<edge_id>{}.insert(expectSingleSelEdge().prev);
-                break;
-#endif
-            /* View */
-            case IDM_FLY_CAM:
-                g_view.flyCam ^= true;
-                updateProjMat();
-                break;
-            case IDM_FOCUS:
-                g_view.camPivot = -vertsCenter(selAttachedVerts(g_state));
-                break;
-            /* Edit */
-            case IDM_UNDO:
-                if (!g_undoStack.empty()) {
-                    g_redoStack.push(g_state);
-                    g_state = g_undoStack.top();
-                    g_undoStack.pop();
-                }
-                resetToolState();
-                break;
-            case IDM_REDO:
-                if (!g_redoStack.empty()) {
-                    g_undoStack.push(g_state);
-                    g_state = g_redoStack.top();
-                    g_redoStack.pop();
-                }
-                resetToolState();
-                break;
-            case IDM_TOGGLE_GRID:
-                g_state.gridOn ^= true;
-                break;
-            case IDM_GRID_DOUBLE:
-                g_state.gridSize *= 2;
-                break;
-            case IDM_GRID_HALF:
-                g_state.gridSize /= 2;
-                break;
-            case IDM_DRAW_BKSP:
-                if (!g_drawVerts.empty())
-                    g_drawVerts.pop_back();
-                break;
-            /* undoable operations... */
-            case IDM_ERASE:
-                pushUndo(erase(g_state));
-                break;
-            /* element */
-            case IDM_EXTRUDE: {
-                EditorState newState = g_state;
-                newState.selVerts = {};
-                newState.selEdges = {};
-                for (auto f : g_state.selFaces) {
-                    immer::set_transient<edge_id> extEdges;
-                    for (auto e : g_state.selEdges) {
-                        HEdge edge = e.in(newState.surf);
-                        if (edge.face == f)
-                            extEdges.insert(e);
-                        else if (edge.twin.in(newState.surf).face == f)
-                            extEdges.insert(edge.twin);
-                    }
-                    newState.surf = extrudeFace(newState.surf, f, extEdges.persistent());
-                    for (auto e : extEdges) {
-                        auto primary = primaryEdge(e.pair(newState.surf));
-                        newState.selEdges = std::move(newState.selEdges).insert(primary);
-                    }
-                }
-                pushUndo(std::move(newState));
-                flashSel(wnd);
-                break;
-            }
-            case IDM_SPLIT_LOOP: {
-                auto loop = sortEdgeLoop(g_state.surf, g_state.selEdges);
-                EditorState newState = g_state;
-                newState.surf = splitEdgeLoop(g_state.surf, loop);
-                newState.selVerts = {};
-                newState.selEdges = {};
-                for (auto &e : loop) {
-                    edge_id primary = primaryEdge(e.pair(newState.surf));
-                    newState.selEdges = std::move(newState.selEdges).insert(primary);
-                }
-                pushUndo(std::move(newState));
-                flashSel(wnd);
-                break;
-            }
-            /* solid */
-            case IDM_DUPLICATE: {
-                EditorState newState = g_state;
-                newState.surf = duplicate(g_state.surf,
-                    g_state.selEdges, g_state.selVerts, g_state.selFaces);
-                pushUndo(std::move(newState));
-                break;
-            }
-            case IDM_FLIP_NORMALS: {
-                EditorState newState = g_state;
-                if (g_state.selMode == SEL_SOLIDS && hasSelection(g_state))
-                    newState.surf = flipNormals(g_state.surf, g_state.selEdges, g_state.selVerts);
-                else
-                    newState.surf = flipAllNormals(g_state.surf);
-                pushUndo(std::move(newState));
-                break;
-            }
-            case IDM_SNAP: {
-                EditorState newState = g_state;
-                newState.surf = snapVertices(g_state.surf,
-                    selAttachedVerts(g_state), g_state.gridSize);
-                pushUndo(std::move(newState));
-                break;
-            }
-            case IDM_TRANSFORM_MATRIX: {
-                if (DialogBoxParam(GetModuleHandle(NULL), L"IDD_MATRIX", wnd, matrixDlgProc,
-                        (LPARAM)&g_userMatrix) == IDOK) {
-                    auto verts = selAttachedVerts(g_state);
-                    glm::vec3 center = vertsCenter(verts);
-                    EditorState newState = g_state;
-                    newState.surf = transformVertices(g_state.surf, verts, glm::translate(
-                        glm::translate(glm::mat4(1), center) * g_userMatrix, -center));
-                    pushUndo(std::move(newState));
-                }
-                break;
-            }
-        }
-    } catch (winged_error err) {
-        showError(wnd, err);
-    }
-    updateStatus(wnd);
-    refresh(wnd);
-}
-
-static void onInitMenu(HWND, HMENU menu) {
-    bool hasSel = hasSelection(g_state);
-    bool selElem = g_state.selMode == SEL_ELEMENTS;
-    bool selSolid = g_state.selMode == SEL_SOLIDS;
-    EnableMenuItem(menu, IDM_CLEAR_SELECT, hasSel ? MF_ENABLED : MF_GRAYED);
-    EnableMenuItem(menu, IDM_UNDO, g_undoStack.empty() ? MF_GRAYED : MF_ENABLED);
-    EnableMenuItem(menu, IDM_REDO, g_redoStack.empty() ? MF_GRAYED : MF_ENABLED);
-    CheckMenuItem(menu, IDM_TOGGLE_GRID, g_state.gridOn ? MF_CHECKED : MF_UNCHECKED);
-    EnableMenuItem(menu, IDM_ERASE, hasSel ? MF_ENABLED : MF_DISABLED);
-    EnableMenuItem(menu, IDM_EXTRUDE, (!g_state.selFaces.empty() && selElem) ?
-        MF_ENABLED : MF_GRAYED);
-    EnableMenuItem(menu, IDM_SPLIT_LOOP, (!g_state.selEdges.empty() && selElem) ?
-        MF_ENABLED : MF_GRAYED);
-    EnableMenuItem(menu, IDM_DUPLICATE, (hasSel && selSolid) ? MF_ENABLED : MF_GRAYED);
-    EnableMenuItem(menu, IDM_TRANSFORM_MATRIX, hasSel ? MF_ENABLED : MF_GRAYED);
-    CheckMenuItem(menu, IDM_FLY_CAM, g_view.flyCam ? MF_CHECKED : MF_UNCHECKED);
-    EnableMenuItem(menu, IDM_FOCUS, hasSel ? MF_ENABLED : MF_GRAYED);
-
-    MENUITEMINFO selMenu = {sizeof(selMenu), MIIM_SUBMENU};
-    GetMenuItemInfo(menu, IDM_SEL_MENU, false, &selMenu);
-    CheckMenuRadioItem(selMenu.hSubMenu, 0, NUM_SELMODES - 1, g_state.selMode, MF_BYPOSITION);
-
-    MENUITEMINFO toolMenu = {sizeof(toolMenu), MIIM_SUBMENU};
-    GetMenuItemInfo(menu, IDM_TOOL_MENU, false, &toolMenu);
-    CheckMenuRadioItem(toolMenu.hSubMenu, 0, NUM_TOOLS - 1, g_tool, MF_BYPOSITION);
-}
-
-static void onSize(HWND, UINT, int cx, int cy) {
+static void view_onSize(HWND, UINT, int cx, int cy) {
     if (cx > 0 && cy > 0) {
-        g_windowDim = {cx, cy};
+        g_viewportDim = {cx, cy};
         glViewport(0, 0, cx, cy);
         updateProjMat();
     }
@@ -1385,7 +1064,7 @@ static void drawState(const EditorState &state) {
     }
 }
 
-static void onPaint(HWND wnd) {
+static void view_onPaint(HWND wnd) {
     PAINTSTRUCT ps;
     BeginPaint(wnd, &ps);
 
@@ -1405,24 +1084,371 @@ static void onPaint(HWND wnd) {
     EndPaint(wnd, &ps);
 }
 
+static LRESULT CALLBACK ViewportWindowProc(HWND wnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    switch (msg) {
+        HANDLE_MSG(wnd, WM_CREATE, view_onCreate);
+        HANDLE_MSG(wnd, WM_DESTROY, view_onDestroy);
+        HANDLE_MSG(wnd, WM_SETCURSOR, view_onSetCursor);
+        HANDLE_MSG(wnd, WM_LBUTTONDOWN, view_onLButtonDown);
+        HANDLE_MSG(wnd, WM_RBUTTONDOWN, view_onRButtonDown);
+        HANDLE_MSG(wnd, WM_MBUTTONDOWN, view_onMButtonDown);
+        HANDLE_MSG(wnd, WM_LBUTTONUP, view_onButtonUp);
+        HANDLE_MSG(wnd, WM_RBUTTONUP, view_onButtonUp);
+        HANDLE_MSG(wnd, WM_MBUTTONUP, view_onButtonUp);
+        HANDLE_MSG(wnd, WM_MOUSEMOVE, view_onMouseMove);
+        HANDLE_MSG(wnd, WM_MOUSEWHEEL, view_onMouseWheel);
+        HANDLE_MSG(wnd, WM_SIZE, view_onSize);
+        HANDLE_MSG(wnd, WM_PAINT, view_onPaint);
+    }
+    return DefWindowProc(wnd, msg, wParam, lParam);
+}
+
+
+/* MAIN WINDOW */
+
+static BOOL main_onCreate(HWND wnd, LPCREATESTRUCT) {
+    g_mainWnd = wnd;
+    g_viewportWnd = createChildWindow(wnd, VIEWPORT_CLASS);
+    updateStatus();
+    return true;
+}
+
+static void main_onNCDestroy(HWND) {
+    PostQuitMessage(0);
+}
+
+static void main_onSize(HWND, UINT, int cx, int cy) {
+    MoveWindow(g_viewportWnd, 0, 0, cx, cy, true);
+}
+
+static void saveAs(HWND wnd) {
+    TCHAR fileName[MAX_PATH];
+    fileName[0] = 0;
+    const TCHAR filters[] = L"WingEd File (.wing)\0*.wing\0All Files\0*.*\0\0";
+    if (GetSaveFileName(tempPtr(makeOpenFileName(fileName, wnd, filters, L"wing")))) {
+        writeFile(fileName, g_state, g_view);
+        memcpy(g_fileName, fileName, sizeof(g_fileName));
+    }
+}
+
+static EditorState erase(EditorState state) {
+    EditorState newState = state;
+    if (state.selMode == SEL_ELEMENTS) {
+        // edges first, then vertices
+        bool anyDeleted = false;
+        for (auto &e : state.selEdges) {
+            if (e.find(newState.surf)) { // could have been deleted previously
+                newState.surf = mergeFaces(std::move(newState.surf), e);
+                anyDeleted = true;
+            }
+        }
+        for (auto &v : state.selVerts) {
+            if (auto vert = v.find(newState.surf)) {
+                // make sure vert has only two edges
+                const HEdge &edge = vert->edge.in(newState.surf);
+                const HEdge &twin = edge.twin.in(newState.surf);
+                const HEdge &twinNext = twin.next.in(newState.surf);
+                if (twinNext.twin.in(newState.surf).next == vert->edge) {
+                    newState.surf = joinVerts(std::move(newState.surf), edge.prev, vert->edge);
+                    anyDeleted = true;
+                }
+            }
+        }
+        if (!anyDeleted)
+            throw winged_error();
+    } else if (state.selMode == SEL_SOLIDS) {
+        for (auto &v : state.selVerts)
+            newState.surf.verts = std::move(newState.surf.verts).erase(v);
+        for (auto &f : state.selFaces)
+            newState.surf.faces = std::move(newState.surf.faces).erase(f);
+        for (auto &e : state.selEdges)
+            newState.surf.edges = std::move(newState.surf.edges).erase(e)
+                .erase(e.in(state.surf).twin);
+    } else {
+        throw winged_error();
+    }
+    return newState;
+}
+
+INT_PTR CALLBACK matrixDlgProc(HWND dlg, UINT msg, WPARAM wParam, LPARAM lParam) {
+    switch (msg) {
+        case WM_INITDIALOG: {
+            SetWindowLongPtr(dlg, DWLP_USER, lParam);
+            glm::mat4 &mat = *(glm::mat4 *)lParam;
+            for (int i = 0; i < 9; i++) {
+                TCHAR buf[64];
+                _stprintf(buf, L"%f", mat[i % 3][i / 3]);
+                SetDlgItemText(dlg, 1000 + i, buf);
+            }
+            return true;
+        }
+        case WM_COMMAND:
+            switch (LOWORD(wParam)) {
+                case IDOK:
+                case IDCANCEL: {
+                    glm::mat4 &mat = *(glm::mat4 *)GetWindowLongPtr(dlg, DWLP_USER);
+                    for (int i = 0; i < 9; i++) {
+                        TCHAR buf[64];
+                        GetDlgItemText(dlg, 1000 + i, buf, _countof(buf));
+                        mat[i % 3][i / 3] = (float)_ttof(buf);
+                    }
+                    EndDialog(dlg, LOWORD(wParam));
+                    return true;
+                }
+            }
+            break;
+    }
+    return false;
+}
+
+static void main_onCommand(HWND wnd, int id, HWND ctl, UINT) {
+    if (ctl) return;
+
+    try {
+        switch (id) {
+            /* File */
+            case IDM_NEW:
+                if (MessageBox(wnd, L"Are you sure?", L"New File", MB_YESNO) == IDYES) {
+                    g_state = {};
+                    g_view = {};
+                    g_undoStack = {};
+                    g_redoStack = {};
+                    g_fileName[0] = 0;
+                    resetToolState();
+                }
+                break;
+            case IDM_OPEN: {
+                TCHAR fileName[MAX_PATH];
+                fileName[0] = 0;
+                const TCHAR filters[] = L"WingEd File (.wing)\0*.wing\0\0";
+                if (GetOpenFileName(tempPtr(makeOpenFileName(fileName, wnd, filters, L"wing")))) {
+                    std::tie(g_state, g_view) = readFile(fileName);
+                    g_undoStack = {};
+                    g_redoStack = {};
+                    memcpy(g_fileName, fileName, sizeof(g_fileName));
+                    resetToolState();
+                }
+                break;
+            }
+            case IDM_SAVE_AS:
+                saveAs(wnd);
+                break;
+            case IDM_SAVE:
+                if (!g_fileName[0])
+                    saveAs(wnd);
+                else
+                    writeFile(g_fileName, g_state, g_view);
+                break;
+            case IDM_EXPORT_OBJ: {
+                TCHAR fileName[MAX_PATH];
+                fileName[0] = 0;
+                const TCHAR filters[] = L"OBJ file (.obj)\0*.obj\0All Files\0*.*\0\0";
+                if (GetSaveFileName(tempPtr(makeOpenFileName(fileName, wnd, filters, L"obj"))))
+                    writeObj(fileName, g_state.surf);
+                break;
+            }
+            /* Tool */
+            case IDM_TOOL_SELECT:
+                setTool(TOOL_SELECT);
+                break;
+            case IDM_TOOL_POLY:
+                setTool(TOOL_POLY);
+                if (g_state.selFaces.size() == 1) {
+                    g_state.workPlane = facePlane(g_state.surf,
+                        g_state.selFaces.begin()->in(g_state.surf));
+                }
+                break;
+            case IDM_TOOL_KNIFE:
+                setTool(TOOL_KNIFE);
+                break;
+            case IDM_TOOL_JOIN:
+                setTool(TOOL_JOIN);
+                break;
+            /* Select */
+            case IDM_CLEAR_SELECT:
+                g_state = clearSelection(std::move(g_state));
+                resetToolState();
+                break;
+            case IDM_SEL_ELEMENTS:
+                setSelMode(SEL_ELEMENTS);
+                break;
+            case IDM_SEL_SOLIDS:
+                if (g_state.selMode != SEL_SOLIDS) {
+                    g_state = clearSelection(std::move(g_state));
+                    g_hoverFace = {};
+                    g_hover.type = PICK_NONE;
+                }
+                setSelMode(SEL_SOLIDS);
+                break;
+#ifdef CHROMA_DEBUG
+            case IDM_EDGE_TWIN:
+                g_state.selEdges = immer::set<edge_id>{}.insert(expectSingleSelEdge().twin);
+                break;
+            case IDM_NEXT_FACE_EDGE:
+                g_state.selEdges = immer::set<edge_id>{}.insert(expectSingleSelEdge().next);
+                break;
+            case IDM_PREV_FACE_EDGE:
+                g_state.selEdges = immer::set<edge_id>{}.insert(expectSingleSelEdge().prev);
+                break;
+#endif
+            /* View */
+            case IDM_FLY_CAM:
+                g_view.flyCam ^= true;
+                updateProjMat();
+                break;
+            case IDM_FOCUS:
+                g_view.camPivot = -vertsCenter(selAttachedVerts(g_state));
+                break;
+            /* Edit */
+            case IDM_UNDO:
+                if (!g_undoStack.empty()) {
+                    g_redoStack.push(g_state);
+                    g_state = g_undoStack.top();
+                    g_undoStack.pop();
+                }
+                resetToolState();
+                break;
+            case IDM_REDO:
+                if (!g_redoStack.empty()) {
+                    g_undoStack.push(g_state);
+                    g_state = g_redoStack.top();
+                    g_redoStack.pop();
+                }
+                resetToolState();
+                break;
+            case IDM_TOGGLE_GRID:
+                g_state.gridOn ^= true;
+                break;
+            case IDM_GRID_DOUBLE:
+                g_state.gridSize *= 2;
+                break;
+            case IDM_GRID_HALF:
+                g_state.gridSize /= 2;
+                break;
+            case IDM_DRAW_BKSP:
+                if (!g_drawVerts.empty())
+                    g_drawVerts.pop_back();
+                break;
+            /* undoable operations... */
+            case IDM_ERASE:
+                pushUndo(erase(g_state));
+                break;
+            /* element */
+            case IDM_EXTRUDE: {
+                EditorState newState = g_state;
+                newState.selVerts = {};
+                newState.selEdges = {};
+                for (auto f : g_state.selFaces) {
+                    immer::set_transient<edge_id> extEdges;
+                    for (auto e : g_state.selEdges) {
+                        HEdge edge = e.in(newState.surf);
+                        if (edge.face == f)
+                            extEdges.insert(e);
+                        else if (edge.twin.in(newState.surf).face == f)
+                            extEdges.insert(edge.twin);
+                    }
+                    newState.surf = extrudeFace(newState.surf, f, extEdges.persistent());
+                    for (auto e : extEdges) {
+                        auto primary = primaryEdge(e.pair(newState.surf));
+                        newState.selEdges = std::move(newState.selEdges).insert(primary);
+                    }
+                }
+                pushUndo(std::move(newState));
+                flashSel(g_viewportWnd);
+                break;
+            }
+            case IDM_SPLIT_LOOP: {
+                auto loop = sortEdgeLoop(g_state.surf, g_state.selEdges);
+                EditorState newState = g_state;
+                newState.surf = splitEdgeLoop(g_state.surf, loop);
+                newState.selVerts = {};
+                newState.selEdges = {};
+                for (auto &e : loop) {
+                    edge_id primary = primaryEdge(e.pair(newState.surf));
+                    newState.selEdges = std::move(newState.selEdges).insert(primary);
+                }
+                pushUndo(std::move(newState));
+                flashSel(g_viewportWnd);
+                break;
+            }
+            /* solid */
+            case IDM_DUPLICATE: {
+                EditorState newState = g_state;
+                newState.surf = duplicate(g_state.surf,
+                    g_state.selEdges, g_state.selVerts, g_state.selFaces);
+                pushUndo(std::move(newState));
+                break;
+            }
+            case IDM_FLIP_NORMALS: {
+                EditorState newState = g_state;
+                if (g_state.selMode == SEL_SOLIDS && hasSelection(g_state))
+                    newState.surf = flipNormals(g_state.surf, g_state.selEdges, g_state.selVerts);
+                else
+                    newState.surf = flipAllNormals(g_state.surf);
+                pushUndo(std::move(newState));
+                break;
+            }
+            case IDM_SNAP: {
+                EditorState newState = g_state;
+                newState.surf = snapVertices(g_state.surf,
+                    selAttachedVerts(g_state), g_state.gridSize);
+                pushUndo(std::move(newState));
+                break;
+            }
+            case IDM_TRANSFORM_MATRIX: {
+                if (DialogBoxParam(GetModuleHandle(NULL), L"IDD_MATRIX", wnd, matrixDlgProc,
+                        (LPARAM)&g_userMatrix) == IDOK) {
+                    auto verts = selAttachedVerts(g_state);
+                    glm::vec3 center = vertsCenter(verts);
+                    EditorState newState = g_state;
+                    newState.surf = transformVertices(g_state.surf, verts, glm::translate(
+                        glm::translate(glm::mat4(1), center) * g_userMatrix, -center));
+                    pushUndo(std::move(newState));
+                }
+                break;
+            }
+        }
+    } catch (winged_error err) {
+        showError(err);
+    }
+    updateStatus();
+    refresh(g_viewportWnd);
+}
+
+static void main_onInitMenu(HWND, HMENU menu) {
+    bool hasSel = hasSelection(g_state);
+    bool selElem = g_state.selMode == SEL_ELEMENTS;
+    bool selSolid = g_state.selMode == SEL_SOLIDS;
+    EnableMenuItem(menu, IDM_CLEAR_SELECT, hasSel ? MF_ENABLED : MF_GRAYED);
+    EnableMenuItem(menu, IDM_UNDO, g_undoStack.empty() ? MF_GRAYED : MF_ENABLED);
+    EnableMenuItem(menu, IDM_REDO, g_redoStack.empty() ? MF_GRAYED : MF_ENABLED);
+    CheckMenuItem(menu, IDM_TOGGLE_GRID, g_state.gridOn ? MF_CHECKED : MF_UNCHECKED);
+    EnableMenuItem(menu, IDM_ERASE, hasSel ? MF_ENABLED : MF_DISABLED);
+    EnableMenuItem(menu, IDM_EXTRUDE, (!g_state.selFaces.empty() && selElem) ?
+        MF_ENABLED : MF_GRAYED);
+    EnableMenuItem(menu, IDM_SPLIT_LOOP, (!g_state.selEdges.empty() && selElem) ?
+        MF_ENABLED : MF_GRAYED);
+    EnableMenuItem(menu, IDM_DUPLICATE, (hasSel && selSolid) ? MF_ENABLED : MF_GRAYED);
+    EnableMenuItem(menu, IDM_TRANSFORM_MATRIX, hasSel ? MF_ENABLED : MF_GRAYED);
+    CheckMenuItem(menu, IDM_FLY_CAM, g_view.flyCam ? MF_CHECKED : MF_UNCHECKED);
+    EnableMenuItem(menu, IDM_FOCUS, hasSel ? MF_ENABLED : MF_GRAYED);
+
+    MENUITEMINFO selMenu = {sizeof(selMenu), MIIM_SUBMENU};
+    GetMenuItemInfo(menu, IDM_SEL_MENU, false, &selMenu);
+    CheckMenuRadioItem(selMenu.hSubMenu, 0, NUM_SELMODES - 1, g_state.selMode, MF_BYPOSITION);
+
+    MENUITEMINFO toolMenu = {sizeof(toolMenu), MIIM_SUBMENU};
+    GetMenuItemInfo(menu, IDM_TOOL_MENU, false, &toolMenu);
+    CheckMenuRadioItem(toolMenu.hSubMenu, 0, NUM_TOOLS - 1, g_tool, MF_BYPOSITION);
+}
+
 static LRESULT CALLBACK MainWindowProc(HWND wnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
-        HANDLE_MSG(wnd, WM_CREATE, onCreate);
-        HANDLE_MSG(wnd, WM_DESTROY, onDestroy);
-        HANDLE_MSG(wnd, WM_NCDESTROY, onNCDestroy);
-        HANDLE_MSG(wnd, WM_SETCURSOR, onSetCursor);
-        HANDLE_MSG(wnd, WM_LBUTTONDOWN, onLButtonDown);
-        HANDLE_MSG(wnd, WM_RBUTTONDOWN, onRButtonDown);
-        HANDLE_MSG(wnd, WM_MBUTTONDOWN, onMButtonDown);
-        HANDLE_MSG(wnd, WM_LBUTTONUP, onButtonUp);
-        HANDLE_MSG(wnd, WM_RBUTTONUP, onButtonUp);
-        HANDLE_MSG(wnd, WM_MBUTTONUP, onButtonUp);
-        HANDLE_MSG(wnd, WM_MOUSEMOVE, onMouseMove);
-        HANDLE_MSG(wnd, WM_MOUSEWHEEL, onMouseWheel);
-        HANDLE_MSG(wnd, WM_COMMAND, onCommand);
-        HANDLE_MSG(wnd, WM_INITMENU, onInitMenu);
-        HANDLE_MSG(wnd, WM_SIZE, onSize);
-        HANDLE_MSG(wnd, WM_PAINT, onPaint);
+        HANDLE_MSG(wnd, WM_CREATE, main_onCreate);
+        HANDLE_MSG(wnd, WM_NCDESTROY, main_onNCDestroy);
+        HANDLE_MSG(wnd, WM_COMMAND, main_onCommand);
+        HANDLE_MSG(wnd, WM_INITMENU, main_onInitMenu);
+        HANDLE_MSG(wnd, WM_SIZE, main_onSize);
     }
     return DefWindowProc(wnd, msg, wParam, lParam);
 }
@@ -1432,11 +1458,13 @@ static LRESULT CALLBACK MainWindowProc(HWND wnd, UINT msg, WPARAM wParam, LPARAM
 using namespace winged;
 
 int APIENTRY _tWinMain(HINSTANCE instance, HINSTANCE, LPTSTR, int showCmd) {
-    WNDCLASSEX wndClass = makeClass(APP_NAME, MainWindowProc);
-    wndClass.style = CS_HREDRAW | CS_VREDRAW;
-    wndClass.lpszMenuName = APP_NAME;
-    wndClass.hCursor = NULL;
-    RegisterClassEx(&wndClass);
+    WNDCLASSEX mainClass = makeClass(APP_NAME, MainWindowProc);
+    mainClass.lpszMenuName = APP_NAME;
+    RegisterClassEx(&mainClass);
+    WNDCLASSEX viewClass = makeClass(VIEWPORT_CLASS, ViewportWindowProc);
+    viewClass.style = CS_HREDRAW | CS_VREDRAW;
+    viewClass.hCursor = NULL;
+    RegisterClassEx(&viewClass);
     HWND wnd = createWindow(APP_NAME, APP_NAME,
         defaultWindowRect(640, 480, WS_OVERLAPPEDWINDOW, true));
     if (!wnd) return -1;
