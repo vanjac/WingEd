@@ -67,7 +67,6 @@ WINGED MENUEX
         MENUITEM "&First-person\tZ", IDM_FLY_CAM
         MENUITEM "Focus &Selection\tF", IDM_FOCUS
     }
-    MENUITEM "Ready", IDM_STATUS, MFT_RIGHTJUSTIFY
 }
 
 //////////////////////////////////////////////////////////////////////////////

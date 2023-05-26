@@ -24,7 +24,6 @@
 #define IDM_GRID_HALF                       123
 #define IDM_TOGGLE_GRID                     124
 #define IDM_FLY_CAM                         125
-#define IDM_STATUS                          126
 #define IDM_SAVE_AS                         127
 #define IDM_OPEN                            128
 #define IDM_SAVE                            129

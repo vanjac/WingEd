@@ -56,6 +56,10 @@ enum MouseMode {
     MOUSE_NONE = 0, MOUSE_TOOL, MOUSE_CAM_ROTATE, MOUSE_CAM_PAN
 };
 
+enum StatusPart {
+    STATUS_SELMODE, STATUS_TOOL, STATUS_GRID, STATUS_SELECT, STATUS_DIMEN, NUM_STATUS_PARTS
+};
+
 const PickType
     PICK_WORKPLANE = 0x8,
     PICK_DRAWVERT = 0x10;
@@ -116,7 +120,7 @@ static glm::mat4 g_projMat, g_mvMat;
 static glm::vec2 g_viewportDim;
 
 static HWND g_mainWnd;
-static HWND g_viewportWnd;
+static HWND g_viewportWnd, g_statusWnd;
 
 static GLUtesselator *g_tess;
 static GLenum g_tess_error;
@@ -355,21 +359,26 @@ static void refreshImmediate(HWND wnd) {
 
 static void updateStatus() {
     TCHAR buf[256];
-    TCHAR *str = buf;
 
-    if (g_mouseMode == MOUSE_TOOL && g_tool == TOOL_SELECT) {
-        str += _stprintf(str, L"Len: %f    ", glm::length(g_moved));
-    } else if (numDrawPoints() > 0 && g_hover.type) {
-        glm::vec3 lastPos = g_drawVerts.empty()
-            ? g_state.selVerts.begin()->in(g_state.surf).pos
-            : g_drawVerts.back();
-        str += _stprintf(str, L"Len: %f    ", glm::distance(lastPos, g_hover.point));
-    } else if (g_state.selEdges.size() == 1) {
-        edge_pair edge = g_state.selEdges.begin()->pair(g_state.surf);
-        glm::vec3 v1 = edge.second.vert.in(g_state.surf).pos;
-        glm::vec3 v2 = edge.second.twin.in(g_state.surf).vert.in(g_state.surf).pos;
-        str += _stprintf(str, L"Len: %f    ", glm::distance(v1, v2));
-    }
+    HMENU menu = GetMenu(g_mainWnd);
+    MENUITEMINFO info = {sizeof(info), MIIM_SUBMENU};
+    GetMenuItemInfo(menu, IDM_SEL_MENU, false, &info);
+    GetMenuString(info.hSubMenu, g_state.selMode, buf, _countof(buf), MF_BYPOSITION);
+    if (TCHAR *tab = _tcsrchr(buf, L'\t')) *tab = 0;
+    if (TCHAR *amp = _tcsrchr(buf, L'&')) *amp = 6; // ack
+    SendMessage(g_statusWnd, SB_SETTEXT, STATUS_SELMODE, (LPARAM)buf);
+
+    GetMenuItemInfo(menu, IDM_TOOL_MENU, false, &info);
+    GetMenuString(info.hSubMenu, g_tool, buf, _countof(buf), MF_BYPOSITION);
+    if (TCHAR *tab = _tcsrchr(buf, L'\t')) *tab = 0;
+    if (TCHAR *amp = _tcsrchr(buf, L'&')) *amp = 6; // ack
+    SendMessage(g_statusWnd, SB_SETTEXT, STATUS_TOOL, (LPARAM)buf);
+
+    if (g_state.gridOn)
+        _stprintf(buf, L"Grid:  %g", g_state.gridSize);
+    else
+        _stprintf(buf, L"Grid:  Off");
+    SendMessage(g_statusWnd, SB_SETTEXT, STATUS_GRID, (LPARAM)buf);
 
     size_t numSel = g_state.selVerts.size() + g_state.selFaces.size() + g_state.selEdges.size();
     if (numSel) {
@@ -378,27 +387,34 @@ static void updateStatus() {
         if (!g_state.selVerts.empty()) selName = name(*g_state.selVerts.begin());
         else if (!g_state.selFaces.empty()) selName = name(*g_state.selFaces.begin());
         else if (!g_state.selEdges.empty()) selName = name(*g_state.selEdges.begin());
-        str += _stprintf(str, L"Sel: %08X (%zd)    ", selName, numSel);
+        _stprintf(buf, L"Sel: %08X (%zd)", selName, numSel);
 #else
-        str += _stprintf(str, L"%zd selected    ", numSel);
+        _stprintf(buf, L"%zd selected", numSel);
 #endif
+    } else {
+        buf[0] = 0;
     }
+    SendMessage(g_statusWnd, SB_SETTEXT, STATUS_SELECT, (LPARAM)buf);
 
-    HMENU menu = GetMenu(g_mainWnd);
-    MENUITEMINFO toolMenu = {sizeof(toolMenu), MIIM_SUBMENU};
-    GetMenuItemInfo(menu, IDM_TOOL_MENU, false, &toolMenu);
-    str += GetMenuString(toolMenu.hSubMenu, g_tool, str, 32, MF_BYPOSITION);
-    if (TCHAR *tab = _tcsrchr(buf, L'\t')) str = tab;
-
-    if (g_state.gridOn)
-        str += _stprintf(str, L"    Grid: %f", g_state.gridSize);
-    else
-        str += _stprintf(str, L"    Grid: Off");
-
-    MENUITEMINFO info = {sizeof(info), MIIM_STRING};
-    info.dwTypeData = buf;
-    SetMenuItemInfo(menu, IDM_STATUS, false, &info);
-    DrawMenuBar(g_mainWnd);
+    if (g_mouseMode == MOUSE_TOOL && g_tool == TOOL_SELECT) {
+        _stprintf(buf, L"Move  %g, %g, %g", g_moved.x, g_moved.y, g_moved.z);
+    } else if (numDrawPoints() > 0 && g_hover.type) {
+        glm::vec3 lastPos = g_drawVerts.empty()
+            ? g_state.selVerts.begin()->in(g_state.surf).pos
+            : g_drawVerts.back();
+        _stprintf(buf, L"Len:  %g", glm::distance(lastPos, g_hover.point));
+    } else if (g_state.selEdges.size() == 1) {
+        HEdge edge = g_state.selEdges.begin()->in(g_state.surf);
+        glm::vec3 v1 = edge.vert.in(g_state.surf).pos;
+        glm::vec3 v2 = edge.twin.in(g_state.surf).vert.in(g_state.surf).pos;
+        _stprintf(buf, L"Len:  %g", glm::distance(v1, v2));
+    } else if (g_state.selVerts.size() == 1) {
+        glm::vec3 pos = g_state.selVerts.begin()->in(g_state.surf).pos;
+        _stprintf(buf, L"Pos:  %g, %g, %g", pos.x, pos.y, pos.z);
+    } else {
+        buf[0] = 0;
+    }
+    SendMessage(g_statusWnd, SB_SETTEXT, STATUS_DIMEN, (LPARAM)buf);
 }
 
 static void showError(winged_error err) {
@@ -1109,6 +1125,17 @@ static LRESULT CALLBACK ViewportWindowProc(HWND wnd, UINT msg, WPARAM wParam, LP
 static BOOL main_onCreate(HWND wnd, LPCREATESTRUCT) {
     g_mainWnd = wnd;
     g_viewportWnd = createChildWindow(wnd, VIEWPORT_CLASS);
+    g_statusWnd = CreateStatusWindow(
+        WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | CCS_BOTTOM | SBARS_SIZEGRIP,
+        NULL, wnd, 0);
+    int parts[NUM_STATUS_PARTS];
+    int x = 0;
+    x += 70; parts[STATUS_SELMODE] = x;
+    x += 70; parts[STATUS_TOOL] = x;
+    x += 70; parts[STATUS_GRID] = x;
+    x += 110; parts[STATUS_SELECT] = x;
+    parts[NUM_STATUS_PARTS - 1] = -1;
+    SendMessage(g_statusWnd, SB_SETPARTS, NUM_STATUS_PARTS, (LPARAM)parts);
     updateStatus();
     return true;
 }
@@ -1118,7 +1145,9 @@ static void main_onNCDestroy(HWND) {
 }
 
 static void main_onSize(HWND, UINT, int cx, int cy) {
-    MoveWindow(g_viewportWnd, 0, 0, cx, cy, true);
+    int statusHeight = rectHeight(windowRect(g_statusWnd));
+    MoveWindow(g_statusWnd, 0, cy - statusHeight, cx, statusHeight, true);
+    MoveWindow(g_viewportWnd, 0, 0, cx, cy - statusHeight, true);
 }
 
 static void saveAs(HWND wnd) {
@@ -1177,7 +1206,7 @@ INT_PTR CALLBACK matrixDlgProc(HWND dlg, UINT msg, WPARAM wParam, LPARAM lParam)
             glm::mat4 &mat = *(glm::mat4 *)lParam;
             for (int i = 0; i < 9; i++) {
                 TCHAR buf[64];
-                _stprintf(buf, L"%f", mat[i % 3][i / 3]);
+                _stprintf(buf, L"%g", mat[i % 3][i / 3]);
                 SetDlgItemText(dlg, 1000 + i, buf);
             }
             return true;
