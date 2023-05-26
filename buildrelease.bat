@@ -1,8 +1,8 @@
 cd build
 rc /fo resource.res ..\src\resource.rc
-cl /nologo /std:c++14 /MP /W4 /EHsc /Fe: winged.exe^
+cl /nologo /std:c++14 /MP /W4 /EHsc /experimental:external /external:W1 /Fe: winged.exe^
     /GL /O2^
-    /I ..\src /I ..\lib\glm /I ..\lib\immer /I ..\lib\winchroma^
+    /I ..\src /I ..\lib\winchroma /external:I ..\lib\glm /external:I ..\lib\immer^
     ..\src\*.cpp resource.res^
     /link /incremental:no /manifest:EMBED
 cd ..
