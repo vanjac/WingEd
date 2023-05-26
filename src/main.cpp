@@ -429,9 +429,13 @@ static void setSelMode(SelectMode mode) {
         g_tool = TOOL_SELECT;
 }
 
+static void resetToolState() {
+    g_drawVerts.clear();
+}
+
 static void setTool(Tool tool) {
     g_tool = tool;
-    g_drawVerts.clear();
+    resetToolState();
     if (!(tools[tool].flags & (1 << g_state.selMode)))
         g_state.selMode = SEL_ELEMENTS; // TODO
     if ((tools[tool].flags & TOOLF_DRAW) && (tools[tool].flags & TOOLF_HOVFACE))
@@ -978,6 +982,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                     g_undoStack = {};
                     g_redoStack = {};
                     g_fileName[0] = 0;
+                    resetToolState();
                 }
                 break;
             case IDM_OPEN: {
@@ -989,6 +994,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                     g_undoStack = {};
                     g_redoStack = {};
                     memcpy(g_fileName, fileName, sizeof(g_fileName));
+                    resetToolState();
                 }
                 break;
             }
@@ -1029,7 +1035,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
             /* Select */
             case IDM_CLEAR_SELECT:
                 g_state = clearSelection(std::move(g_state));
-                g_drawVerts.clear();
+                resetToolState();
                 break;
             case IDM_SEL_ELEMENTS:
                 setSelMode(SEL_ELEMENTS);
@@ -1068,7 +1074,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                     g_state = g_undoStack.top();
                     g_undoStack.pop();
                 }
-                g_drawVerts.clear();
+                resetToolState();
                 break;
             case IDM_REDO:
                 if (!g_redoStack.empty()) {
@@ -1076,7 +1082,7 @@ static void onCommand(HWND wnd, int id, HWND ctl, UINT) {
                     g_state = g_redoStack.top();
                     g_redoStack.pop();
                 }
-                g_drawVerts.clear();
+                resetToolState();
                 break;
             case IDM_TOGGLE_GRID:
                 g_state.gridOn ^= true;
