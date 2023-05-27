@@ -481,8 +481,7 @@ void ViewportWindow::onDestroy(HWND) {
 }
 
 void ViewportWindow::onClose(HWND) {
-    if (g_mainWindow.extraViewports.count(this)) {
-        g_mainWindow.extraViewports.erase(this);
+    if (g_mainWindow.removeViewport(this)) {
         DestroyWindow(wnd);
         delete this;
     }

@@ -14,22 +14,26 @@ enum MouseMode {
 };
 
 const TCHAR VIEWPORT_CLASS[] = _T("WingEd Viewport");
-struct ViewportWindow : chroma::WindowImpl {
+class ViewportWindow : public chroma::WindowImpl {
+    const TCHAR * className() const override { return VIEWPORT_CLASS; }
+
+public:
     ViewState view;
+    MouseMode mouseMode = MOUSE_NONE;
+
+    void refresh();
+    void refreshImmediate();
+    bool onCommand(HWND, int, HWND, UINT);
+
+private:
+    HGLRC context;
     glm::mat4 projMat, mvMat;
     glm::vec2 viewportDim;
 
-    MouseMode mouseMode = MOUSE_NONE;
     POINT lastCurPos;
     glm::vec3 startPlanePos;
     float snapAccum;
 
-    HGLRC context;
-
-    const TCHAR * className() const { return VIEWPORT_CLASS; }
-
-    void refresh();
-    void refreshImmediate();
     void lockMouse(POINT clientPos, MouseMode mode);
     void updateProjMat();
     void updateHover(POINT pos);
@@ -47,7 +51,6 @@ struct ViewportWindow : chroma::WindowImpl {
     void onButtonUp(HWND, int, int, UINT);
     void onMouseMove(HWND, int, int, UINT);
     void onMouseWheel(HWND, int, int, int, UINT);
-    bool onCommand(HWND, int, HWND, UINT);
     void onSize(HWND, UINT, int, int);
     void onPaint(HWND);
     LRESULT handleMessage(UINT, WPARAM, LPARAM) override;

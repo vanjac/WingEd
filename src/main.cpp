@@ -302,14 +302,12 @@ void MainWindow::showError(winged_error err) {
     }
 }
 
-void MainWindow::saveAs() {
-    TCHAR newFile[MAX_PATH];
-    newFile[0] = 0;
-    const TCHAR filters[] = L"WingEd File (.wing)\0*.wing\0All Files\0*.*\0\0";
-    if (GetSaveFileName(tempPtr(makeOpenFileName(newFile, wnd, filters, L"wing")))) {
-        writeFile(newFile, g_state, mainViewport.view);
-        memcpy(fileName, newFile, sizeof(fileName));
+bool MainWindow::removeViewport(ViewportWindow *viewport) {
+    if (extraViewports.count(viewport)) {
+        extraViewports.erase(viewport);
+        return true;
     }
+    return false;
 }
 
 void MainWindow::closeExtraViewports() {
@@ -318,6 +316,16 @@ void MainWindow::closeExtraViewports() {
         delete viewport;
     }
     extraViewports = {};
+}
+
+void MainWindow::saveAs() {
+    TCHAR newFile[MAX_PATH];
+    newFile[0] = 0;
+    const TCHAR filters[] = L"WingEd File (.wing)\0*.wing\0All Files\0*.*\0\0";
+    if (GetSaveFileName(tempPtr(makeOpenFileName(newFile, wnd, filters, L"wing")))) {
+        writeFile(newFile, g_state, mainViewport.view);
+        memcpy(fileName, newFile, sizeof(fileName));
+    }
 }
 
 BOOL MainWindow::onCreate(HWND, LPCREATESTRUCT) {

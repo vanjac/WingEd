@@ -36,7 +36,20 @@ const PickType
     PICK_WORKPLANE = 0x8,
     PICK_DRAWVERT = 0x10;
 
-struct MainWindow : chroma::WindowImpl {
+class MainWindow : public chroma::WindowImpl {
+    const TCHAR * className() const override { return APP_NAME; }
+
+public:
+    void pushUndo();
+    void pushUndo(EditorState newState);
+    void updateStatus();
+    void refreshAll();
+    void refreshAllImmediate();
+    void flashSel();
+    void showError(winged_error err);
+    bool removeViewport(ViewportWindow *viewport);
+
+private:
     std::stack<EditorState> undoStack;
     std::stack<EditorState> redoStack;
     TCHAR fileName[MAX_PATH] = {0};
@@ -47,17 +60,8 @@ struct MainWindow : chroma::WindowImpl {
     ViewportWindow mainViewport;
     std::unordered_set<ViewportWindow *> extraViewports;
 
-    const TCHAR * className() const { return APP_NAME; }
-
-    void pushUndo();
-    void pushUndo(EditorState newState);
-    void updateStatus();
-    void refreshAll();
-    void refreshAllImmediate();
-    void flashSel();
-    void showError(winged_error err);
-    void saveAs();
     void closeExtraViewports();
+    void saveAs();
 
     BOOL onCreate(HWND, LPCREATESTRUCT);
     void onDestroy(HWND);
