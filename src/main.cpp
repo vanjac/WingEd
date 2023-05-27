@@ -315,7 +315,7 @@ void MainWindow::closeExtraViewports() {
         DestroyWindow(viewport->wnd);
         delete viewport;
     }
-    extraViewports = {};
+    extraViewports.clear();
 }
 
 void MainWindow::saveAs() {
@@ -329,7 +329,7 @@ void MainWindow::saveAs() {
 }
 
 BOOL MainWindow::onCreate(HWND, LPCREATESTRUCT) {
-    mainViewport.createChildWindow(wnd);
+    mainViewport.createChild(wnd);
     statusWnd = CreateStatusWindow(
         WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | CCS_BOTTOM | SBARS_SIZEGRIP,
         NULL, wnd, 0);
@@ -459,7 +459,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                 ViewportWindow *newViewport = new ViewportWindow;
                 newViewport->view = mainViewport.view;
                 SIZE size = clientSize(wnd);
-                newViewport->createWindow(APP_NAME,
+                newViewport->create(APP_NAME,
                     defaultWindowRect(size.cx, size.cy, WS_OVERLAPPEDWINDOW, false),
                     WS_OVERLAPPEDWINDOW, WS_EX_TOOLWINDOW, wnd);
                 ShowWindow(newViewport->wnd, SW_NORMAL);
@@ -636,7 +636,7 @@ int APIENTRY _tWinMain(HINSTANCE instance, HINSTANCE, LPTSTR, int showCmd) {
     WNDCLASSEX mainClass = makeClass(APP_NAME, windowImplProc);
     mainClass.lpszMenuName = APP_NAME;
     RegisterClassEx(&mainClass);
-    HWND wnd = g_mainWindow.createWindow(APP_NAME,
+    HWND wnd = g_mainWindow.create(APP_NAME,
         defaultWindowRect(640, 480, WS_OVERLAPPEDWINDOW, true));
     if (!wnd) return -1;
     ShowWindow(wnd, showCmd);
