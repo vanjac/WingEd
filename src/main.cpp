@@ -614,6 +614,12 @@ void MainWindow::onMenuSelect(HWND, UINT msg, WPARAM wParam, LPARAM lParam) {
     MenuHelp(msg, wParam, lParam, NULL, GetModuleHandle(NULL), statusWnd, tempPtr(0u));
 }
 
+void MainWindow::onMeasureItem(HWND, MEASUREITEMSTRUCT *measure) {
+    // hack to draw classic-style menus
+    measure->itemWidth = 0;
+    measure->itemHeight = 0;
+}
+
 LRESULT MainWindow::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         HANDLE_MSG(wnd, WM_CREATE, onCreate);
@@ -622,6 +628,7 @@ LRESULT MainWindow::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         HANDLE_MSG(wnd, WM_SIZE, onSize);
         HANDLE_MSG(wnd, WM_COMMAND, onCommand);
         HANDLE_MSG(wnd, WM_INITMENU, onInitMenu);
+        HANDLE_MSG(wnd, WM_MEASUREITEM, onMeasureItem);
         case WM_MENUSELECT: onMenuSelect(wnd, msg, wParam, lParam); return 0;
     }
     return DefWindowProc(wnd, msg, wParam, lParam);

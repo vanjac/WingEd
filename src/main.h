@@ -70,6 +70,7 @@ private:
     void onCommand(HWND, int, HWND, UINT);
     void onInitMenu(HWND, HMENU);
     void onMenuSelect(HWND, UINT, WPARAM, LPARAM);
+    void onMeasureItem(HWND, MEASUREITEMSTRUCT *);
     LRESULT handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) override;
 };
 

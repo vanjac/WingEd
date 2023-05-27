@@ -27,6 +27,7 @@ WINGED MENUEX
         MENUITEM "&Save\tCtrl+S", IDM_SAVE
         MENUITEM "Save &as...\tCtrl+Shift+S", IDM_SAVE_AS
         MENUITEM "&Export OBJ", IDM_EXPORT_OBJ
+        MENUITEM "", 0, MFT_SEPARATOR | MFT_OWNERDRAW
     }
     POPUP "&Select", IDM_SEL_MENU
     {
@@ -34,6 +35,7 @@ WINGED MENUEX
         MENUITEM "&Solids\t2", IDM_SEL_SOLIDS
         MENUITEM "", 0, MFT_SEPARATOR
         MENUITEM "Select &None\tEsc", IDM_CLEAR_SELECT
+        MENUITEM "", 0, MFT_SEPARATOR | MFT_OWNERDRAW
     }
     POPUP "&Edit"
     {
@@ -54,6 +56,7 @@ WINGED MENUEX
         MENUITEM "&Flip Normals\tCtrl+F", IDM_FLIP_NORMALS
         MENUITEM "Snap &Vertices\tCtrl+G", IDM_SNAP
         MENUITEM "Transform &Matrix\tCtrl+M", IDM_TRANSFORM_MATRIX
+        MENUITEM "", 0, MFT_SEPARATOR | MFT_OWNERDRAW
     }
     POPUP "&Tool", IDM_TOOL_MENU
     {
@@ -61,6 +64,7 @@ WINGED MENUEX
         MENUITEM "&Polygon\tP", IDM_TOOL_POLY
         MENUITEM "&Knife\tK", IDM_TOOL_KNIFE
         MENUITEM "&Join\tJ", IDM_TOOL_JOIN
+        MENUITEM "", 0, MFT_SEPARATOR | MFT_OWNERDRAW
     }
     POPUP "&View"
     {
@@ -69,7 +73,9 @@ WINGED MENUEX
         MENUITEM "Focus &Selection\tF", IDM_FOCUS
         MENUITEM "", 0, MFT_SEPARATOR
         MENUITEM "&New Viewport\tCtrl+Shift+N", IDM_NEW_VIEWPORT
+        MENUITEM "", 0, MFT_SEPARATOR | MFT_OWNERDRAW
     }
+    MENUITEM "", 0, MFT_SEPARATOR | MFT_OWNERDRAW
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -130,7 +136,7 @@ ACCEL ACCELERATORS
     "N", IDM_NEW_VIEWPORT, CONTROL, SHIFT, VIRTKEY
 }
 
-ViewAccel ACCELERATORS
+VIEWACCEL ACCELERATORS
 {
     "Z", IDM_FLY_CAM, VIRTKEY
     "F", IDM_FOCUS, VIRTKEY
@@ -150,33 +156,33 @@ IDC_DRAW CURSOR "res/1033_Cursor_101.cur"
 
 STRINGTABLE
 {
-    IDM_NEW, "Create a new file"
-    IDM_OPEN, "Open a WingEd file"
-    IDM_SAVE, "Save changes to file"
-    IDM_SAVE_AS, "Save as a new file"
-    IDM_EXPORT_OBJ, "Create a .obj model file"
-    IDM_SEL_ELEMENTS, "Select vertices, edges, and faces"
-    IDM_SEL_SOLIDS, "Select closed solid surfaces"
-    IDM_CLEAR_SELECT, "Clear selection"
-    IDM_UNDO, "Undo most recent change"
-    IDM_REDO, "Redo last undone change"
-    IDM_TOGGLE_GRID, "Enable snapping to grid"
-    IDM_GRID_DOUBLE, "Double the grid size"
-    IDM_GRID_HALF, "Half the grid size"
-    IDM_ERASE, "Erase selected vertices/edges/solids"
-    IDM_EXTRUDE, "Create quads for all surrounding edges, or only those selected"
-    IDM_SPLIT_LOOP, "Create a pair of opposing faces from the selected edge loop"
-    IDM_DUPLICATE, "Create copies of all selected solids, at the same location"
-    IDM_FLIP_NORMALS, "Reverse the direction of all faces"
-    IDM_SNAP, "Snap vertices of all selected objects to the grid"
-    IDM_TRANSFORM_MATRIX, "Enter a 3x3 matrix to transform selected objects"
-    IDM_TOOL_SELECT, "Select and move objects"
-    IDM_TOOL_POLY, "Create a plane by drawing a polygon"
-    IDM_TOOL_KNIFE, "Cut vertices and edges into existing edges/faces"
-    IDM_TOOL_JOIN, "Join pairs of vertices/edges/faces together"
-    IDM_FLY_CAM, "Move camera using first-person flying navigation"
-    IDM_FOCUS, "Move camera to orbit around selection"
-    IDM_NEW_VIEWPORT, "Open a new window with a different view of the same model"
+    107, "Undo most recent change"
+    108, "Redo last undone change"
+    110, "Erase selected vertices/edges/solids"
+    115, "Create quads for all surrounding edges, or only those selected"
+    116, "Reverse the direction of all faces"
+    117, "Select and move objects"
+    119, "Cut vertices and edges into existing edges/faces"
+    120, "Join pairs of vertices/edges/faces together"
+    121, "Clear selection"
+    122, "Double the grid size"
+    123, "Half the grid size"
+    124, "Enable snapping to grid"
+    125, "Move camera using first-person flying navigation"
+    127, "Save as a new file"
+    128, "Open a WingEd file"
+    129, "Save changes to file"
+    130, "Create a pair of opposing faces from the selected edge loop"
+    131, "Select vertices, edges, and faces"
+    132, "Select closed solid surfaces"
+    134, "Create a plane by drawing a polygon"
+    135, "Create a new file"
+    136, "Create a .obj model file"
+    137, "Snap vertices of all selected objects to the grid"
+    138, "Create copies of all selected solids, at the same location"
+    139, "Move camera to orbit around selection"
+    140, "Enter a 3x3 matrix to transform selected objects"
+    141, "Open a new window with a different view of the same model"
 }
 
 //////////////////////////////////////////////////////////////////////////////
