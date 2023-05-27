@@ -1170,7 +1170,7 @@ static BOOL main_onCreate(HWND wnd, LPCREATESTRUCT) {
     int x = 0;
     x += 60; parts[STATUS_SELMODE] = x;
     x += 60; parts[STATUS_TOOL] = x;
-    x += 60; parts[STATUS_GRID] = x;
+    x += 70; parts[STATUS_GRID] = x;
     x += 150; parts[STATUS_SELECT] = x;
     x += 150; parts[STATUS_DIMEN] = x;
     parts[NUM_STATUS_PARTS - 1] = -1;
