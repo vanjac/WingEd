@@ -38,12 +38,13 @@
 #define IDM_DUPLICATE                       138
 #define IDM_FOCUS                           139
 #define IDM_TRANSFORM_MATRIX                140
+#define IDM_NEW_VIEWPORT                    141
 
 #ifdef APSTUDIO_INVOKED
     #ifndef APSTUDIO_READONLY_SYMBOLS
         #define _APS_NO_MFC                 1
         #define _APS_NEXT_RESOURCE_VALUE    100
-        #define _APS_NEXT_COMMAND_VALUE     141
+        #define _APS_NEXT_COMMAND_VALUE     142
         #define _APS_NEXT_CONTROL_VALUE     1000
         #define _APS_NEXT_SYMED_VALUE       300
     #endif

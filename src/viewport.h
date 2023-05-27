@@ -19,10 +19,12 @@ struct ViewportWindow : chroma::WindowImpl {
     glm::mat4 projMat, mvMat;
     glm::vec2 viewportDim;
 
-    MouseMode mouseMode;
+    MouseMode mouseMode = MOUSE_NONE;
     POINT lastCurPos;
     glm::vec3 startPlanePos;
     float snapAccum;
+
+    HGLRC context;
 
     const TCHAR * className() const { return VIEWPORT_CLASS; }
 
@@ -37,6 +39,7 @@ struct ViewportWindow : chroma::WindowImpl {
 
     BOOL onCreate(HWND, LPCREATESTRUCT);
     void onDestroy(HWND);
+    void onClose(HWND);
     bool onSetCursor(HWND, HWND, UINT, UINT);
     void onLButtonDown(HWND, BOOL, int, int, UINT);
     void onRButtonDown(HWND, BOOL, int, int, UINT);

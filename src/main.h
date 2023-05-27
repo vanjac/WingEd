@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <stack>
+#include <unordered_set>
 #include "winchroma.h"
 #include "editor.h"
 #include "viewport.h"
@@ -44,17 +45,22 @@ struct MainWindow : chroma::WindowImpl {
 
     HWND statusWnd;
     ViewportWindow mainViewport;
+    std::unordered_set<ViewportWindow *> extraViewports;
 
     const TCHAR * className() const { return APP_NAME; }
 
     void pushUndo();
     void pushUndo(EditorState newState);
     void updateStatus();
+    void refreshAll();
+    void refreshAllImmediate();
     void flashSel();
     void showError(winged_error err);
     void saveAs();
+    void closeExtraViewports();
 
     BOOL onCreate(HWND, LPCREATESTRUCT);
+    void onDestroy(HWND);
     void onNCDestroy(HWND);
     void onSize(HWND, UINT, int, int);
     void onCommand(HWND, int, HWND, UINT);

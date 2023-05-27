@@ -1,6 +1,5 @@
 #include "viewport.h"
 #include <queue>
-#include <unordered_set>
 #include <gl/GL.h>
 #include <gl/GLU.h>
 #include <glm/gtc/matrix_transform.hpp>
@@ -292,11 +291,15 @@ void ViewportWindow::lockMouse(POINT clientPos, MouseMode mode) {
 }
 
 void ViewportWindow::updateProjMat() {
+    HDC dc = GetDC(wnd);
+    CHECKERR(wglMakeCurrent(dc, context));
+    glViewport(0, 0, (GLsizei)viewportDim.x, (GLsizei)viewportDim.y);
     glMatrixMode(GL_PROJECTION);
     float aspect = viewportDim.x / viewportDim.y;
     projMat = glm::perspective(glm::radians(view.flyCam ? 90.0f : 60.0f), aspect, 0.5f, 500.0f);
     glLoadMatrixf(glm::value_ptr(projMat));
     glMatrixMode(GL_MODELVIEW);
+    ReleaseDC(wnd, dc);
 }
 
 void ViewportWindow::updateHover(POINT pos) {
@@ -349,7 +352,7 @@ void ViewportWindow::updateHover(POINT pos) {
             if ((TOOL_FLAGS[g_tool] & TOOLF_DRAW) && (TOOL_FLAGS[g_tool] & TOOLF_HOVFACE))
                 g_state.workPlane = facePlane(g_state.surf, g_hoverFace.in(g_state.surf));
         }
-        refresh();
+        g_mainWindow.refreshAll();
         if (TOOL_FLAGS[g_tool] & TOOLF_DRAW)
             g_mainWindow.updateStatus();
     }
@@ -381,6 +384,7 @@ void ViewportWindow::startToolAdjust(POINT pos) {
         startPlanePos = g_state.workPlane.org; // fallback
         intersectRayPlane(ray, g_state.workPlane, &startPlanePos);
         g_moved = {};
+        snapAccum = 0;
         lockMouse(pos, MOUSE_TOOL);
         g_mainWindow.pushUndo();
     }
@@ -448,7 +452,7 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
     HDC dc = GetDC(wnd);
     int pixelFormat = ChoosePixelFormat(dc, &formatDesc);
     SetPixelFormat(dc, pixelFormat, &formatDesc);
-    HGLRC context = wglCreateContext(dc);
+    context = wglCreateContext(dc);
     if (!CHECKERR(context)) return false;
     CHECKERR(wglMakeCurrent(dc, context));
 
@@ -468,16 +472,20 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
     glShadeModel(GL_FLAT);
     glLightModelfv(GL_LIGHT_MODEL_AMBIENT, glm::value_ptr(glm::vec4(.4, .4, .4, 1)));
     glLightfv(GL_LIGHT0, GL_DIFFUSE, glm::value_ptr(glm::vec4(.6, .6, .6, 1)));
+
+    ReleaseDC(wnd, dc);
     return true;
 }
 
 void ViewportWindow::onDestroy(HWND) {
-    gluDeleteTess(g_tess);
-    if (HGLRC context = wglGetCurrentContext()) {
-        HDC dc = wglGetCurrentDC();
-        CHECKERR(wglMakeCurrent(NULL, NULL));
-        ReleaseDC(wnd, dc);
-        wglDeleteContext(context);
+    wglDeleteContext(context);
+}
+
+void ViewportWindow::onClose(HWND) {
+    if (g_mainWindow.extraViewports.count(this)) {
+        g_mainWindow.extraViewports.erase(this);
+        DestroyWindow(wnd);
+        delete this;
     }
 }
 
@@ -549,7 +557,7 @@ void ViewportWindow::onLButtonDown(HWND, BOOL, int x, int y, UINT keyFlags) {
             bool alreadySelected = hasSelection(g_state);
             if (!alreadySelected) {
                 g_state = select(std::move(g_state), g_hover, toggle);
-                refreshImmediate();
+                g_mainWindow.refreshAllImmediate();
             }
             if (DragDetect(wnd, clientToScreen(wnd, {x, y}))) {
                 startToolAdjust({x, y});
@@ -566,7 +574,7 @@ void ViewportWindow::onLButtonDown(HWND, BOOL, int x, int y, UINT keyFlags) {
     if (!mouseMode)
         updateHover({x, y});
     g_mainWindow.updateStatus();
-    refresh();
+    g_mainWindow.refreshAll();
 }
 
 void ViewportWindow::onRButtonDown(HWND, BOOL, int x, int y, UINT) {
@@ -587,7 +595,7 @@ void ViewportWindow::onButtonUp(HWND, int, int, UINT) {
         mouseMode = MOUSE_NONE;
         g_moved = {};
         g_mainWindow.updateStatus();
-        refresh();
+        g_mainWindow.refreshAll();
     }
 }
 
@@ -600,10 +608,12 @@ void ViewportWindow::onMouseMove(HWND, int x, int y, UINT keyFlags) {
         switch (mouseMode) {
             case MOUSE_TOOL:
                 toolAdjust(curPos, delta, keyFlags);
+                g_mainWindow.refreshAll();
                 break;
             case MOUSE_CAM_ROTATE:
                 view.rotX += glm::radians((float)delta.cy) * 0.5f;
                 view.rotY += glm::radians((float)delta.cx) * 0.5f;
+                refresh();
                 break;
             case MOUSE_CAM_PAN: {
                 bool shift = keyFlags & MK_SHIFT;
@@ -616,9 +626,10 @@ void ViewportWindow::onMouseMove(HWND, int x, int y, UINT keyFlags) {
                 }
                 deltaPos = glm::inverse(mvMat) * glm::vec4(deltaPos, 0);
                 view.camPivot += deltaPos * view.zoom / CAM_MOVE_SCALE;
+                refresh();
+                break;
             }
         }
-        refresh();
         if (mouseMode != MOUSE_TOOL || (g_tool == TOOL_SELECT && (keyFlags & MK_CONTROL))) {
             POINT screenPos = clientToScreen(wnd, lastCurPos);
             SetCursorPos(screenPos.x, screenPos.y);
@@ -636,7 +647,6 @@ void ViewportWindow::onMouseWheel(HWND, int, int, int delta, UINT) {
 void ViewportWindow::onSize(HWND, UINT, int cx, int cy) {
     if (cx > 0 && cy > 0) {
         viewportDim = {cx, cy};
-        glViewport(0, 0, cx, cy);
         updateProjMat();
     }
 }
@@ -644,6 +654,7 @@ void ViewportWindow::onSize(HWND, UINT, int cx, int cy) {
 void ViewportWindow::onPaint(HWND) {
     PAINTSTRUCT ps;
     BeginPaint(wnd, &ps);
+    CHECKERR(wglMakeCurrent(ps.hdc, context));
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -832,6 +843,7 @@ LRESULT ViewportWindow::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         HANDLE_MSG(wnd, WM_CREATE, onCreate);
         HANDLE_MSG(wnd, WM_DESTROY, onDestroy);
+        HANDLE_MSG(wnd, WM_CLOSE, onClose);
         HANDLE_MSG(wnd, WM_SETCURSOR, onSetCursor);
         HANDLE_MSG(wnd, WM_LBUTTONDOWN, onLButtonDown);
         HANDLE_MSG(wnd, WM_RBUTTONDOWN, onRButtonDown);

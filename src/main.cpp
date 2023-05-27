@@ -284,12 +284,24 @@ void MainWindow::updateStatus() {
     SendMessage(statusWnd, SB_SETTEXT, STATUS_HELP, (LPARAM)helpText);
 }
 
+void MainWindow::refreshAll() {
+    mainViewport.refresh();
+    for (auto viewport : extraViewports)
+        viewport->refresh();
+}
+
+void MainWindow::refreshAllImmediate() {
+    mainViewport.refreshImmediate();
+    for (auto viewport : extraViewports)
+        viewport->refreshImmediate();
+}
+
 void MainWindow::flashSel() {
     g_flashSel = true;
-    mainViewport.refreshImmediate();
+    refreshAllImmediate();
     Sleep(200);
     g_flashSel = false;
-    mainViewport.refresh();
+    refreshAll();
 }
 
 void MainWindow::showError(winged_error err) {
@@ -312,6 +324,14 @@ void MainWindow::saveAs() {
     }
 }
 
+void MainWindow::closeExtraViewports() {
+    for (auto viewport : extraViewports) {
+        DestroyWindow(viewport->wnd);
+        delete viewport;
+    }
+    extraViewports = {};
+}
+
 BOOL MainWindow::onCreate(HWND, LPCREATESTRUCT) {
     mainViewport.createChildWindow(wnd);
     statusWnd = CreateStatusWindow(
@@ -328,6 +348,10 @@ BOOL MainWindow::onCreate(HWND, LPCREATESTRUCT) {
     SendMessage(statusWnd, SB_SETPARTS, NUM_STATUS_PARTS, (LPARAM)parts);
     updateStatus();
     return true;
+}
+
+void MainWindow::onDestroy(HWND) {
+    closeExtraViewports();
 }
 
 void MainWindow::onNCDestroy(HWND) {
@@ -348,6 +372,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT) {
             /* File */
             case IDM_NEW:
                 if (MessageBox(wnd, L"Are you sure?", L"New File", MB_YESNO) == IDYES) {
+                    closeExtraViewports();
                     g_state = {};
                     mainViewport.view = {};
                     undoStack = {};
@@ -361,6 +386,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT) {
                 newFile[0] = 0;
                 const TCHAR filters[] = L"WingEd File (.wing)\0*.wing\0\0";
                 if (GetOpenFileName(tempPtr(makeOpenFileName(newFile, wnd, filters, L"wing")))) {
+                    closeExtraViewports();
                     std::tie(g_state, mainViewport.view) = readFile(newFile);
                     undoStack = {};
                     redoStack = {};
@@ -414,7 +440,6 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT) {
             case IDM_SEL_SOLIDS:
                 if (g_state.selMode != SEL_SOLIDS) {
                     g_state = clearSelection(std::move(g_state));
-                    g_hoverFace = {};
                     g_hover.type = PICK_NONE;
                 }
                 setSelMode(SEL_SOLIDS);
@@ -431,6 +456,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT) {
                 break;
 #endif
             /* View */
+            // TODO move to viewport
             case IDM_FLY_CAM:
                 mainViewport.view.flyCam ^= true;
                 mainViewport.updateProjMat();
@@ -438,6 +464,17 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT) {
             case IDM_FOCUS:
                 mainViewport.view.camPivot = -vertsCenter(selAttachedVerts(g_state));
                 break;
+            case IDM_NEW_VIEWPORT: {
+                ViewportWindow *newViewport = new ViewportWindow;
+                newViewport->view = mainViewport.view;
+                SIZE size = clientSize(wnd);
+                newViewport->createWindow(APP_NAME,
+                    defaultWindowRect(size.cx, size.cy, WS_OVERLAPPEDWINDOW, false),
+                    WS_OVERLAPPEDWINDOW, WS_EX_TOOLWINDOW, wnd);
+                ShowWindow(newViewport->wnd, SW_NORMAL);
+                extraViewports.insert(newViewport);
+                break;
+            }
             /* Edit */
             case IDM_UNDO:
                 if (!undoStack.empty()) {
@@ -551,7 +588,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT) {
         showError(err);
     }
     updateStatus();
-    mainViewport.refresh();
+    refreshAll();
 }
 
 void MainWindow::onInitMenu(HWND, HMENU menu) {
@@ -589,6 +626,7 @@ void MainWindow::onMenuSelect(HWND, UINT msg, WPARAM wParam, LPARAM lParam) {
 LRESULT MainWindow::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         HANDLE_MSG(wnd, WM_CREATE, onCreate);
+        HANDLE_MSG(wnd, WM_DESTROY, onDestroy);
         HANDLE_MSG(wnd, WM_NCDESTROY, onNCDestroy);
         HANDLE_MSG(wnd, WM_SIZE, onSize);
         HANDLE_MSG(wnd, WM_COMMAND, onCommand);
