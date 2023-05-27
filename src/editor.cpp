@@ -1,5 +1,6 @@
 #include "editor.h"
 #include <immer/set_transient.hpp>
+#include <glm/common.hpp>
 
 namespace winged {
 
@@ -46,6 +47,18 @@ EditorState cleanSelection(const EditorState &state) {
         }
     }
     return newState;
+}
+
+glm::vec3 vertsCenter(const Surface &surf, immer::set<vert_id> verts) {
+    if (verts.empty())
+        return {};
+    glm::vec3 min = verts.begin()->in(surf).pos, max = min;
+    for (auto v : verts) {
+        auto pos = v.in(surf).pos;
+        min = glm::min(min, pos);
+        max = glm::max(max, pos);
+    }
+    return (min + max) / 2.0f;
 }
 
 } // namespace

@@ -48,7 +48,6 @@ const float CAM_MOVE_SCALE = 600;
 const HCURSOR knifeCur = LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_KNIFE));
 const HCURSOR drawCur = LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_DRAW));
 
-
 static GLUtesselator *g_tess;
 static GLenum g_tess_error;
 
@@ -644,6 +643,21 @@ void ViewportWindow::onMouseWheel(HWND, int, int, int delta, UINT) {
     refresh();
 }
 
+bool ViewportWindow::onCommand(HWND, int id, HWND, UINT) {
+    switch (id) {
+        case IDM_FLY_CAM:
+            view.flyCam ^= true;
+            updateProjMat();
+            refresh();
+            return true;
+        case IDM_FOCUS:
+            view.camPivot = -vertsCenter(g_state.surf, selAttachedVerts(g_state));
+            refresh();
+            return true;
+    }
+    return false;
+}
+
 void ViewportWindow::onSize(HWND, UINT, int cx, int cy) {
     if (cx > 0 && cy > 0) {
         viewportDim = {cx, cy};
@@ -853,6 +867,7 @@ LRESULT ViewportWindow::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         HANDLE_MSG(wnd, WM_MBUTTONUP, onButtonUp);
         HANDLE_MSG(wnd, WM_MOUSEMOVE, onMouseMove);
         HANDLE_MSG(wnd, WM_MOUSEWHEEL, onMouseWheel);
+        HANDLE_MSG(wnd, WM_COMMAND, onCommand);
         HANDLE_MSG(wnd, WM_SIZE, onSize);
         HANDLE_MSG(wnd, WM_PAINT, onPaint);
     }

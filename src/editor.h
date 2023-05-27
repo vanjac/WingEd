@@ -40,4 +40,6 @@ immer::set<vert_id> selAttachedVerts(const EditorState &state);
 EditorState clearSelection(EditorState state);
 EditorState cleanSelection(const EditorState &state);
 
+glm::vec3 vertsCenter(const Surface &surf, immer::set<vert_id> verts);
+
 } // namespace

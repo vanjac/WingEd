@@ -91,18 +91,6 @@ static std::vector<edge_id> sortEdgeLoop(const Surface &surf, immer::set<edge_id
     return loop;
 }
 
-static glm::vec3 vertsCenter(immer::set<vert_id> verts) {
-    if (verts.empty())
-        return {};
-    glm::vec3 min = verts.begin()->in(g_state.surf).pos, max = min;
-    for (auto v : verts) {
-        auto pos = v.in(g_state.surf).pos;
-        min = glm::min(min, pos);
-        max = glm::max(max, pos);
-    }
-    return (min + max) / 2.0f;
-}
-
 static EditorState erase(EditorState state) {
     EditorState newState = state;
     if (state.selMode == SEL_ELEMENTS) {
@@ -364,8 +352,11 @@ void MainWindow::onSize(HWND, UINT, int cx, int cy) {
     MoveWindow(mainViewport.wnd, 0, 0, cx, cy - statusHeight, true);
 }
 
-void MainWindow::onCommand(HWND, int id, HWND ctl, UINT) {
+void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
     if (ctl) return;
+
+    if (mainViewport.onCommand(mainViewport.wnd, id, ctl, code))
+        return;
 
     try {
         switch (id) {
@@ -456,14 +447,6 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT) {
                 break;
 #endif
             /* View */
-            // TODO move to viewport
-            case IDM_FLY_CAM:
-                mainViewport.view.flyCam ^= true;
-                mainViewport.updateProjMat();
-                break;
-            case IDM_FOCUS:
-                mainViewport.view.camPivot = -vertsCenter(selAttachedVerts(g_state));
-                break;
             case IDM_NEW_VIEWPORT: {
                 ViewportWindow *newViewport = new ViewportWindow;
                 newViewport->view = mainViewport.view;
@@ -575,7 +558,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT) {
                 if (DialogBoxParam(GetModuleHandle(NULL), L"IDD_MATRIX", wnd, matrixDlgProc,
                         (LPARAM)&userMatrix) == IDOK) {
                     auto verts = selAttachedVerts(g_state);
-                    glm::vec3 center = vertsCenter(verts);
+                    glm::vec3 center = vertsCenter(g_state.surf, verts);
                     EditorState newState = g_state;
                     newState.surf = transformVertices(g_state.surf, verts, glm::translate(
                         glm::translate(glm::mat4(1), center) * userMatrix, -center));
@@ -649,7 +632,17 @@ int APIENTRY _tWinMain(HINSTANCE instance, HINSTANCE, LPTSTR, int showCmd) {
         defaultWindowRect(640, 480, WS_OVERLAPPEDWINDOW, true));
     if (!wnd) return -1;
     ShowWindow(wnd, showCmd);
-    return simpleMessageLoop(wnd, LoadAccelerators(instance, L"Accel"));
+    HACCEL mainAccel = LoadAccelerators(instance, L"Accel");
+    HACCEL viewAccel = LoadAccelerators(instance, L"ViewAccel");
+    MSG msg;
+    while (GetMessage(&msg, NULL, 0, 0)) {
+        if (TranslateAccelerator(wnd, mainAccel, &msg)
+                || TranslateAccelerator(GetActiveWindow(), viewAccel, &msg))
+            continue;
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
+    return (int)msg.wParam;
 }
 
 CHROMA_MAIN

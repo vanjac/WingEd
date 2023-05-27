@@ -47,6 +47,7 @@ struct ViewportWindow : chroma::WindowImpl {
     void onButtonUp(HWND, int, int, UINT);
     void onMouseMove(HWND, int, int, UINT);
     void onMouseWheel(HWND, int, int, int, UINT);
+    bool onCommand(HWND, int, HWND, UINT);
     void onSize(HWND, UINT, int, int);
     void onPaint(HWND);
     LRESULT handleMessage(UINT, WPARAM, LPARAM) override;
