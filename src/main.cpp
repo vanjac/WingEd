@@ -1497,6 +1497,7 @@ static void main_onInitMenu(HWND, HMENU menu) {
     EnableMenuItem(menu, IDM_SPLIT_LOOP, (!g_state.selEdges.empty() && selElem) ?
         MF_ENABLED : MF_GRAYED);
     EnableMenuItem(menu, IDM_DUPLICATE, (hasSel && selSolid) ? MF_ENABLED : MF_GRAYED);
+    EnableMenuItem(menu, IDM_SNAP, hasSel ? MF_ENABLED : MF_GRAYED);
     EnableMenuItem(menu, IDM_TRANSFORM_MATRIX, hasSel ? MF_ENABLED : MF_GRAYED);
     CheckMenuItem(menu, IDM_FLY_CAM, g_view.flyCam ? MF_CHECKED : MF_UNCHECKED);
     EnableMenuItem(menu, IDM_FOCUS, hasSel ? MF_ENABLED : MF_GRAYED);
