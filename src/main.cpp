@@ -701,6 +701,62 @@ static void startToolAdjust(HWND wnd, POINT pos) {
     }
 }
 
+static void updateHover(HWND wnd, POINT pos) {
+    glm::vec2 normCur = screenPosToNDC({pos.x, pos.y}, g_viewportDim);
+    glm::mat4 project = g_projMat * g_mvMat;
+    float grid = g_state.gridOn ? g_state.gridSize : 0;
+    PickResult result = {};
+
+    if (tools[g_tool].flags & TOOLF_DRAW) {
+        for (size_t i = 0; i < g_drawVerts.size(); i++) {
+            float depth;
+            if (pickVert(g_drawVerts[i], normCur, g_viewportDim, project, &depth)
+                    && depth < result.depth) {
+                result.type = PICK_DRAWVERT;
+                result.val = i;
+                result.point = g_drawVerts[i];
+                result.depth = depth;
+            }
+        }
+    }
+    if (g_tool == TOOL_POLY) {
+        if (!result.type) {
+            Ray ray = viewPosToRay(normCur, project);
+            glm::vec3 planePoint;
+            if (intersectRayPlane(ray, g_state.workPlane, &planePoint)) {
+                result.point = snapPlanePoint(planePoint, g_state.workPlane, grid);
+                result.type = PICK_WORKPLANE;
+            }
+        }
+    } else {
+        PickType type = (g_state.selMode == SEL_ELEMENTS) ? PICK_ELEMENT : PICK_FACE;
+        if (g_tool == TOOL_KNIFE && GetKeyState(VK_MENU) < 0)
+            type &= ~PICK_VERT;
+        result = pickElement(g_state.surf, type, normCur, g_viewportDim, project,
+            (g_tool == TOOL_KNIFE) ? grid : 0, result);
+    }
+    if (tools[g_tool].flags & TOOLF_DRAW && result.type && result.type != PICK_DRAWVERT) {
+        for (size_t i = 0; i < g_drawVerts.size(); i++) {
+            if (result.point == g_drawVerts[i]) {
+                result.type = PICK_DRAWVERT;
+                result.val = i;
+            }
+        }
+    }
+
+    if (result.id != g_hover.id || result.point != g_hover.point || result.type != g_hover.type) {
+        g_hover = result;
+        if (result.type == PICK_FACE) {
+            g_hoverFace = g_hover.face;
+            if ((tools[g_tool].flags & TOOLF_DRAW) && (tools[g_tool].flags & TOOLF_HOVFACE))
+                g_state.workPlane = facePlane(g_state.surf, g_hoverFace.in(g_state.surf));
+        }
+        refresh(wnd);
+        if (tools[g_tool].flags & TOOLF_DRAW)
+            updateStatus();
+    }
+}
+
 static void view_onLButtonDown(HWND wnd, BOOL, int x, int y, UINT keyFlags) {
     try {
         if (g_tool == TOOL_KNIFE) {
@@ -745,7 +801,6 @@ static void view_onLButtonDown(HWND wnd, BOOL, int x, int y, UINT keyFlags) {
             }
         } else if (g_tool == TOOL_JOIN && hasSelection(g_state) && g_hover.type) {
             pushUndo(join(g_state));
-            g_hover = {};
             flashSel(wnd);
             if (!(keyFlags & MK_SHIFT))
                 g_tool = TOOL_SELECT;
@@ -768,6 +823,8 @@ static void view_onLButtonDown(HWND wnd, BOOL, int x, int y, UINT keyFlags) {
     } catch (winged_error err) {
         showError(err);
     }
+    if (!g_mouseMode)
+        updateHover(wnd, {x, y});
     updateStatus();
     refresh(wnd);
 }
@@ -847,61 +904,7 @@ static void toolAdjust(POINT pos, SIZE delta, UINT keyFlags) {
 static void view_onMouseMove(HWND wnd, int x, int y, UINT keyFlags) {
     POINT curPos = {x, y};
     if (g_mouseMode == MOUSE_NONE) {
-        glm::vec2 normCur = screenPosToNDC({x, y}, g_viewportDim);
-        glm::mat4 project = g_projMat * g_mvMat;
-        float grid = g_state.gridOn ? g_state.gridSize : 0;
-        PickResult result = {};
-
-        if (tools[g_tool].flags & TOOLF_DRAW) {
-            for (size_t i = 0; i < g_drawVerts.size(); i++) {
-                float depth;
-                if (pickVert(g_drawVerts[i], normCur, g_viewportDim, project, &depth)
-                        && depth < result.depth) {
-                    result.type = PICK_DRAWVERT;
-                    result.val = i;
-                    result.point = g_drawVerts[i];
-                    result.depth = depth;
-                }
-            }
-        }
-        if (g_tool == TOOL_POLY) {
-            if (!result.type) {
-                Ray ray = viewPosToRay(normCur, project);
-                glm::vec3 planePoint;
-                if (intersectRayPlane(ray, g_state.workPlane, &planePoint)) {
-                    result.point = snapPlanePoint(planePoint, g_state.workPlane, grid);
-                    result.type = PICK_WORKPLANE;
-                }
-            }
-        } else {
-            PickType type = (g_state.selMode == SEL_ELEMENTS) ? PICK_ELEMENT : PICK_FACE;
-            if (g_tool == TOOL_KNIFE && GetKeyState(VK_MENU) < 0)
-                type &= ~PICK_VERT;
-            result = pickElement(g_state.surf, type, normCur, g_viewportDim, project,
-                (g_tool == TOOL_KNIFE) ? grid : 0, result);
-        }
-        if (tools[g_tool].flags & TOOLF_DRAW && result.type && result.type != PICK_DRAWVERT) {
-            for (size_t i = 0; i < g_drawVerts.size(); i++) {
-                if (result.point == g_drawVerts[i]) {
-                    result.type = PICK_DRAWVERT;
-                    result.val = i;
-                }
-            }
-        }
-
-        if (result.id != g_hover.id || result.point != g_hover.point
-                || result.type != g_hover.type) {
-            g_hover = result;
-            if (result.type == PICK_FACE) {
-                g_hoverFace = g_hover.face;
-                if ((tools[g_tool].flags & TOOLF_DRAW) && (tools[g_tool].flags & TOOLF_HOVFACE))
-                    g_state.workPlane = facePlane(g_state.surf, g_hoverFace.in(g_state.surf));
-            }
-            refresh(wnd);
-            if (tools[g_tool].flags & TOOLF_DRAW)
-                updateStatus();
-        }
-        return;
+        updateHover(wnd, curPos);
     } else if (curPos != g_lastCurPos) { // g_mouseMode != MOUSE_NONE
         SIZE delta = {curPos.x - g_lastCurPos.x, curPos.y - g_lastCurPos.y};
         switch (g_mouseMode) {
