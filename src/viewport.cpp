@@ -50,6 +50,9 @@ const GLfloat
 
 const float CAM_MOVE_SCALE = 600;
 
+const HCURSOR knifeCur = LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_KNIFE));
+const HCURSOR drawCur = LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_DRAW));
+
 
 static GLUtesselator *g_tess;
 static GLenum g_tess_error;
@@ -484,7 +487,15 @@ void ViewportWindow::onDestroy(HWND) {
 
 bool ViewportWindow::onSetCursor(HWND, HWND cursorWnd, UINT hitTest, UINT msg) {
     if (msg && hitTest == HTCLIENT) {
-        SetCursor(tools[g_tool].cursor);
+        if (g_tool == TOOL_POLY && g_hover.type) {
+            SetCursor(drawCur);
+        } else if (g_tool == TOOL_KNIFE && g_hover.type) {
+            SetCursor(knifeCur);
+        } else if (g_tool == TOOL_JOIN && hasSelection(g_state) && g_hover.type) {
+            SetCursor(LoadCursor(NULL, IDC_CROSS));
+        } else {
+            SetCursor(LoadCursor(NULL, IDC_ARROW));
+        }
         return true;
     }
     return FORWARD_WM_SETCURSOR(wnd, cursorWnd, hitTest, msg, DefWindowProc);
