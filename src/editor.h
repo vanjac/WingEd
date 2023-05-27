@@ -27,12 +27,17 @@ struct EditorState {
     char reserved[4];
 };
 
-// saved in file but not undo stack
+// per-viewport, saved in file but not undo stack
 struct ViewState {
     glm::vec3 camPivot = {}; // TODO: actually negative
     float rotX = glm::radians(45.0f), rotY = glm::radians(-15.0f);
     float zoom = 16;
     bool flyCam = false;
 };
+
+bool hasSelection(EditorState state);
+immer::set<vert_id> selAttachedVerts(const EditorState &state);
+EditorState clearSelection(EditorState state);
+EditorState cleanSelection(const EditorState &state);
 
 } // namespace
