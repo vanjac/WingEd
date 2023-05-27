@@ -13,11 +13,6 @@ using namespace chroma;
 
 namespace winged {
 
-const TCHAR ROTATE_HELP[] = L"Drag: Orbit";
-const TCHAR FLY_ROTATE_HELP[] = L"Drag: Look";
-const TCHAR PAN_HELP[] = L"Drag: Pan   Shift: Dolly";
-const TCHAR FLY_PAN_HELP[] = L"Drag: Move   Shift: Pan";
-
 enum StatusPart {
     STATUS_SELMODE, STATUS_TOOL, STATUS_GRID, STATUS_SELECT, STATUS_DIMEN, STATUS_HELP,
     NUM_STATUS_PARTS
@@ -40,7 +35,7 @@ size_t numDrawPoints() {
             return g_drawVerts.size() + 1;
         else
             return 0;
-    } else if (tools[g_tool].flags & TOOLF_DRAW) {
+    } else if (TOOL_FLAGS[g_tool] & TOOLF_DRAW) {
         return g_drawVerts.size();
     } else {
         return 0;
@@ -49,7 +44,7 @@ size_t numDrawPoints() {
 
 static void setSelMode(SelectMode mode) {
     g_state.selMode = mode;
-    if (!(tools[g_tool].flags & (1 << mode)))
+    if (!(TOOL_FLAGS[g_tool] & (1 << mode)))
         g_tool = TOOL_SELECT;
 }
 
@@ -60,9 +55,9 @@ static void resetToolState() {
 static void setTool(Tool tool) {
     g_tool = tool;
     resetToolState();
-    if (!(tools[tool].flags & (1 << g_state.selMode)))
+    if (!(TOOL_FLAGS[tool] & (1 << g_state.selMode)))
         g_state.selMode = SEL_ELEMENTS; // TODO
-    if ((tools[tool].flags & TOOLF_DRAW) && (tools[tool].flags & TOOLF_HOVFACE))
+    if ((TOOL_FLAGS[tool] & TOOLF_DRAW) && (TOOL_FLAGS[tool] & TOOLF_HOVFACE))
         if (auto face = g_hoverFace.find(g_state.surf))
             g_state.workPlane = facePlane(g_state.surf, *face);
 }
@@ -250,33 +245,43 @@ void MainWindow::updateStatus() {
     }
     SendMessage(statusWnd, SB_SETTEXT, STATUS_DIMEN, (LPARAM)buf);
 
-    switch (mainViewport.mouseMode) {
-        case MOUSE_NONE: {
-#ifdef CHROMA_DEBUG
-            uint32_t selName = 0;
-            if (!g_state.selVerts.empty()) selName = name(*g_state.selVerts.begin());
-            else if (!g_state.selFaces.empty()) selName = name(*g_state.selFaces.begin());
-            else if (!g_state.selEdges.empty()) selName = name(*g_state.selEdges.begin());
-            if (selName) {
-                _stprintf(buf, L"%08X", selName);
-                SendMessage(statusWnd, SB_SETTEXT, STATUS_HELP, (LPARAM)buf);
-            } else
-#endif
-            SendMessage(statusWnd, SB_SETTEXT, STATUS_HELP, (LPARAM)tools[g_tool].help);
-            break;
+    const TCHAR *helpText = L"";
+    if (mainViewport.mouseMode == MOUSE_CAM_ROTATE) {
+        if (mainViewport.view.flyCam)
+            helpText = L"Drag: Look";
+        else
+            helpText = L"Drag: Orbit";
+    } else if (mainViewport.mouseMode == MOUSE_CAM_PAN) {
+        if (mainViewport.view.flyCam)
+            helpText = L"Drag: Move   Shift: Pan";
+        else
+            helpText = L"Drag: Pan   Shift: Dolly";
+    } else {
+        switch (g_tool) {
+            case TOOL_SELECT:
+                if (mainViewport.mouseMode == MOUSE_TOOL)
+                    helpText = L"Shift: Snap axis   Ctrl: Orthogonal";
+                else
+                    helpText = L"Click: Select   Shift: Toggle"
+                        L"   Drag: Move   Alt-Drag: Move on face plane";
+                break;
+            case TOOL_POLY:
+                if (g_hover.type == PICK_DRAWVERT && g_hover.val == 0)
+                    helpText = L"Click: Complete polygon   Shift-click: Stay in tool";
+                else
+                    helpText = L"Click: Add point   Bksp: Delete point";
+                break;
+            case TOOL_KNIFE:
+                helpText = L"Click: Add vertex   Bksp: Delete vertex   Alt: Ignore vertices";
+                break;
+            case TOOL_JOIN:
+                if (hasSelection(g_state))
+                    helpText = L"Click: Join with selection   Shift-click: Stay in tool";
+                else
+                    helpText = L"Click: Select";
         }
-        case MOUSE_TOOL:
-            SendMessage(statusWnd, SB_SETTEXT, STATUS_HELP, (LPARAM)tools[g_tool].adjustHelp);
-            break;
-        case MOUSE_CAM_ROTATE:
-            SendMessage(statusWnd, SB_SETTEXT, STATUS_HELP,
-                (LPARAM)(mainViewport.view.flyCam ? FLY_ROTATE_HELP : ROTATE_HELP));
-            break;
-        case MOUSE_CAM_PAN:
-            SendMessage(statusWnd, SB_SETTEXT, STATUS_HELP,
-                (LPARAM)(mainViewport.view.flyCam ? FLY_PAN_HELP : PAN_HELP));
-            break;
     }
+    SendMessage(statusWnd, SB_SETTEXT, STATUS_HELP, (LPARAM)helpText);
 }
 
 void MainWindow::flashSel() {

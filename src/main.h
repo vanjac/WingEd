@@ -24,21 +24,16 @@ enum ToolFlags {
     TOOLF_HOVFACE = 0x40, // show last hovered face while hovering over other elements
 };
 DEFINE_ENUM_FLAG_OPERATORS(ToolFlags)
-struct ToolInfo {
-    ToolFlags flags;
-    TCHAR *help, *adjustHelp; // TODO move help text to main.cpp
+const ToolFlags TOOL_FLAGS[] = {
+    /*select*/  TOOLF_ALLSEL,
+    /*poly*/    TOOLF_ELEMENTS | TOOLF_DRAW,
+    /*knife*/   TOOLF_ELEMENTS | TOOLF_DRAW | TOOLF_HOVFACE,
+    /*join*/    TOOLF_ELEMENTS | TOOLF_HOVFACE,
 };
-const ToolInfo tools[] = {
-    /*select*/  {TOOLF_ALLSEL,
-                 L"Click: Select   Shift: Toggle   Drag: Move   Alt-Drag: Move on face plane",
-                 L"Shift: Snap axis   Ctrl: Orthogonal"},
-    /*poly*/    {TOOLF_ELEMENTS | TOOLF_DRAW,
-                 L"Click: Add point   Bksp: Delete point   Shift-click: Stay in tool", L""},
-    /*knife*/   {TOOLF_ELEMENTS | TOOLF_DRAW | TOOLF_HOVFACE,
-                 L"Click: Add vertex   Bksp: Delete vertex   Alt: Ignore vertices", L""},
-    /*join*/    {TOOLF_ELEMENTS | TOOLF_HOVFACE,
-                 L"Click: Select/join   Shift-click: Stay in tool", L""},
-};
+
+const PickType
+    PICK_WORKPLANE = 0x8,
+    PICK_DRAWVERT = 0x10;
 
 struct MainWindow : chroma::WindowImpl {
     std::stack<EditorState> undoStack;

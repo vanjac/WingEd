@@ -13,10 +13,6 @@ using namespace chroma;
 
 namespace winged {
 
-const PickType
-    PICK_WORKPLANE = 0x8,
-    PICK_DRAWVERT = 0x10;
-
 const GLfloat
     SIZE_VERT           = 7,
     SIZE_VERT_HOVER     = 11,
@@ -309,7 +305,7 @@ void ViewportWindow::updateHover(POINT pos) {
     float grid = g_state.gridOn ? g_state.gridSize : 0;
     PickResult result = {};
 
-    if (tools[g_tool].flags & TOOLF_DRAW) {
+    if (TOOL_FLAGS[g_tool] & TOOLF_DRAW) {
         for (size_t i = 0; i < g_drawVerts.size(); i++) {
             float depth;
             if (pickVert(g_drawVerts[i], normCur, viewportDim, project, &depth)
@@ -337,7 +333,7 @@ void ViewportWindow::updateHover(POINT pos) {
         result = pickElement(g_state.surf, type, normCur, viewportDim, project,
             (g_tool == TOOL_KNIFE) ? grid : 0, result);
     }
-    if (tools[g_tool].flags & TOOLF_DRAW && result.type && result.type != PICK_DRAWVERT) {
+    if (TOOL_FLAGS[g_tool] & TOOLF_DRAW && result.type && result.type != PICK_DRAWVERT) {
         for (size_t i = 0; i < g_drawVerts.size(); i++) {
             if (result.point == g_drawVerts[i]) {
                 result.type = PICK_DRAWVERT;
@@ -350,11 +346,11 @@ void ViewportWindow::updateHover(POINT pos) {
         g_hover = result;
         if (result.type == PICK_FACE) {
             g_hoverFace = g_hover.face;
-            if ((tools[g_tool].flags & TOOLF_DRAW) && (tools[g_tool].flags & TOOLF_HOVFACE))
+            if ((TOOL_FLAGS[g_tool] & TOOLF_DRAW) && (TOOL_FLAGS[g_tool] & TOOLF_HOVFACE))
                 g_state.workPlane = facePlane(g_state.surf, g_hoverFace.in(g_state.surf));
         }
         refresh();
-        if (tools[g_tool].flags & TOOLF_DRAW)
+        if (TOOL_FLAGS[g_tool] & TOOLF_DRAW)
             g_mainWindow.updateStatus();
     }
 }
@@ -738,7 +734,7 @@ void ViewportWindow::drawState(const EditorState &state) {
             }
             glVertex3fv(glm::value_ptr(pair.second.pos));
         }
-        if (tools[g_tool].flags & TOOLF_DRAW) {
+        if (TOOL_FLAGS[g_tool] & TOOLF_DRAW) {
             if (numDrawPoints() > 0) {
                 for (size_t i = 0; i < g_drawVerts.size(); i++) {
                     if (g_hover.type == PICK_DRAWVERT && g_hover.val == i)
@@ -790,7 +786,7 @@ void ViewportWindow::drawState(const EditorState &state) {
             glColorHex(g_flashSel ? COLOR_FACE_FLASH : COLOR_FACE_SEL);
             glDisable(GL_LIGHTING);
         } else if (g_hover.type && pair.first == g_hoverFace
-                && (g_hover.type == PICK_FACE || (tools[g_tool].flags & TOOLF_HOVFACE))) {
+                && (g_hover.type == PICK_FACE || (TOOL_FLAGS[g_tool] & TOOLF_HOVFACE))) {
             glColorHex(COLOR_FACE_HOVER);
             glDisable(GL_LIGHTING);
         } else {
@@ -801,8 +797,8 @@ void ViewportWindow::drawState(const EditorState &state) {
     }
     glDisable(GL_LIGHTING);
 
-    bool drawGrid = (tools[g_tool].flags & TOOLF_DRAW)
-        && ((state.gridOn && g_hover.type) || !(tools[g_tool].flags & TOOLF_HOVFACE));
+    bool drawGrid = (TOOL_FLAGS[g_tool] & TOOLF_DRAW)
+        && ((state.gridOn && g_hover.type) || !(TOOL_FLAGS[g_tool] & TOOLF_HOVFACE));
     bool adjustGrid = g_tool == TOOL_SELECT && mouseMode == MOUSE_TOOL;
     if (drawGrid || adjustGrid) {
         auto p = state.workPlane;
