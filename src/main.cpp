@@ -391,24 +391,18 @@ static void updateStatus() {
         _stprintf(buf, L"Grid:  Off");
     SendMessage(g_statusWnd, SB_SETTEXT, STATUS_GRID, (LPARAM)buf);
 
-    size_t numSel = g_state.selVerts.size() + g_state.selFaces.size() + g_state.selEdges.size();
-    if (numSel) {
-#ifdef CHROMA_DEBUG
-        uint32_t selName = 0;
-        if (!g_state.selVerts.empty()) selName = name(*g_state.selVerts.begin());
-        else if (!g_state.selFaces.empty()) selName = name(*g_state.selFaces.begin());
-        else if (!g_state.selEdges.empty()) selName = name(*g_state.selEdges.begin());
-        _stprintf(buf, L"Sel: %08X (%zd)", selName, numSel);
-#else
-        _stprintf(buf, L"%zd selected", numSel);
-#endif
-    } else {
-        buf[0] = 0;
-    }
+    buf[0] = 0;
+    TCHAR *str = buf;
+    if (!g_state.selVerts.empty())
+        str += _stprintf(str, L"%zd vert ", g_state.selVerts.size());
+    if (!g_state.selEdges.empty())
+        str += _stprintf(str, L"%zd edge ", g_state.selEdges.size());
+    if (!g_state.selFaces.empty())
+        str += _stprintf(str, L"%zd face", g_state.selFaces.size());
     SendMessage(g_statusWnd, SB_SETTEXT, STATUS_SELECT, (LPARAM)buf);
 
     if (g_mouseMode == MOUSE_TOOL && g_tool == TOOL_SELECT) {
-        _stprintf(buf, L"Move  %g, %g, %g", g_moved.x, g_moved.y, g_moved.z);
+        _stprintf(buf, L"Move  %.3g, %.3g, %.3g", g_moved.x, g_moved.y, g_moved.z);
     } else if (numDrawPoints() > 0 && g_hover.type) {
         glm::vec3 lastPos = g_drawVerts.empty()
             ? g_state.selVerts.begin()->in(g_state.surf).pos
@@ -421,16 +415,27 @@ static void updateStatus() {
         _stprintf(buf, L"Len:  %g", glm::distance(v1, v2));
     } else if (g_state.selVerts.size() == 1) {
         glm::vec3 pos = g_state.selVerts.begin()->in(g_state.surf).pos;
-        _stprintf(buf, L"Pos:  %g, %g, %g", pos.x, pos.y, pos.z);
+        _stprintf(buf, L"Pos:  %.3g, %.3g, %.3g", pos.x, pos.y, pos.z);
     } else {
         buf[0] = 0;
     }
     SendMessage(g_statusWnd, SB_SETTEXT, STATUS_DIMEN, (LPARAM)buf);
 
     switch (g_mouseMode) {
-        case MOUSE_NONE:
+        case MOUSE_NONE: {
+#ifdef CHROMA_DEBUG
+            uint32_t selName = 0;
+            if (!g_state.selVerts.empty()) selName = name(*g_state.selVerts.begin());
+            else if (!g_state.selFaces.empty()) selName = name(*g_state.selFaces.begin());
+            else if (!g_state.selEdges.empty()) selName = name(*g_state.selEdges.begin());
+            if (selName) {
+                _stprintf(buf, L"%08X", selName);
+                SendMessage(g_statusWnd, SB_SETTEXT, STATUS_HELP, (LPARAM)buf);
+            } else
+#endif
             SendMessage(g_statusWnd, SB_SETTEXT, STATUS_HELP, (LPARAM)tools[g_tool].help);
             break;
+        }
         case MOUSE_TOOL:
             SendMessage(g_statusWnd, SB_SETTEXT, STATUS_HELP, (LPARAM)tools[g_tool].adjustHelp);
             break;
@@ -1160,11 +1165,11 @@ static BOOL main_onCreate(HWND wnd, LPCREATESTRUCT) {
         NULL, wnd, 0);
     int parts[NUM_STATUS_PARTS];
     int x = 0;
-    x += 70; parts[STATUS_SELMODE] = x;
-    x += 70; parts[STATUS_TOOL] = x;
-    x += 70; parts[STATUS_GRID] = x;
-    x += 110; parts[STATUS_SELECT] = x;
-    x += 100; parts[STATUS_DIMEN] = x;
+    x += 60; parts[STATUS_SELMODE] = x;
+    x += 60; parts[STATUS_TOOL] = x;
+    x += 60; parts[STATUS_GRID] = x;
+    x += 150; parts[STATUS_SELECT] = x;
+    x += 150; parts[STATUS_DIMEN] = x;
     parts[NUM_STATUS_PARTS - 1] = -1;
     SendMessage(g_statusWnd, SB_SETPARTS, NUM_STATUS_PARTS, (LPARAM)parts);
     updateStatus();
