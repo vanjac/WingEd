@@ -44,20 +44,31 @@ DEFINE_ENUM_FLAG_OPERATORS(ToolFlags)
 struct ToolInfo {
     ToolFlags flags;
     HCURSOR cursor;
+    TCHAR *help, *adjustHelp;
 };
 const ToolInfo tools[] = {
-    /*select*/  {TOOLF_ALLSEL, LoadCursor(NULL, IDC_ARROW)},
-    /*poly*/    {TOOLF_ELEMENTS | TOOLF_DRAW, drawCur},
-    /*knife*/   {TOOLF_ELEMENTS | TOOLF_DRAW | TOOLF_HOVFACE, knifeCur},
-    /*join*/    {TOOLF_ELEMENTS | TOOLF_HOVFACE, LoadCursor(NULL, IDC_CROSS)},
+    /*select*/  {TOOLF_ALLSEL, LoadCursor(NULL, IDC_ARROW),
+                 L"Click: Select   Shift: Toggle   Drag: Move   Alt-Drag: Move on face plane",
+                 L"Shift: Snap axis   Ctrl: Orthogonal"},
+    /*poly*/    {TOOLF_ELEMENTS | TOOLF_DRAW, drawCur,
+                 L"Click: Add point   Bksp: Delete point   Shift-click: Stay in tool", L""},
+    /*knife*/   {TOOLF_ELEMENTS | TOOLF_DRAW | TOOLF_HOVFACE, knifeCur,
+                 L"Click: Add vertex   Bksp: Delete vertex   Alt: Ignore vertices", L""},
+    /*join*/    {TOOLF_ELEMENTS | TOOLF_HOVFACE, LoadCursor(NULL, IDC_CROSS),
+                 L"Click: Select/join   Shift-click: Stay in tool", L""},
 };
 
 enum MouseMode {
     MOUSE_NONE = 0, MOUSE_TOOL, MOUSE_CAM_ROTATE, MOUSE_CAM_PAN
 };
+const TCHAR ROTATE_HELP[] = L"Drag: Orbit";
+const TCHAR FLY_ROTATE_HELP[] = L"Drag: Look";
+const TCHAR PAN_HELP[] = L"Drag: Pan   Shift: Dolly";
+const TCHAR FLY_PAN_HELP[] = L"Drag: Move   Shift: Pan";
 
 enum StatusPart {
-    STATUS_SELMODE, STATUS_TOOL, STATUS_GRID, STATUS_SELECT, STATUS_DIMEN, NUM_STATUS_PARTS
+    STATUS_SELMODE, STATUS_TOOL, STATUS_GRID, STATUS_SELECT, STATUS_DIMEN, STATUS_HELP,
+    NUM_STATUS_PARTS
 };
 
 const PickType
@@ -415,6 +426,23 @@ static void updateStatus() {
         buf[0] = 0;
     }
     SendMessage(g_statusWnd, SB_SETTEXT, STATUS_DIMEN, (LPARAM)buf);
+
+    switch (g_mouseMode) {
+        case MOUSE_NONE:
+            SendMessage(g_statusWnd, SB_SETTEXT, STATUS_HELP, (LPARAM)tools[g_tool].help);
+            break;
+        case MOUSE_TOOL:
+            SendMessage(g_statusWnd, SB_SETTEXT, STATUS_HELP, (LPARAM)tools[g_tool].adjustHelp);
+            break;
+        case MOUSE_CAM_ROTATE:
+            SendMessage(g_statusWnd, SB_SETTEXT, STATUS_HELP,
+                (LPARAM)(g_view.flyCam ? FLY_ROTATE_HELP : ROTATE_HELP));
+            break;
+        case MOUSE_CAM_PAN:
+            SendMessage(g_statusWnd, SB_SETTEXT, STATUS_HELP,
+                (LPARAM)(g_view.flyCam ? FLY_PAN_HELP : PAN_HELP));
+            break;
+    }
 }
 
 static void showError(winged_error err) {
@@ -741,10 +769,12 @@ static void view_onLButtonDown(HWND wnd, BOOL, int x, int y, UINT keyFlags) {
 
 static void view_onRButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
     lockMouse(wnd, {x, y}, MOUSE_CAM_ROTATE);
+    updateStatus();
 }
 
 static void view_onMButtonDown(HWND wnd, BOOL, int x, int y, UINT) {
     lockMouse(wnd, {x, y}, MOUSE_CAM_PAN);
+    updateStatus();
 }
 
 static void view_onButtonUp(HWND wnd, int, int, UINT) {
@@ -1134,6 +1164,7 @@ static BOOL main_onCreate(HWND wnd, LPCREATESTRUCT) {
     x += 70; parts[STATUS_TOOL] = x;
     x += 70; parts[STATUS_GRID] = x;
     x += 110; parts[STATUS_SELECT] = x;
+    x += 100; parts[STATUS_DIMEN] = x;
     parts[NUM_STATUS_PARTS - 1] = -1;
     SendMessage(g_statusWnd, SB_SETPARTS, NUM_STATUS_PARTS, (LPARAM)parts);
     updateStatus();
