@@ -1471,13 +1471,18 @@ static void main_onInitMenu(HWND, HMENU menu) {
     CheckMenuRadioItem(toolMenu.hSubMenu, 0, NUM_TOOLS - 1, g_tool, MF_BYPOSITION);
 }
 
+static void main_onMenuSelect(HWND, UINT msg, WPARAM wParam, LPARAM lParam) {
+    MenuHelp(msg, wParam, lParam, NULL, GetModuleHandle(NULL), g_statusWnd, tempPtr(0u));
+}
+
 static LRESULT CALLBACK MainWindowProc(HWND wnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         HANDLE_MSG(wnd, WM_CREATE, main_onCreate);
         HANDLE_MSG(wnd, WM_NCDESTROY, main_onNCDestroy);
+        HANDLE_MSG(wnd, WM_SIZE, main_onSize);
         HANDLE_MSG(wnd, WM_COMMAND, main_onCommand);
         HANDLE_MSG(wnd, WM_INITMENU, main_onInitMenu);
-        HANDLE_MSG(wnd, WM_SIZE, main_onSize);
+        case WM_MENUSELECT: main_onMenuSelect(wnd, msg, wParam, lParam); return 0;
     }
     return DefWindowProc(wnd, msg, wParam, lParam);
 }
