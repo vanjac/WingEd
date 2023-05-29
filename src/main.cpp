@@ -590,7 +590,7 @@ void MainWindow::onInitMenu(HWND, HMENU menu) {
     EnableMenuItem(menu, IDM_UNDO, undoStack.empty() ? MF_GRAYED : MF_ENABLED);
     EnableMenuItem(menu, IDM_REDO, redoStack.empty() ? MF_GRAYED : MF_ENABLED);
     CheckMenuItem(menu, IDM_TOGGLE_GRID, g_state.gridOn ? MF_CHECKED : MF_UNCHECKED);
-    EnableMenuItem(menu, IDM_ERASE, hasSel ? MF_ENABLED : MF_DISABLED);
+    EnableMenuItem(menu, IDM_ERASE, hasSel ? MF_ENABLED : MF_GRAYED);
     EnableMenuItem(menu, IDM_EXTRUDE, (!g_state.selFaces.empty() && selElem) ?
         MF_ENABLED : MF_GRAYED);
     EnableMenuItem(menu, IDM_SPLIT_LOOP, (!g_state.selEdges.empty() && selElem) ?
