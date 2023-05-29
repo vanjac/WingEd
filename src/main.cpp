@@ -19,8 +19,7 @@ enum ToolbarImage {
     NUM_TOOLBAR_IMAGES
 };
 enum StatusPart {
-    STATUS_SELMODE, STATUS_TOOL, STATUS_GRID, STATUS_SELECT, STATUS_DIMEN, STATUS_HELP,
-    NUM_STATUS_PARTS
+    STATUS_GRID, STATUS_SELECT, STATUS_DIMEN, STATUS_HELP, NUM_STATUS_PARTS
 };
 
 // main.h
@@ -188,24 +187,7 @@ void MainWindow::pushUndo(EditorState newState) {
 void MainWindow::updateStatus() {
     TCHAR buf[256];
 
-    HMENU menu = GetMenu(wnd);
-    MENUITEMINFO info = {sizeof(info), MIIM_SUBMENU};
-    GetMenuItemInfo(menu, IDM_SEL_MENU, false, &info);
-    GetMenuString(info.hSubMenu, g_state.selMode, buf, _countof(buf), MF_BYPOSITION);
-    if (TCHAR *tab = _tcsrchr(buf, L'\t')) *tab = 0;
-    if (TCHAR *amp = _tcsrchr(buf, L'&')) *amp = 6; // ack
-    SendMessage(statusWnd, SB_SETTEXT, STATUS_SELMODE, (LPARAM)buf);
-
-    GetMenuItemInfo(menu, IDM_TOOL_MENU, false, &info);
-    GetMenuString(info.hSubMenu, g_tool, buf, _countof(buf), MF_BYPOSITION);
-    if (TCHAR *tab = _tcsrchr(buf, L'\t')) *tab = 0;
-    if (TCHAR *amp = _tcsrchr(buf, L'&')) *amp = 6; // ack
-    SendMessage(statusWnd, SB_SETTEXT, STATUS_TOOL, (LPARAM)buf);
-
-    if (g_state.gridOn)
-        _stprintf(buf, L"Grid:  %g", g_state.gridSize);
-    else
-        _stprintf(buf, L"Grid:  Off");
+    _stprintf(buf, L"Grid:  %g", g_state.gridSize);
     SendMessage(statusWnd, SB_SETTEXT, STATUS_GRID, (LPARAM)buf);
 
     buf[0] = 0;
@@ -367,8 +349,6 @@ BOOL MainWindow::onCreate(HWND, LPCREATESTRUCT) {
         NULL, wnd, 0);
     int parts[NUM_STATUS_PARTS];
     int x = 0;
-    x += 60; parts[STATUS_SELMODE] = x;
-    x += 60; parts[STATUS_TOOL] = x;
     x += 70; parts[STATUS_GRID] = x;
     x += 150; parts[STATUS_SELECT] = x;
     x += 150; parts[STATUS_DIMEN] = x;
