@@ -13,6 +13,11 @@ using namespace chroma;
 
 namespace winged {
 
+enum ToolbarImage {
+    TIMG_ELEMENTS, TIMG_SOLIDS, TIMG_SELECT, TIMG_POLYGON, TIMG_KNIFE, TIMG_JOIN, TIMG_GRID,
+    TIMG_ERASE, TIMG_EXTRUDE, TIMG_SPLIT, TIMG_DUPLICATE, TIMG_FLIP, TIMG_SNAP,
+    NUM_TOOLBAR_IMAGES
+};
 enum StatusPart {
     STATUS_SELMODE, STATUS_TOOL, STATUS_GRID, STATUS_SELECT, STATUS_DIMEN, STATUS_HELP,
     NUM_STATUS_PARTS
@@ -270,6 +275,8 @@ void MainWindow::updateStatus() {
         }
     }
     SendMessage(statusWnd, SB_SETTEXT, STATUS_HELP, (LPARAM)helpText);
+
+    updateToolbarState(wnd, toolbarWnd);
 }
 
 void MainWindow::refreshAll() {
@@ -330,6 +337,31 @@ void MainWindow::saveAs() {
 
 BOOL MainWindow::onCreate(HWND, LPCREATESTRUCT) {
     mainViewport.createChild(wnd);
+
+    TBBUTTON buttons[] = {
+        {TIMG_ELEMENTS,     IDM_SEL_ELEMENTS,   TBSTATE_ENABLED, BTNS_BUTTON},
+        {TIMG_SOLIDS,       IDM_SEL_SOLIDS,     TBSTATE_ENABLED, BTNS_BUTTON},
+        {0, 0, 0, BTNS_SEP},
+        {TIMG_SELECT,       IDM_TOOL_SELECT,    TBSTATE_ENABLED, BTNS_BUTTON},
+        {TIMG_POLYGON,      IDM_TOOL_POLY,      TBSTATE_ENABLED, BTNS_BUTTON},
+        {TIMG_KNIFE,        IDM_TOOL_KNIFE,     TBSTATE_ENABLED, BTNS_BUTTON},
+        {TIMG_JOIN,         IDM_TOOL_JOIN,      TBSTATE_ENABLED, BTNS_BUTTON},
+        {0, 0, 0, BTNS_SEP},
+        {TIMG_GRID,         IDM_TOGGLE_GRID,    TBSTATE_ENABLED, BTNS_BUTTON},
+        {0, 0, 0, BTNS_SEP},
+        {TIMG_ERASE,        IDM_ERASE,          TBSTATE_ENABLED, BTNS_BUTTON},
+        {TIMG_EXTRUDE,      IDM_EXTRUDE,        TBSTATE_ENABLED, BTNS_BUTTON},
+        {TIMG_SPLIT,        IDM_SPLIT_LOOP,     TBSTATE_ENABLED, BTNS_BUTTON},
+        {TIMG_DUPLICATE,    IDM_DUPLICATE,      TBSTATE_ENABLED, BTNS_BUTTON},
+        {TIMG_FLIP,         IDM_FLIP_NORMALS,   TBSTATE_ENABLED, BTNS_BUTTON},
+        {TIMG_SNAP,         IDM_SNAP,           TBSTATE_ENABLED, BTNS_BUTTON},
+    };
+    HBITMAP toolbarBmp = LoadBitmap(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_TOOLBAR));
+    toolbarWnd = CreateToolbarEx(wnd,
+        WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | CCS_TOP | TBSTYLE_TOOLTIPS,
+        1, NUM_TOOLBAR_IMAGES, NULL, (UINT)(size_t)toolbarBmp, buttons, _countof(buttons),
+        0, 0, 24, 24, sizeof(TBBUTTON));
+
     statusWnd = CreateStatusWindow(
         WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | CCS_BOTTOM | SBARS_SIZEGRIP,
         NULL, wnd, 0);
@@ -343,6 +375,7 @@ BOOL MainWindow::onCreate(HWND, LPCREATESTRUCT) {
     parts[NUM_STATUS_PARTS - 1] = -1;
     SendMessage(statusWnd, SB_SETPARTS, NUM_STATUS_PARTS, (LPARAM)parts);
     updateStatus();
+
     return true;
 }
 
@@ -355,13 +388,15 @@ void MainWindow::onNCDestroy(HWND) {
 }
 
 void MainWindow::onSize(HWND, UINT, int cx, int cy) {
+    SendMessage(toolbarWnd, TB_AUTOSIZE, 0, 0);
+    int toolbarHeight = rectHeight(windowRect(toolbarWnd));
     int statusHeight = rectHeight(windowRect(statusWnd));
     MoveWindow(statusWnd, 0, cy - statusHeight, cx, statusHeight, true);
-    MoveWindow(mainViewport.wnd, 0, 0, cx, cy - statusHeight, true);
+    MoveWindow(mainViewport.wnd, 0, toolbarHeight, cx, cy - toolbarHeight - statusHeight, true);
 }
 
 void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
-    if (ctl) return;
+    if (ctl && code != BN_CLICKED) return;
 
     if (mainViewport.onCommand(mainViewport.wnd, id, ctl, code))
         return;
@@ -620,6 +655,12 @@ void MainWindow::onMeasureItem(HWND, MEASUREITEMSTRUCT *measure) {
     measure->itemHeight = 0;
 }
 
+LRESULT MainWindow::onNotify(HWND, int, NMHDR *nmHdr) {
+    if (nmHdr->code == TTN_GETDISPINFO)
+        handleToolbarTip(wnd, (NMTTDISPINFO *)nmHdr);
+    return 0;
+}
+
 LRESULT MainWindow::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         HANDLE_MSG(wnd, WM_CREATE, onCreate);
@@ -628,8 +669,9 @@ LRESULT MainWindow::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         HANDLE_MSG(wnd, WM_SIZE, onSize);
         HANDLE_MSG(wnd, WM_COMMAND, onCommand);
         HANDLE_MSG(wnd, WM_INITMENU, onInitMenu);
-        HANDLE_MSG(wnd, WM_MEASUREITEM, onMeasureItem);
         case WM_MENUSELECT: onMenuSelect(wnd, msg, wParam, lParam); return 0;
+        HANDLE_MSG(wnd, WM_MEASUREITEM, onMeasureItem);
+        HANDLE_MSG(wnd, WM_NOTIFY, onNotify);
     }
     return DefWindowProc(wnd, msg, wParam, lParam);
 }

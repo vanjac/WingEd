@@ -56,7 +56,7 @@ private:
 
     glm::mat4 userMatrix = glm::mat4(1);
 
-    HWND statusWnd;
+    HWND toolbarWnd, statusWnd;
     ViewportWindow mainViewport;
     std::unordered_set<ViewportWindow *> extraViewports;
 
@@ -71,6 +71,7 @@ private:
     void onInitMenu(HWND, HMENU);
     void onMenuSelect(HWND, UINT, WPARAM, LPARAM);
     void onMeasureItem(HWND, MEASUREITEMSTRUCT *);
+    LRESULT onNotify(HWND, int, NMHDR *);
     LRESULT handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) override;
 };
 
