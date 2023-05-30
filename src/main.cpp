@@ -601,7 +601,8 @@ void MainWindow::onInitMenu(HWND, HMENU menu) {
     bool hasSel = hasSelection(g_state);
     bool selElem = g_state.selMode == SEL_ELEMENTS;
     bool selSolid = g_state.selMode == SEL_SOLIDS;
-    EnableMenuItem(menu, IDM_CLEAR_SELECT, hasSel ? MF_ENABLED : MF_GRAYED);
+    EnableMenuItem(menu, IDM_CLEAR_SELECT, (hasSel || numDrawPoints() > 0) ?
+        MF_ENABLED : MF_GRAYED);
     EnableMenuItem(menu, IDM_UNDO, undoStack.empty() ? MF_GRAYED : MF_ENABLED);
     EnableMenuItem(menu, IDM_REDO, redoStack.empty() ? MF_GRAYED : MF_ENABLED);
     CheckMenuItem(menu, IDM_TOGGLE_GRID, g_state.gridOn ? MF_CHECKED : MF_UNCHECKED);
