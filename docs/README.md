@@ -4,7 +4,7 @@ WingEd is a (work in progress) 3D modeling tool focused on game dev and low-poly
 
 WingEd works on Windows only (XP through 11).
 
-<img src="https://github.com/vanjac/WingEd/assets/8228102/ed621cbe-8399-4fc8-8480-0b1f33503c6e" width="400" alt="Screenshot of WingEd window">
+<img src="https://github.com/vanjac/WingEd/assets/8228102/8aef6f57-1027-47de-9005-ca4e96f22e41" width="439" alt="Screenshot of WingEd window">
 
 ## Technical Details
 
