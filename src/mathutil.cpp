@@ -21,6 +21,9 @@ bool intersectRayPlane(const Ray &ray, const Plane &plane, glm::vec3 *point) {
     float t;
     if (glm::intersectRayPlane(ray.org, ray.dir, plane.org, plane.norm, t)) {
         *point = ray.org + t * ray.dir;
+        // fix precision issues, make sure point lies exactly on plane
+        int axis = maxAxis(glm::abs(plane.norm));
+        (*point)[axis] = plane.org[axis] + solvePlane(*point - plane.org, plane.norm, axis);
         return true;
     }
     return false;
