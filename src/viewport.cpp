@@ -289,13 +289,24 @@ void ViewportWindow::lockMouse(POINT clientPos, MouseMode mode) {
     mouseMode = mode;
 }
 
+void ViewportWindow::setViewMode(ViewMode mode) {
+    view.mode = mode;
+    updateProjMat();
+    refresh();
+}
+
 void ViewportWindow::updateProjMat() {
     HDC dc = GetDC(wnd);
     CHECKERR(wglMakeCurrent(dc, context));
     glViewport(0, 0, (GLsizei)viewportDim.x, (GLsizei)viewportDim.y);
     glMatrixMode(GL_PROJECTION);
     float aspect = viewportDim.x / viewportDim.y;
-    projMat = glm::perspective(glm::radians(view.flyCam ? 90.0f : 60.0f), aspect, 0.5f, 500.0f);
+    if (view.mode == VIEW_ORTHO) {
+        projMat = glm::ortho(-aspect, aspect, -1.0f, 1.0f);
+    } else {
+        float fov = glm::radians((view.mode == VIEW_FLY) ? 90.0f : 60.0f);
+        projMat = glm::perspective(fov, aspect, 0.5f, 500.0f);
+    }
     glLoadMatrixf(glm::value_ptr(projMat));
     glMatrixMode(GL_MODELVIEW);
     ReleaseDC(wnd, dc);
@@ -468,6 +479,7 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
 
     glEnable(GL_LIGHT0);
     glEnable(GL_COLOR_MATERIAL);
+    glEnable(GL_NORMALIZE);
     glShadeModel(GL_FLAT);
     glLightModelfv(GL_LIGHT_MODEL_AMBIENT, glm::value_ptr(glm::vec4(.4, .4, .4, 1)));
     glLightfv(GL_LIGHT0, GL_DIFFUSE, glm::value_ptr(glm::vec4(.6, .6, .6, 1)));
@@ -616,7 +628,7 @@ void ViewportWindow::onMouseMove(HWND, int x, int y, UINT keyFlags) {
             case MOUSE_CAM_PAN: {
                 bool shift = keyFlags & MK_SHIFT;
                 glm::vec3 deltaPos;
-                if (view.flyCam) {
+                if (view.mode == VIEW_FLY) {
                     deltaPos = shift ? glm::vec3(-delta.cx, delta.cy, 0)
                         : glm::vec3(-delta.cx, 0, -delta.cy);
                 } else {
@@ -638,16 +650,35 @@ void ViewportWindow::onMouseMove(HWND, int x, int y, UINT keyFlags) {
 }
 
 void ViewportWindow::onMouseWheel(HWND, int, int, int delta, UINT) {
-    view.zoom *= glm::pow(1.001f, view.flyCam ? delta : -delta);
+    view.zoom *= glm::pow(1.001f, (view.mode == VIEW_FLY) ? delta : -delta);
     refresh();
 }
 
 bool ViewportWindow::onCommand(HWND, int id, HWND, UINT) {
     switch (id) {
-        case IDM_FLY_CAM:
-            view.flyCam ^= true;
-            updateProjMat();
-            refresh();
+        case IDM_ORBIT:
+            setViewMode(VIEW_ORBIT);
+            return true;
+        case IDM_VIEW_FLY:
+            setViewMode((view.mode == VIEW_FLY) ? VIEW_ORBIT : VIEW_FLY);
+            return true;
+        case IDM_VIEW_ORTHO:
+            setViewMode((view.mode == VIEW_ORTHO) ? VIEW_ORBIT : VIEW_ORTHO);
+            return true;
+        case IDM_VIEW_TOP:
+            view.rotX = glm::half_pi<float>();
+            view.rotY = 0;
+            setViewMode(VIEW_ORTHO);
+            return true;
+        case IDM_VIEW_FRONT:
+            view.rotX = 0;
+            view.rotY = 0;
+            setViewMode(VIEW_ORTHO);
+            return true;
+        case IDM_VIEW_SIDE:
+            view.rotX = 0;
+            view.rotY = -glm::half_pi<float>();
+            setViewMode(VIEW_ORTHO);
             return true;
         case IDM_FOCUS:
             view.camPivot = -vertsCenter(g_state.surf, selAttachedVerts(g_state));
@@ -672,8 +703,10 @@ void ViewportWindow::onPaint(HWND) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     mvMat = glm::mat4(1);
-    if (!view.flyCam)
+    if (view.mode == VIEW_ORBIT)
         mvMat = glm::translate(mvMat, glm::vec3(0, 0, -view.zoom));
+    else if (view.mode == VIEW_ORTHO)
+        mvMat = glm::scale(mvMat, glm::vec3(1 / view.zoom));
     mvMat = glm::rotate(mvMat, view.rotX, glm::vec3(1, 0, 0));
     mvMat = glm::rotate(mvMat, view.rotY, glm::vec3(0, 1, 0));
     mvMat = glm::translate(mvMat, view.camPivot);

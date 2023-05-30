@@ -35,6 +35,7 @@ private:
     float snapAccum;
 
     void lockMouse(POINT clientPos, MouseMode mode);
+    void setViewMode(ViewMode mode);
     void updateProjMat();
     void updateHover(POINT pos);
     void startToolAdjust(POINT pos);

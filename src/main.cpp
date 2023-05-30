@@ -222,12 +222,12 @@ void MainWindow::updateStatus() {
 
     const TCHAR *helpText = L"";
     if (mainViewport.mouseMode == MOUSE_CAM_ROTATE) {
-        if (mainViewport.view.flyCam)
+        if (mainViewport.view.mode == VIEW_FLY)
             helpText = L"Drag: Look";
         else
             helpText = L"Drag: Orbit";
     } else if (mainViewport.mouseMode == MOUSE_CAM_PAN) {
-        if (mainViewport.view.flyCam)
+        if (mainViewport.view.mode == VIEW_FLY)
             helpText = L"Drag: Move   Shift: Pan";
         else
             helpText = L"Drag: Pan   Shift: Dolly";
@@ -614,7 +614,6 @@ void MainWindow::onInitMenu(HWND, HMENU menu) {
     EnableMenuItem(menu, IDM_DUPLICATE, (hasSel && selSolid) ? MF_ENABLED : MF_GRAYED);
     EnableMenuItem(menu, IDM_SNAP, hasSel ? MF_ENABLED : MF_GRAYED);
     EnableMenuItem(menu, IDM_TRANSFORM_MATRIX, hasSel ? MF_ENABLED : MF_GRAYED);
-    CheckMenuItem(menu, IDM_FLY_CAM, mainViewport.view.flyCam ? MF_CHECKED : MF_UNCHECKED);
     EnableMenuItem(menu, IDM_FOCUS, hasSel ? MF_ENABLED : MF_GRAYED);
 
     MENUITEMINFO selMenu = {sizeof(selMenu), MIIM_SUBMENU};
@@ -624,6 +623,11 @@ void MainWindow::onInitMenu(HWND, HMENU menu) {
     MENUITEMINFO toolMenu = {sizeof(toolMenu), MIIM_SUBMENU};
     GetMenuItemInfo(menu, IDM_TOOL_MENU, false, &toolMenu);
     CheckMenuRadioItem(toolMenu.hSubMenu, 0, NUM_TOOLS - 1, g_tool, MF_BYPOSITION);
+
+    MENUITEMINFO viewMenu = {sizeof(viewMenu), MIIM_SUBMENU};
+    GetMenuItemInfo(menu, IDM_VIEW_MENU, false, &viewMenu);
+    CheckMenuRadioItem(viewMenu.hSubMenu, 0, NUM_VIEWMODES - 1,
+        mainViewport.view.mode, MF_BYPOSITION);
 }
 
 void MainWindow::onMenuSelect(HWND, UINT msg, WPARAM wParam, LPARAM lParam) {

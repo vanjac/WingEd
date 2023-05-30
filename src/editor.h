@@ -11,6 +11,10 @@ enum SelectMode {
     SEL_ELEMENTS, SEL_SOLIDS, NUM_SELMODES
 };
 
+enum ViewMode {
+    VIEW_ORBIT, VIEW_FLY, VIEW_ORTHO, NUM_VIEWMODES
+};
+
 // saved in file and undo stack
 struct EditorState {
     Surface surf;
@@ -32,7 +36,7 @@ struct ViewState {
     glm::vec3 camPivot = {}; // TODO: actually negative
     float rotX = glm::radians(45.0f), rotY = glm::radians(-15.0f);
     float zoom = 16;
-    bool flyCam = false;
+    ViewMode mode = VIEW_ORBIT;
 };
 
 bool hasSelection(EditorState state);

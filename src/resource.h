@@ -25,7 +25,7 @@
 #define IDM_GRID_DOUBLE                     122
 #define IDM_GRID_HALF                       123
 #define IDM_TOGGLE_GRID                     124
-#define IDM_FLY_CAM                         125
+#define IDM_VIEW_FLY                        125
 #define IDM_SAVE_AS                         127
 #define IDM_OPEN                            128
 #define IDM_SAVE                            129
@@ -41,12 +41,18 @@
 #define IDM_FOCUS                           139
 #define IDM_TRANSFORM_MATRIX                140
 #define IDM_NEW_VIEWPORT                    141
+#define IDM_ORBIT                           142
+#define IDM_VIEW_ORTHO                      143
+#define IDM_VIEW_MENU                       144
+#define IDM_VIEW_TOP                        145
+#define IDM_VIEW_FRONT                      146
+#define IDM_VIEW_SIDE                       147
 
 #ifdef APSTUDIO_INVOKED
     #ifndef APSTUDIO_READONLY_SYMBOLS
         #define _APS_NO_MFC                 1
         #define _APS_NEXT_RESOURCE_VALUE    100
-        #define _APS_NEXT_COMMAND_VALUE     142
+        #define _APS_NEXT_COMMAND_VALUE     148
         #define _APS_NEXT_CONTROL_VALUE     1000
         #define _APS_NEXT_SYMED_VALUE       300
     #endif
