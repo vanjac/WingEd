@@ -634,8 +634,9 @@ void ViewportWindow::onMouseMove(HWND, int x, int y, UINT keyFlags) {
                 } else {
                     deltaPos = shift ? glm::vec3(0, 0, -delta.cy) : glm::vec3(delta.cx, -delta.cy, 0);
                 }
-                deltaPos = glm::inverse(mvMat) * glm::vec4(deltaPos, 0);
-                view.camPivot += deltaPos * view.zoom / CAM_MOVE_SCALE;
+                deltaPos = glm::inverse(mvMat) * glm::vec4(deltaPos, 0) / CAM_MOVE_SCALE;
+                if (view.mode != VIEW_ORTHO) deltaPos *= view.zoom;
+                view.camPivot += deltaPos;
                 refresh();
                 break;
             }
