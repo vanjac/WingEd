@@ -44,6 +44,7 @@ const GLfloat
 #define COLOR_Z_AXIS        0xff##0000ff
 
 const float CAM_MOVE_SCALE = 600;
+const float NEAR_CLIP = 0.5f, FAR_CLIP = 500.0f;
 
 const HCURSOR knifeCur = LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_KNIFE));
 const HCURSOR drawCur = LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_DRAW));
@@ -73,6 +74,14 @@ void initViewport() {
     gluTessCallback(g_tess, GLU_TESS_ERROR, (GLvoid (CALLBACK*) ())tessErrorCallback);
     // gluTessCallback(g_tess, GLU_TESS_COMBINE, (GLvoid (*) ())tessCombineCallback);
     // gluTessCallback(g_tess, GLU_TESS_EDGE_FLAG, (GLvoid (*) ())glEdgeFlag);
+}
+
+static glm::vec3 forwardAxis(glm::mat4 mv) {
+    glm::vec3 forward = glm::inverse(mv)[2];
+    int axis = maxAxis(glm::abs(forward));
+    glm::vec3 v = {};
+    v[axis] = glm::sign(forward[axis]);
+    return v;
 }
 
 static edge_pair edgeOnHoverFace(const Surface &surf, vert_id v) {
@@ -302,10 +311,10 @@ void ViewportWindow::updateProjMat() {
     glMatrixMode(GL_PROJECTION);
     float aspect = viewportDim.x / viewportDim.y;
     if (view.mode == VIEW_ORTHO) {
-        projMat = glm::ortho(-aspect, aspect, -1.0f, 1.0f);
+        projMat = glm::ortho(-aspect, aspect, -1.0f, 1.0f, -FAR_CLIP / 2, FAR_CLIP / 2);
     } else {
         float fov = glm::radians((view.mode == VIEW_FLY) ? 90.0f : 60.0f);
-        projMat = glm::perspective(fov, aspect, 0.5f, 500.0f);
+        projMat = glm::perspective(fov, aspect, NEAR_CLIP, FAR_CLIP);
     }
     glLoadMatrixf(glm::value_ptr(projMat));
     glMatrixMode(GL_MODELVIEW);
@@ -376,10 +385,7 @@ void ViewportWindow::startToolAdjust(POINT pos) {
                     g_state.selFaces.begin()->in(g_state.surf));
             }
         } else {
-            glm::vec3 forward = glm::inverse(mvMat)[2];
-            int axis = maxAxis(glm::abs(forward));
-            g_state.workPlane.norm = {};
-            g_state.workPlane.norm[axis] = glm::sign(forward[axis]);
+            g_state.workPlane.norm = forwardAxis(mvMat);
             float closestDist = -FLT_MAX;
             for (auto &vert : selAttachedVerts(g_state)) {
                 glm::vec3 point = vert.in(g_state.surf).pos;
@@ -479,7 +485,6 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
 
     glEnable(GL_LIGHT0);
     glEnable(GL_COLOR_MATERIAL);
-    glEnable(GL_NORMALIZE);
     glShadeModel(GL_FLAT);
     glLightModelfv(GL_LIGHT_MODEL_AMBIENT, glm::value_ptr(glm::vec4(.4, .4, .4, 1)));
     glLightfv(GL_LIGHT0, GL_DIFFUSE, glm::value_ptr(glm::vec4(.6, .6, .6, 1)));
@@ -634,9 +639,11 @@ void ViewportWindow::onMouseMove(HWND, int x, int y, UINT keyFlags) {
                 } else {
                     deltaPos = shift ? glm::vec3(0, 0, -delta.cy) : glm::vec3(delta.cx, -delta.cy, 0);
                 }
-                deltaPos = glm::inverse(mvMat) * glm::vec4(deltaPos, 0) / CAM_MOVE_SCALE;
-                if (view.mode != VIEW_ORTHO) deltaPos *= view.zoom;
-                view.camPivot += deltaPos;
+                glm::mat4 invMV = glm::inverse(mvMat);
+                // there's probably a better way to do this
+                glm::mat3 normInvMV = {
+                    glm::normalize(invMV[0]), glm::normalize(invMV[1]), glm::normalize(invMV[2])};
+                view.camPivot += normInvMV * deltaPos * view.zoom / CAM_MOVE_SCALE;
                 refresh();
                 break;
             }
@@ -707,7 +714,7 @@ void ViewportWindow::onPaint(HWND) {
     if (view.mode == VIEW_ORBIT)
         mvMat = glm::translate(mvMat, glm::vec3(0, 0, -view.zoom));
     else if (view.mode == VIEW_ORTHO)
-        mvMat = glm::scale(mvMat, glm::vec3(1 / view.zoom));
+        mvMat = glm::scale(mvMat, glm::vec3(1 / view.zoom, 1 / view.zoom, 1));
     mvMat = glm::rotate(mvMat, view.rotX, glm::vec3(1, 0, 0));
     mvMat = glm::rotate(mvMat, view.rotY, glm::vec3(0, 1, 0));
     mvMat = glm::translate(mvMat, view.camPivot);
@@ -849,17 +856,22 @@ void ViewportWindow::drawState(const EditorState &state) {
             glDisable(GL_LIGHTING);
         } else {
             glColorHex(COLOR_FACE);
-            glEnable(GL_LIGHTING);
+            if (view.mode != VIEW_ORTHO)
+                glEnable(GL_LIGHTING);
         }
         drawFace(state.surf, pair.second);
     }
     glDisable(GL_LIGHTING);
 
-    bool drawGrid = (TOOL_FLAGS[g_tool] & TOOLF_DRAW)
-        && ((state.gridOn && g_hover.type) || !(TOOL_FLAGS[g_tool] & TOOLF_HOVFACE));
-    bool adjustGrid = g_tool == TOOL_SELECT && mouseMode == MOUSE_TOOL;
-    if (drawGrid || adjustGrid) {
+    bool workPlaneActive = ((TOOL_FLAGS[g_tool] & TOOLF_DRAW)
+        && ((state.gridOn && g_hover.type) || !(TOOL_FLAGS[g_tool] & TOOLF_HOVFACE)))
+        || (g_tool == TOOL_SELECT && mouseMode == MOUSE_TOOL);
+    if (workPlaneActive || (view.mode == VIEW_ORTHO && state.gridOn)) {
         auto p = state.workPlane;
+        if (!workPlaneActive) {
+            p.norm = forwardAxis(mvMat);
+            glDisable(GL_DEPTH_TEST);
+        }
         int axis = maxAxis(glm::abs(p.norm));
         int u = (axis + 1) % 3, v = (axis + 2) % 3;
         glm::vec3 uVec = {}, vVec = {};
@@ -883,6 +895,8 @@ void ViewportWindow::drawState(const EditorState &state) {
         glEnd();
         glDisable(GL_BLEND);
         glDisable(GL_LINE_SMOOTH);
+        if (!workPlaneActive)
+            glEnable(GL_DEPTH_TEST);
     }
 }
 
