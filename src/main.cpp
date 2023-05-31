@@ -201,7 +201,7 @@ void MainWindow::updateStatus() {
 
     if (g_tool == TOOL_SELECT && activeViewport->mouseMode == MOUSE_TOOL) {
         auto moved = activeViewport->moved;
-        _stprintf(buf, L"Move  %.3g, %.3g, %.3g", moved.x, moved.y, moved.z);
+        _stprintf(buf, L"Move  %.3g, %.3g, %.3g", VEC3_ARGS(moved));
     } else if (numDrawPoints() > 0 && g_hover.type) {
         glm::vec3 lastPos = g_drawVerts.empty()
             ? g_state.selVerts.begin()->in(g_state.surf).pos
@@ -214,7 +214,7 @@ void MainWindow::updateStatus() {
         _stprintf(buf, L"Len:  %g", glm::distance(v1, v2));
     } else if (g_state.selVerts.size() == 1) {
         glm::vec3 pos = g_state.selVerts.begin()->in(g_state.surf).pos;
-        _stprintf(buf, L"Pos:  %.3g, %.3g, %.3g", pos.x, pos.y, pos.z);
+        _stprintf(buf, L"Pos:  %.3g, %.3g, %.3g", VEC3_ARGS(pos));
     } else {
         buf[0] = 0;
     }
