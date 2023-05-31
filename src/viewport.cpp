@@ -76,14 +76,6 @@ void initViewport() {
     // gluTessCallback(g_tess, GLU_TESS_EDGE_FLAG, (GLvoid (*) ())glEdgeFlag);
 }
 
-static glm::vec3 forwardAxis(glm::mat4 mv) {
-    glm::vec3 forward = glm::inverse(mv)[2];
-    int axis = maxAxis(glm::abs(forward));
-    glm::vec3 v = {};
-    v[axis] = glm::sign(forward[axis]);
-    return v;
-}
-
 static edge_pair edgeOnHoverFace(const Surface &surf, vert_id v) {
     // TODO: what if there are multiple?
     for (auto &edge : VertEdges(surf, v.in(surf))) {
@@ -302,6 +294,8 @@ void ViewportWindow::setViewMode(ViewMode mode) {
     view.mode = mode;
     updateProjMat();
     refresh();
+    if (mode != VIEW_ORTHO)
+        SetWindowText(wnd, APP_NAME);
 }
 
 void ViewportWindow::updateProjMat() {
@@ -319,6 +313,14 @@ void ViewportWindow::updateProjMat() {
     glLoadMatrixf(glm::value_ptr(projMat));
     glMatrixMode(GL_MODELVIEW);
     ReleaseDC(wnd, dc);
+}
+
+glm::vec3 ViewportWindow::forwardAxis() {
+    glm::vec3 forward = glm::inverse(mvMat)[2];
+    int axis = maxAxis(glm::abs(forward));
+    glm::vec3 v = {};
+    v[axis] = glm::sign(forward[axis]);
+    return v;
 }
 
 void ViewportWindow::updateHover(POINT pos) {
@@ -386,7 +388,7 @@ void ViewportWindow::startToolAdjust(POINT pos) {
                     g_state.selFaces.begin()->in(g_state.surf));
             }
         } else {
-            g_state.workPlane.norm = forwardAxis(mvMat);
+            g_state.workPlane.norm = forwardAxis();
             float closestDist = -FLT_MAX;
             for (auto &vert : selAttachedVerts(g_state)) {
                 glm::vec3 point = vert.in(g_state.surf).pos;
@@ -635,6 +637,7 @@ void ViewportWindow::onMouseMove(HWND, int x, int y, UINT keyFlags) {
                 view.rotX += glm::radians((float)delta.cy) * 0.5f;
                 view.rotY += glm::radians((float)delta.cx) * 0.5f;
                 refresh();
+                SetWindowText(wnd, APP_NAME);
                 break;
             case MOUSE_CAM_PAN: {
                 bool shift = keyFlags & MK_SHIFT;
@@ -689,18 +692,21 @@ bool ViewportWindow::onCommand(HWND, int id, HWND, UINT) {
             view.rotY = 0;
             view.showElem = PICK_VERT | PICK_EDGE;
             setViewMode(VIEW_ORTHO);
+            SetWindowText(wnd, L"Top");
             return true;
         case IDM_VIEW_FRONT:
             view.rotX = 0;
             view.rotY = 0;
             view.showElem = PICK_VERT | PICK_EDGE;
             setViewMode(VIEW_ORTHO);
+            SetWindowText(wnd, L"Front");
             return true;
         case IDM_VIEW_SIDE:
             view.rotX = 0;
             view.rotY = -glm::half_pi<float>();
             view.showElem = PICK_VERT | PICK_EDGE;
             setViewMode(VIEW_ORTHO);
+            SetWindowText(wnd, L"Side");
             return true;
         case IDM_PERSPECTIVE:
             view.rotX = glm::radians(30.0f);
@@ -895,7 +901,7 @@ void ViewportWindow::drawState(const EditorState &state) {
     if (workPlaneActive || (view.mode == VIEW_ORTHO && state.gridOn)) {
         auto p = state.workPlane;
         if (!workPlaneActive) {
-            p.norm = forwardAxis(mvMat);
+            p.norm = forwardAxis();
             glDisable(GL_DEPTH_TEST);
         }
         int axis = maxAxis(glm::abs(p.norm));

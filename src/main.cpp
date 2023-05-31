@@ -444,6 +444,8 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                 if (g_state.selFaces.size() == 1) {
                     g_state.workPlane = facePlane(g_state.surf,
                         g_state.selFaces.begin()->in(g_state.surf));
+                } else if (activeViewport->view.mode == VIEW_ORTHO) {
+                    g_state.workPlane.norm = activeViewport->forwardAxis();
                 }
                 break;
             case IDM_TOOL_KNIFE:
@@ -481,8 +483,8 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
             /* View */
             case IDM_NEW_VIEWPORT: {
                 ViewportWindow *newViewport = new ViewportWindow;
-                newViewport->view = mainViewport.view;
-                RECT rect = defaultWindowRect(rectSize(windowRect(mainViewport.wnd)),
+                newViewport->view = activeViewport->view;
+                RECT rect = defaultWindowRect(clientSize(activeViewport->wnd),
                     false, WS_OVERLAPPEDWINDOW, WS_EX_TOOLWINDOW);
                 newViewport->create(APP_NAME, rect, WS_OVERLAPPEDWINDOW, WS_EX_TOOLWINDOW, wnd);
                 ShowWindow(newViewport->wnd, SW_NORMAL);

@@ -23,6 +23,7 @@ public:
 
     void refresh();
     void refreshImmediate();
+    glm::vec3 forwardAxis();
     bool onCommand(HWND, int, HWND, UINT);
 
 private:
