@@ -45,6 +45,7 @@ private:
     BOOL onCreate(HWND, LPCREATESTRUCT);
     void onDestroy(HWND);
     void onClose(HWND);
+    void onActivate(HWND, UINT, HWND, BOOL);
     bool onSetCursor(HWND, HWND, UINT, UINT);
     void onLButtonDown(HWND, BOOL, int, int, UINT);
     void onRButtonDown(HWND, BOOL, int, int, UINT);

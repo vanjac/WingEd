@@ -39,6 +39,8 @@ class MainWindow : public chroma::WindowImpl {
     const TCHAR * className() const override { return APP_NAME; }
 
 public:
+    ViewportWindow *activeViewport;
+
     void pushUndo();
     void pushUndo(EditorState newState);
     void updateStatus();
@@ -65,6 +67,7 @@ private:
     BOOL onCreate(HWND, LPCREATESTRUCT);
     void onDestroy(HWND);
     void onNCDestroy(HWND);
+    void onActivate(HWND, UINT, HWND, BOOL);
     void onSize(HWND, UINT, int, int);
     void onCommand(HWND, int, HWND, UINT);
     void onInitMenu(HWND, HMENU);

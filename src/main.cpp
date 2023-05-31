@@ -221,20 +221,20 @@ void MainWindow::updateStatus() {
     SendMessage(statusWnd, SB_SETTEXT, STATUS_DIMEN, (LPARAM)buf);
 
     const TCHAR *helpText = L"";
-    if (mainViewport.mouseMode == MOUSE_CAM_ROTATE) {
-        if (mainViewport.view.mode == VIEW_FLY)
+    if (activeViewport->mouseMode == MOUSE_CAM_ROTATE) {
+        if (activeViewport->view.mode == VIEW_FLY)
             helpText = L"Drag: Look";
         else
             helpText = L"Drag: Orbit";
-    } else if (mainViewport.mouseMode == MOUSE_CAM_PAN) {
-        if (mainViewport.view.mode == VIEW_FLY)
+    } else if (activeViewport->mouseMode == MOUSE_CAM_PAN) {
+        if (activeViewport->view.mode == VIEW_FLY)
             helpText = L"Drag: Move   Shift: Pan";
         else
             helpText = L"Drag: Pan   Shift: Dolly";
     } else {
         switch (g_tool) {
             case TOOL_SELECT:
-                if (mainViewport.mouseMode == MOUSE_TOOL)
+                if (activeViewport->mouseMode == MOUSE_TOOL)
                     helpText = L"Shift: Snap axis   Ctrl: Orthogonal";
                 else
                     helpText = L"Click: Select   Shift: Toggle"
@@ -292,6 +292,8 @@ void MainWindow::showError(winged_error err) {
 }
 
 bool MainWindow::removeViewport(ViewportWindow *viewport) {
+    if (activeViewport == viewport)
+        activeViewport = &mainViewport;
     if (extraViewports.count(viewport)) {
         extraViewports.erase(viewport);
         return true;
@@ -300,6 +302,7 @@ bool MainWindow::removeViewport(ViewportWindow *viewport) {
 }
 
 void MainWindow::closeExtraViewports() {
+    activeViewport = &mainViewport;
     for (auto viewport : extraViewports) {
         DestroyWindow(viewport->wnd);
         delete viewport;
@@ -319,6 +322,7 @@ void MainWindow::saveAs() {
 
 BOOL MainWindow::onCreate(HWND, LPCREATESTRUCT) {
     mainViewport.createChild(wnd);
+    activeViewport = &mainViewport;
 
     TBBUTTON buttons[] = {
         {TIMG_ELEMENTS,     IDM_SEL_ELEMENTS,   TBSTATE_ENABLED, BTNS_BUTTON},
@@ -365,6 +369,11 @@ void MainWindow::onDestroy(HWND) {
 
 void MainWindow::onNCDestroy(HWND) {
     PostQuitMessage(0);
+}
+
+void MainWindow::onActivate(HWND, UINT state, HWND, BOOL minimized) {
+    if (state && !minimized)
+        activeViewport = &mainViewport;
 }
 
 void MainWindow::onSize(HWND, UINT, int cx, int cy) {
@@ -473,10 +482,9 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
             case IDM_NEW_VIEWPORT: {
                 ViewportWindow *newViewport = new ViewportWindow;
                 newViewport->view = mainViewport.view;
-                SIZE size = clientSize(wnd);
-                newViewport->create(APP_NAME,
-                    defaultWindowRect(size.cx, size.cy, WS_OVERLAPPEDWINDOW, false),
-                    WS_OVERLAPPEDWINDOW, WS_EX_TOOLWINDOW, wnd);
+                RECT rect = defaultWindowRect(rectSize(windowRect(mainViewport.wnd)),
+                    false, WS_OVERLAPPEDWINDOW, WS_EX_TOOLWINDOW);
+                newViewport->create(APP_NAME, rect, WS_OVERLAPPEDWINDOW, WS_EX_TOOLWINDOW, wnd);
                 ShowWindow(newViewport->wnd, SW_NORMAL);
                 extraViewports.insert(newViewport);
                 break;
@@ -651,6 +659,7 @@ LRESULT MainWindow::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         HANDLE_MSG(wnd, WM_CREATE, onCreate);
         HANDLE_MSG(wnd, WM_DESTROY, onDestroy);
         HANDLE_MSG(wnd, WM_NCDESTROY, onNCDestroy);
+        HANDLE_MSG(wnd, WM_ACTIVATE, onActivate);
         HANDLE_MSG(wnd, WM_SIZE, onSize);
         HANDLE_MSG(wnd, WM_COMMAND, onCommand);
         HANDLE_MSG(wnd, WM_INITMENU, onInitMenu);
@@ -670,8 +679,7 @@ int APIENTRY _tWinMain(HINSTANCE instance, HINSTANCE, LPTSTR, int showCmd) {
     WNDCLASSEX mainClass = makeClass(APP_NAME, windowImplProc);
     mainClass.lpszMenuName = APP_NAME;
     RegisterClassEx(&mainClass);
-    HWND wnd = g_mainWindow.create(APP_NAME,
-        defaultWindowRect(640, 480, WS_OVERLAPPEDWINDOW, true));
+    HWND wnd = g_mainWindow.create(APP_NAME, defaultWindowRect({640, 480}, true));
     if (!wnd) return -1;
     ShowWindow(wnd, showCmd);
     HACCEL mainAccel = LoadAccelerators(instance, L"Accel");
@@ -679,7 +687,7 @@ int APIENTRY _tWinMain(HINSTANCE instance, HINSTANCE, LPTSTR, int showCmd) {
     MSG msg;
     while (GetMessage(&msg, NULL, 0, 0)) {
         if (TranslateAccelerator(wnd, mainAccel, &msg)
-                || TranslateAccelerator(GetActiveWindow(), viewAccel, &msg))
+                || TranslateAccelerator(g_mainWindow.activeViewport->wnd, viewAccel, &msg))
             continue;
         TranslateMessage(&msg);
         DispatchMessage(&msg);

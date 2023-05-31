@@ -505,6 +505,11 @@ void ViewportWindow::onClose(HWND) {
     }
 }
 
+void ViewportWindow::onActivate(HWND, UINT state, HWND, BOOL minimized) {
+    if (state && !minimized)
+        g_mainWindow.activeViewport = this;
+}
+
 bool ViewportWindow::onSetCursor(HWND, HWND cursorWnd, UINT hitTest, UINT msg) {
     if (msg && hitTest == HTCLIENT) {
         if (g_tool == TOOL_POLY && g_hover.type) {
@@ -926,6 +931,7 @@ LRESULT ViewportWindow::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         HANDLE_MSG(wnd, WM_CREATE, onCreate);
         HANDLE_MSG(wnd, WM_DESTROY, onDestroy);
         HANDLE_MSG(wnd, WM_CLOSE, onClose);
+        HANDLE_MSG(wnd, WM_ACTIVATE, onActivate);
         HANDLE_MSG(wnd, WM_SETCURSOR, onSetCursor);
         HANDLE_MSG(wnd, WM_LBUTTONDOWN, onLButtonDown);
         HANDLE_MSG(wnd, WM_RBUTTONDOWN, onRButtonDown);
