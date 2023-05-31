@@ -28,7 +28,6 @@ EditorState g_state;
 PickResult g_hover;
 face_id g_hoverFace = {};
 Tool g_tool = TOOL_SELECT;
-glm::vec3 g_moved;
 std::vector<glm::vec3> g_drawVerts;
 bool g_flashSel = false;
 
@@ -200,8 +199,9 @@ void MainWindow::updateStatus() {
         str += _stprintf(str, L"%zd face", g_state.selFaces.size());
     SendMessage(statusWnd, SB_SETTEXT, STATUS_SELECT, (LPARAM)buf);
 
-    if (g_moved != glm::vec3(0) && g_tool == TOOL_SELECT) {
-        _stprintf(buf, L"Move  %.3g, %.3g, %.3g", g_moved.x, g_moved.y, g_moved.z);
+    if (g_tool == TOOL_SELECT && activeViewport->mouseMode == MOUSE_TOOL) {
+        auto moved = activeViewport->moved;
+        _stprintf(buf, L"Move  %.3g, %.3g, %.3g", moved.x, moved.y, moved.z);
     } else if (numDrawPoints() > 0 && g_hover.type) {
         glm::vec3 lastPos = g_drawVerts.empty()
             ? g_state.selVerts.begin()->in(g_state.surf).pos

@@ -20,6 +20,7 @@ class ViewportWindow : public chroma::WindowImpl {
 public:
     ViewState view;
     MouseMode mouseMode = MOUSE_NONE;
+    glm::vec3 moved;
 
     void refresh();
     void refreshImmediate();

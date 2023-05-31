@@ -402,7 +402,7 @@ void ViewportWindow::startToolAdjust(POINT pos) {
         Ray ray = viewPosToRay(screenPosToNDC({pos.x, pos.y}, viewportDim), projMat * mvMat);
         startPlanePos = g_state.workPlane.org; // fallback
         intersectRayPlane(ray, g_state.workPlane, &startPlanePos);
-        g_moved = {};
+        moved = {};
         snapAccum = 0;
         lockMouse(pos, MOUSE_TOOL);
         g_mainWindow.pushUndo();
@@ -429,7 +429,7 @@ void ViewportWindow::toolAdjust(POINT pos, SIZE delta, UINT keyFlags) {
                     push = steps * snap;
                 }
                 amount = push * g_state.workPlane.norm;
-                g_moved += amount;
+                moved += amount;
                 g_state.workPlane.org += amount;
             } else {
                 glm::vec3 diff = planePos - startPlanePos;
@@ -446,8 +446,8 @@ void ViewportWindow::toolAdjust(POINT pos, SIZE delta, UINT keyFlags) {
                         solvePlane(snapped - diff, g_state.workPlane.norm, normAxis);
                     diff = snapped;
                 }
-                amount = diff - g_moved;
-                g_moved = diff;
+                amount = diff - moved;
+                moved = diff;
             }
             if (amount != glm::vec3(0)) {
                 g_state.surf = transformVertices(std::move(g_state.surf), selAttachedVerts(g_state),
@@ -616,7 +616,7 @@ void ViewportWindow::onButtonUp(HWND, int, int, UINT) {
         if (mouseMode != MOUSE_TOOL)
             ShowCursor(true);
         mouseMode = MOUSE_NONE;
-        g_moved = {};
+        moved = {};
         g_mainWindow.updateStatus();
         g_mainWindow.refreshAll();
     }

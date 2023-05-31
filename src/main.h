@@ -84,7 +84,6 @@ extern PickResult g_hover;
 extern face_id g_hoverFace;
 
 extern Tool g_tool;
-extern glm::vec3 g_moved;
 extern std::vector<glm::vec3> g_drawVerts;
 
 extern bool g_flashSel;
