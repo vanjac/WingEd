@@ -350,6 +350,7 @@ void ViewportWindow::updateHover(POINT pos) {
         }
     } else {
         PickType type = (g_state.selMode == SEL_ELEMENTS) ? PICK_ELEMENT : PICK_FACE;
+        type &= view.showElem;
         if (g_tool == TOOL_KNIFE && GetKeyState(VK_MENU) < 0)
             type &= ~PICK_VERT;
         result = pickElement(g_state.surf, type, normCur, viewportDim, project,
@@ -673,20 +674,34 @@ bool ViewportWindow::onCommand(HWND, int id, HWND, UINT) {
         case IDM_VIEW_ORTHO:
             setViewMode((view.mode == VIEW_ORTHO) ? VIEW_ORBIT : VIEW_ORTHO);
             return true;
+        case IDM_WIREFRAME:
+            view.showElem ^= PICK_FACE;
+            refresh();
+            return true;
+        // presets
         case IDM_VIEW_TOP:
             view.rotX = glm::half_pi<float>();
             view.rotY = 0;
+            view.showElem = PICK_VERT | PICK_EDGE;
             setViewMode(VIEW_ORTHO);
             return true;
         case IDM_VIEW_FRONT:
             view.rotX = 0;
             view.rotY = 0;
+            view.showElem = PICK_VERT | PICK_EDGE;
             setViewMode(VIEW_ORTHO);
             return true;
         case IDM_VIEW_SIDE:
             view.rotX = 0;
             view.rotY = -glm::half_pi<float>();
+            view.showElem = PICK_VERT | PICK_EDGE;
             setViewMode(VIEW_ORTHO);
+            return true;
+        case IDM_PERSPECTIVE:
+            view.rotX = glm::radians(30.0f);
+            view.rotY = glm::radians(-45.0f);
+            view.showElem = PICK_ELEMENT;
+            setViewMode(VIEW_ORBIT);
             return true;
         case IDM_FOCUS:
             view.camPivot = -vertsCenter(g_state.surf, selAttachedVerts(g_state));
@@ -773,7 +788,7 @@ void ViewportWindow::drawState(const EditorState &state) {
     glVertex3f(0, 0, 0); glVertex3f(0, 0, 8);
     glEnd();
 
-    if (g_state.selMode == SEL_ELEMENTS) {
+    if (g_state.selMode == SEL_ELEMENTS && (view.showElem & PICK_EDGE)) {
         glLineWidth(WIDTH_EDGE_SEL);
         glColorHex(g_flashSel ? COLOR_EDGE_FLASH : COLOR_EDGE_SEL);
         glBegin(GL_LINES);
@@ -788,7 +803,9 @@ void ViewportWindow::drawState(const EditorState &state) {
             drawEdge(state.surf, *hoverEdge);
             glEnd();
         }
+    }
 
+    if (g_state.selMode == SEL_ELEMENTS && (view.showElem & PICK_VERT)) {
         glPointSize(SIZE_VERT);
         glBegin(GL_POINTS);
         for (auto &pair : state.surf.verts) {
@@ -837,31 +854,35 @@ void ViewportWindow::drawState(const EditorState &state) {
         }
     }
 
-    glLineWidth(WIDTH_EDGE);
-    glColorHex(COLOR_EDGE);
-    glBegin(GL_LINES);
-    for (auto &pair : state.surf.edges) {
-        if (isPrimary(pair))
-            drawEdge(state.surf, pair.second);
-    }
-    glEnd();
-
-    for (auto &pair : state.surf.faces) {
-        if (state.selFaces.count(pair.first)) {
-            glColorHex(g_flashSel ? COLOR_FACE_FLASH : COLOR_FACE_SEL);
-            glDisable(GL_LIGHTING);
-        } else if (g_hover.type && pair.first == g_hoverFace
-                && (g_hover.type == PICK_FACE || (TOOL_FLAGS[g_tool] & TOOLF_HOVFACE))) {
-            glColorHex(COLOR_FACE_HOVER);
-            glDisable(GL_LIGHTING);
-        } else {
-            glColorHex(COLOR_FACE);
-            if (view.mode != VIEW_ORTHO)
-                glEnable(GL_LIGHTING);
+    if (view.showElem & PICK_EDGE) {
+        glLineWidth(WIDTH_EDGE);
+        glColorHex(COLOR_EDGE);
+        glBegin(GL_LINES);
+        for (auto &pair : state.surf.edges) {
+            if (isPrimary(pair))
+                drawEdge(state.surf, pair.second);
         }
-        drawFace(state.surf, pair.second);
+        glEnd();
     }
-    glDisable(GL_LIGHTING);
+
+    if (view.showElem & PICK_FACE) {
+        for (auto &pair : state.surf.faces) {
+            if (state.selFaces.count(pair.first)) {
+                glColorHex(g_flashSel ? COLOR_FACE_FLASH : COLOR_FACE_SEL);
+                glDisable(GL_LIGHTING);
+            } else if (g_hover.type && pair.first == g_hoverFace
+                    && (g_hover.type == PICK_FACE || (TOOL_FLAGS[g_tool] & TOOLF_HOVFACE))) {
+                glColorHex(COLOR_FACE_HOVER);
+                glDisable(GL_LIGHTING);
+            } else {
+                glColorHex(COLOR_FACE);
+                if (view.mode != VIEW_ORTHO)
+                    glEnable(GL_LIGHTING);
+            }
+            drawFace(state.surf, pair.second);
+        }
+        glDisable(GL_LIGHTING);
+    }
 
     bool workPlaneActive = ((TOOL_FLAGS[g_tool] & TOOLF_DRAW)
         && ((state.gridOn && g_hover.type) || !(TOOL_FLAGS[g_tool] & TOOLF_HOVFACE)))

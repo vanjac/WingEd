@@ -4,6 +4,7 @@
 #include <immer/set.hpp>
 #include <glm/trigonometric.hpp>
 #include "surface.h"
+#include "picking.h"
 
 namespace winged {
 
@@ -37,6 +38,7 @@ struct ViewState {
     float rotX = glm::radians(45.0f), rotY = glm::radians(-15.0f);
     float zoom = 16;
     ViewMode mode = VIEW_ORBIT;
+    PickType showElem = PICK_ELEMENT;
 };
 
 bool hasSelection(EditorState state);

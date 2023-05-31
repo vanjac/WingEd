@@ -7,7 +7,6 @@
 #include "winchroma.h"
 #include "editor.h"
 #include "viewport.h"
-#include "picking.h"
 #include "resource.h"
 
 namespace winged {

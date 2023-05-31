@@ -78,9 +78,12 @@ WINGED MENUEX
         MENUITEM "First-&person\tZ", IDM_VIEW_FLY
         MENUITEM "O&rthographic", IDM_VIEW_ORTHO
         MENUITEM "", 0, MFT_SEPARATOR
+        MENUITEM "&Wireframe\tW", IDM_WIREFRAME
+        MENUITEM "", 0, MFT_SEPARATOR
         MENUITEM "&Top\tUp", IDM_VIEW_TOP
         MENUITEM "&Front\tDown", IDM_VIEW_FRONT
         MENUITEM "&Side\tRight", IDM_VIEW_SIDE
+        MENUITEM "&Perspective\tLeft", IDM_PERSPECTIVE
         MENUITEM "", 0, MFT_SEPARATOR
         MENUITEM "Focus &Selection\tF", IDM_FOCUS
         MENUITEM "", 0, MFT_SEPARATOR
@@ -152,10 +155,11 @@ VIEWACCEL ACCELERATORS
 {
     "Z", IDM_VIEW_FLY, VIRTKEY
     "F", IDM_FOCUS, VIRTKEY
-    "O", IDM_VIEW_ORTHO, VIRTKEY
     VK_UP, IDM_VIEW_TOP, VIRTKEY
     VK_DOWN, IDM_VIEW_FRONT, VIRTKEY
     VK_RIGHT, IDM_VIEW_SIDE, VIRTKEY
+    "W", IDM_WIREFRAME, VIRTKEY
+    VK_LEFT, IDM_PERSPECTIVE, VIRTKEY
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -199,11 +203,6 @@ STRINGTABLE
     139, "Move camera to orbit around selection"
     140, "Enter a 3x3 matrix to transform selected objects"
     141, "Open a new window with a different view of the same model"
-    142, "Perspective view orbiting around the model"
-    143, "Orthographic projection"
-    145, "View from the top with orthographic projection"
-    146, "View from the front with orthographic projection"
-    147, "View from the right with orthographic projection"
 }
 
 //////////////////////////////////////////////////////////////////////////////

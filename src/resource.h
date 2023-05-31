@@ -47,12 +47,14 @@
 #define IDM_VIEW_TOP                        145
 #define IDM_VIEW_FRONT                      146
 #define IDM_VIEW_SIDE                       147
+#define IDM_WIREFRAME                       148
+#define IDM_PERSPECTIVE                     149
 
 #ifdef APSTUDIO_INVOKED
     #ifndef APSTUDIO_READONLY_SYMBOLS
         #define _APS_NO_MFC                 1
         #define _APS_NEXT_RESOURCE_VALUE    100
-        #define _APS_NEXT_COMMAND_VALUE     148
+        #define _APS_NEXT_COMMAND_VALUE     150
         #define _APS_NEXT_CONTROL_VALUE     1000
         #define _APS_NEXT_SYMED_VALUE       300
     #endif
