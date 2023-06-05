@@ -1,3 +1,5 @@
+// General math utility functions / types
+
 #pragma once
 #include "common.h"
 

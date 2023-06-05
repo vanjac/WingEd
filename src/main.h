@@ -1,3 +1,6 @@
+// The main window hosts the menu, toolbar, status bar, and primary viewport,
+// and handles most keyboard commands. Global editor state is also defined here.
+
 #pragma once
 #include "common.h"
 

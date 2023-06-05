@@ -1,3 +1,5 @@
+// Operations on surfaces. All functions preserve invariants, and are *not* aware of editor state.
+
 #pragma once
 #include "common.h"
 

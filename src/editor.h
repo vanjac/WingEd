@@ -1,3 +1,6 @@
+// Structures for any editor state that gets saved to a file or the undo stack,
+// as well as miscellaneous operations that don't rely on global state.
+
 #pragma once
 #include "common.h"
 

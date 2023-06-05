@@ -1,3 +1,5 @@
+// Common definitions included by every other header
+
 #pragma once
 
 #include <exception>

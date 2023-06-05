@@ -1,3 +1,5 @@
+// Ray intersection functions for selecting objects with the mouse
+
 #pragma once
 #include "common.h"
 

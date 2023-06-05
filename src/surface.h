@@ -1,3 +1,7 @@
+// Persistent half-edge mesh data structure
+// https://en.wikipedia.org/wiki/Doubly_connected_edge_list
+// https://cs184.eecs.berkeley.edu/sp19/article/15/the-half-edge-data-structure
+
 #pragma once
 #include "common.h"
 
@@ -61,9 +65,6 @@ struct std::hash<winged::edge_id> {
 
 
 namespace winged {
-
-// https://en.wikipedia.org/wiki/Doubly_connected_edge_list
-// https://cs184.eecs.berkeley.edu/sp19/article/15/the-half-edge-data-structure
 
 // Vertices connect at least two edges
 struct Vertex {

@@ -1,3 +1,9 @@
+// Defines a unique identifier datatype id_t, to be used as a lookup key. This avoids the use of
+// pointers to refer to objects, so all data can be DAGs, suitable for persistent data structures
+// (like the ones in immer).
+// id_t uses Windows GUIDs, so each ID will never be reused and broken references will always be
+// detectable.
+
 #pragma once
 #include "common.h"
 
@@ -6,7 +12,6 @@
 
 namespace winged {
 
-// unique identifier
 using id_t = GUID;
 id_t genId();
 

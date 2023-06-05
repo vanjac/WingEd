@@ -1,3 +1,5 @@
+// Reading/writing various file formats
+
 #pragma once
 #include "common.h"
 

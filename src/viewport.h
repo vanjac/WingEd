@@ -1,3 +1,6 @@
+// A viewport renders a view of the model and handles mouse input. The user can create multiple
+// viewport windows for the same model, each with its own camera and view settings.
+
 #pragma once
 #include "common.h"
 #include "winchroma.h"
