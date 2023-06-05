@@ -2,16 +2,12 @@
 #include "common.h"
 
 #include <utility>
-#include <guiddef.h>
 #include <glm/vec3.hpp>
 #include <immer/map.hpp>
+#include "id.h"
 #include "mathutil.h"
 
 namespace winged {
-
-// unique identifier for surface elements
-using id_t = GUID;
-id_t genId();
 
 struct Vertex; struct Face; struct HEdge;
 struct vert_id; struct face_id; struct edge_id;
@@ -50,19 +46,6 @@ struct edge_id : id_t {
 } // namespace
 
 
-// operator== is already implemented for GUIDs in guiddef.h
-template<>
-struct std::hash<GUID> {
-    std::size_t operator() (const GUID &key) const {
-        // https://stackoverflow.com/a/263416
-        size_t hash = 17;
-        for (int i = 0; i < 4; i++) {
-            uint32_t dword = ((uint32_t *)&key)[i];
-            hash = hash * 23 + std::hash<uint32_t>()(dword);
-        }
-        return hash;
-    }
-};
 template<>
 struct std::hash<winged::vert_id> {
     std::size_t operator() (const winged::vert_id &key) const { return std::hash<GUID>{}(key); }

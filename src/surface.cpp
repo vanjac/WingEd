@@ -1,15 +1,8 @@
 #include "surface.h"
-#include <rpc.h>
 #include <glm/geometric.hpp>
 #include "mathutil.h"
 
 namespace winged {
-
-id_t genId() {
-    id_t id;
-    UuidCreate(&id);
-    return id;
-}
 
 const Vertex & vert_id::in(const Surface &surf) const { return surf.verts.at(*this); }
 const Face   & face_id::in(const Surface &surf) const { return surf.faces.at(*this); }

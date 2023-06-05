@@ -254,6 +254,7 @@ void MainWindow::updateStatus() {
                     helpText = L"Click: Join with selection   Shift-click: Stay in tool";
                 else
                     helpText = L"Click: Select";
+                break;
         }
     }
     SendMessage(statusWnd, SB_SETTEXT, STATUS_HELP, (LPARAM)helpText);
