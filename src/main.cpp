@@ -259,7 +259,9 @@ void MainWindow::updateStatus() {
     }
     SendMessage(statusWnd, SB_SETTEXT, STATUS_HELP, (LPARAM)helpText);
 
-    updateToolbarState(wnd, toolbarWnd);
+    HMENU menu = GetMenu(wnd);
+    onInitMenu(wnd, menu);
+    updateToolbarStates(toolbarWnd, menu);
 }
 
 void MainWindow::refreshAll() {
@@ -653,7 +655,7 @@ void MainWindow::onMeasureItem(HWND, MEASUREITEMSTRUCT *measure) {
 
 LRESULT MainWindow::onNotify(HWND, int, NMHDR *nmHdr) {
     if (nmHdr->code == TTN_GETDISPINFO)
-        handleToolbarTip(wnd, (NMTTDISPINFO *)nmHdr);
+        handleToolbarTip((NMTTDISPINFO *)nmHdr, GetMenu(wnd));
     return 0;
 }
 
