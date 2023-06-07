@@ -5,6 +5,9 @@
 #include <exception>
 
 // win32
+#define STRICT
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #define UNICODE
 #define _UNICODE
 #define WINVER          0x0501 // Windows XP
