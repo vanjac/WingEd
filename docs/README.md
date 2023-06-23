@@ -6,6 +6,8 @@ WingEd works on Windows only (XP through 11).
 
 <img src="https://github.com/vanjac/WingEd/assets/8228102/8aef6f57-1027-47de-9005-ca4e96f22e41" width="439" alt="Screenshot of WingEd window">
 
+[Download latest build](https://github.com/vanjac/WingEd/releases/latest/download/winged.exe). Currently incomplete and unstable, don't use it for anything important :)
+
 ## Technical Details
 
 WingEd only operates on closed [manifold](https://en.wikipedia.org/wiki/Surface_(topology)) surfaces. Internally it uses the [half-edge](https://en.wikipedia.org/wiki/Doubly_connected_edge_list) data structure to represent meshes.
