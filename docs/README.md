@@ -6,7 +6,7 @@ WingEd works on Windows only (XP through 11).
 
 <img src="https://github.com/vanjac/WingEd/assets/8228102/8aef6f57-1027-47de-9005-ca4e96f22e41" width="439" alt="Screenshot of WingEd window">
 
-[Download latest build](https://github.com/vanjac/WingEd/releases/latest/download/winged.exe). Currently incomplete and unstable, don't use it for anything important :)
+[Download latest build](https://github.com/vanjac/WingEd/releases/latest/download/winged.exe) (unstable, for testing only!)
 
 ## Technical Details
 
