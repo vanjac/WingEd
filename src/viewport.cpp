@@ -49,17 +49,52 @@ const float NEAR_CLIP = 0.5f, FAR_CLIP = 500.0f;
 const HCURSOR knifeCur = LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_KNIFE));
 const HCURSOR drawCur = LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_DRAW));
 
-static GLUtesselator *g_tess;
-static GLenum g_tess_error;
 
+class FaceTesselator {
+public:
+    FaceTesselator() {
+        tess = gluNewTess();
+        gluTessCallback(tess, GLU_TESS_BEGIN, (GLvoid (CALLBACK*) ())glBegin);
+        gluTessCallback(tess, GLU_TESS_END, (GLvoid (CALLBACK*) ())glEnd);
+        gluTessCallback(tess, GLU_TESS_VERTEX, (GLvoid (CALLBACK*) ())vertexCallback);
+        gluTessCallback(tess, GLU_TESS_ERROR_DATA, (GLvoid (CALLBACK*) ())errorCallback);
+        // gluTessCallback(tess, GLU_TESS_COMBINE, (GLvoid (*) ())combineCallback);
+        // gluTessCallback(tess, GLU_TESS_EDGE_FLAG, (GLvoid (*) ())glEdgeFlag);
+    }
 
-static void CALLBACK tessVertexCallback(Vertex *vertex) {
-    glVertex3fv(glm::value_ptr(vertex->pos));
-}
+    bool drawFace(const Surface &surf, const Face &face) {
+        // TODO cache faces
+        // https://www.glprogramming.com/red/chapter11.html
+        error = 0;
+        glm::vec3 normal = faceNormal(surf, face);
+        glNormal3fv(glm::value_ptr(normal));
+        gluTessNormal(tess, normal.x, normal.y, normal.z);
+        gluTessBeginPolygon(tess, this);
+        gluTessBeginContour(tess);
+        for (auto &ep : FaceEdges(surf, face)) {
+            const Vertex &vert = ep.second.vert.in(surf);
+            glm::dvec3 dPos = vert.pos;
+            gluTessVertex(tess, glm::value_ptr(dPos), (void *)&vert);
+        }
+        gluTessEndContour(tess);
+        gluTessEndPolygon(tess);
+        return error == 0;
+    }
 
-static void CALLBACK tessErrorCallback(GLenum error) {
-    g_tess_error = error;
-}
+private:
+    static void CALLBACK vertexCallback(Vertex *vertex) {
+        glVertex3fv(glm::value_ptr(vertex->pos)); // TODO
+    }
+    static void CALLBACK errorCallback(GLenum error, void *data) {
+        ((FaceTesselator*)data)->error = error;
+    }
+
+    GLUtesselator *tess;
+    GLenum error;
+};
+
+static FaceTesselator *g_tess;
+
 
 void initViewport() {
     WNDCLASSEX viewClass = makeClass(VIEWPORT_CLASS, windowImplProc);
@@ -67,13 +102,7 @@ void initViewport() {
     viewClass.hCursor = NULL;
     RegisterClassEx(&viewClass);
 
-    g_tess = gluNewTess();
-    gluTessCallback(g_tess, GLU_TESS_BEGIN, (GLvoid (CALLBACK*) ())glBegin);
-    gluTessCallback(g_tess, GLU_TESS_END, (GLvoid (CALLBACK*) ())glEnd);
-    gluTessCallback(g_tess, GLU_TESS_VERTEX, (GLvoid (CALLBACK*) ())tessVertexCallback);
-    gluTessCallback(g_tess, GLU_TESS_ERROR, (GLvoid (CALLBACK*) ())tessErrorCallback);
-    // gluTessCallback(g_tess, GLU_TESS_COMBINE, (GLvoid (*) ())tessCombineCallback);
-    // gluTessCallback(g_tess, GLU_TESS_EDGE_FLAG, (GLvoid (*) ())glEdgeFlag);
+    g_tess = new FaceTesselator;
 }
 
 static edge_pair edgeOnHoverFace(const Surface &surf, vert_id v) {
@@ -756,33 +785,6 @@ static void glColorHex(uint32_t color) {
     glColor4ub((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF, (color >> 24) & 0xFF);
 }
 
-static void drawFace(const Surface &surf, const Face &face) {
-    // TODO cache faces
-    // https://www.glprogramming.com/red/chapter11.html
-    g_tess_error = 0;
-    glm::vec3 normal = faceNormal(surf, face);
-    glNormal3fv(glm::value_ptr(normal));
-    gluTessNormal(g_tess, normal.x, normal.y, normal.z);
-    gluTessBeginPolygon(g_tess, NULL);
-    gluTessBeginContour(g_tess);
-    for (auto &ep : FaceEdges(surf, face)) {
-        const Vertex &vert = ep.second.vert.in(surf);
-        glm::dvec3 dPos = vert.pos;
-        gluTessVertex(g_tess, glm::value_ptr(dPos), (void *)&vert);
-    }
-    gluTessEndContour(g_tess);
-    gluTessEndPolygon(g_tess);
-    if (g_tess_error) {
-        // fallback
-        glColorHex(COLOR_FACE_ERROR);
-        glBegin(GL_TRIANGLE_FAN);
-        for (auto &ep : FaceEdges(surf, face)) {
-            glVertex3fv(glm::value_ptr(ep.second.vert.in(surf).pos));
-        }
-        glEnd();
-    }
-}
-
 static void drawEdge(const Surface &surf, const HEdge &edge) {
     glVertex3fv(glm::value_ptr(edge.vert.in(surf).pos));
     glVertex3fv(glm::value_ptr(edge.twin.in(surf).vert.in(surf).pos));
@@ -890,7 +892,15 @@ void ViewportWindow::drawState(const EditorState &state) {
                 if (view.mode != VIEW_ORTHO)
                     glEnable(GL_LIGHTING);
             }
-            drawFace(state.surf, pair.second);
+            if (!g_tess->drawFace(state.surf, pair.second)) {
+                // fallback
+                glColorHex(COLOR_FACE_ERROR);
+                glBegin(GL_TRIANGLE_FAN);
+                for (auto &ep : FaceEdges(state.surf, pair.second)) {
+                    glVertex3fv(glm::value_ptr(ep.second.vert.in(state.surf).pos));
+                }
+                glEnd();
+            }
         }
         glDisable(GL_LIGHTING);
     }
