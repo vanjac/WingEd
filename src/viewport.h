@@ -63,7 +63,7 @@ private:
 
     bool renderMeshDirtyLocal = true;
     ShaderProgram programs[PROG_COUNT];
-    buffer_t axisPoints, axisIndices;
+    buffer_t axisPoints, gridPoints;
     SizedBuffer verticesBuffer, normalsBuffer;
     SizedBuffer indexBuffers[ELEM_COUNT];
 

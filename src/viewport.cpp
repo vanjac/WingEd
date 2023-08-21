@@ -604,13 +604,21 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
 
     // static buffers
     glGenBuffers(1, &axisPoints);
-    glGenBuffers(1, &axisIndices);
     glBindBuffer(GL_ARRAY_BUFFER, axisPoints);
-    const glm::vec3 axisPointsData[] = {{0, 0, 0}, {8, 0, 0}, {0, 8, 0}, {0, 0, 8}};
+    const glm::vec3 axisPointsData[] = {
+        {0, 0, 0}, {8, 0, 0}, {0, 0, 0}, {0, 8, 0}, {0, 0, 0}, {0, 0, 8}};
     glBufferData(GL_ARRAY_BUFFER, sizeof(axisPointsData), axisPointsData, GL_STATIC_DRAW);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, axisIndices);
-    const GLubyte axisIndicesData[] = {0, 1, 0, 2, 0, 3};
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(axisIndicesData), axisIndicesData, GL_STATIC_DRAW);
+
+    glGenBuffers(1, &gridPoints);
+    glBindBuffer(GL_ARRAY_BUFFER, gridPoints);
+    glm::vec3 gridPointsData[(GRID_SIZE * 2 + 1) * 4];
+    for (int i = -GRID_SIZE, j = 0; i <= GRID_SIZE; i++) {
+        gridPointsData[j++] = glm::vec3(i, -GRID_SIZE, 0);
+        gridPointsData[j++] = glm::vec3(i,  GRID_SIZE, 0);
+        gridPointsData[j++] = glm::vec3(-GRID_SIZE, i, 0);
+        gridPointsData[j++] = glm::vec3( GRID_SIZE, i, 0);
+    }
+    glBufferData(GL_ARRAY_BUFFER, sizeof(gridPointsData), gridPointsData, GL_STATIC_DRAW);
 
     // dynamic buffers
     glGenBuffers(1, &verticesBuffer.id);
@@ -919,16 +927,13 @@ void ViewportWindow::onPaint(HWND) {
     glBindBuffer(GL_ARRAY_BUFFER, axisPoints);
     glVertexAttribPointer(ATTR_VERTEX, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-
     glLineWidth(WIDTH_AXIS);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, axisIndices);
     setColorHex(COLOR_X_AXIS);
-    glDrawElements(GL_LINES, 2, GL_UNSIGNED_BYTE, (void *)0);
+    glDrawArrays(GL_LINES, 0, 2);
     setColorHex(COLOR_Y_AXIS);
-    glDrawElements(GL_LINES, 2, GL_UNSIGNED_BYTE, (void *)2);
+    glDrawArrays(GL_LINES, 2, 2);
     setColorHex(COLOR_Z_AXIS);
-    glDrawElements(GL_LINES, 2, GL_UNSIGNED_BYTE, (void *)4);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glDrawArrays(GL_LINES, 4, 2);
 
     if (g_renderMeshDirty) {
         g_renderMeshDirty = false;
@@ -955,20 +960,22 @@ void ViewportWindow::onPaint(HWND) {
         // snap origin to grid
         p.org -= uVec * glm::fract(p.org[u] / g_state.gridSize)
                + vVec * glm::fract(p.org[v] / g_state.gridSize);
-        glm::vec3 gridPoints[(GRID_SIZE * 2 + 1) * 4];
-        for (int i = -GRID_SIZE, j = 0; i <= GRID_SIZE; i++) {
-            gridPoints[j++] = p.org - vVec * (float)GRID_SIZE + uVec * (float)i;
-            gridPoints[j++] = p.org + vVec * (float)GRID_SIZE + uVec * (float)i;
-            gridPoints[j++] = p.org - uVec * (float)GRID_SIZE + vVec * (float)i;
-            gridPoints[j++] = p.org + uVec * (float)GRID_SIZE + vVec * (float)i;
-        }
-        // TODO: use buffer
-        glVertexAttribPointer(ATTR_VERTEX, 3, GL_FLOAT, GL_FALSE, 0, gridPoints);
+        glm::mat4 gridMat;
+        gridMat[0] = glm::vec4(uVec, 0);
+        gridMat[1] = glm::vec4(vVec, 0);
+        gridMat[2] = glm::vec4(0);
+        gridMat[3] = glm::vec4(p.org, 1);
+        gridMat = mvMat * gridMat;
+        glUniformMatrix4fv(programs[PROG_UNLIT].uniforms[UNIF_MODELVIEW_MATRIX], 1, FALSE,
+            glm::value_ptr(gridMat));
+        glBindBuffer(GL_ARRAY_BUFFER, gridPoints);
+        glVertexAttribPointer(ATTR_VERTEX, 3, GL_FLOAT, GL_FALSE, 0, 0);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
         glEnable(GL_BLEND);
         glEnable(GL_LINE_SMOOTH);
         glLineWidth(WIDTH_GRID);
         setColorHex(COLOR_GRID);
-        glDrawArrays(GL_LINES, 0, (GLsizei)_countof(gridPoints));
+        glDrawArrays(GL_LINES, 0, (GRID_SIZE * 2 + 1) * 4);
         glDisable(GL_BLEND);
         glDisable(GL_LINE_SMOOTH);
         if (!workPlaneActive)
