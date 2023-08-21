@@ -1,4 +1,4 @@
-#version 150
+#version 140
 
 const float AMBIENT_INTENSITY = 0.4;
 const float DIFFUSE_INTENSITY = 0.6;
