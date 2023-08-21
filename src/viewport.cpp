@@ -103,7 +103,7 @@ static void initGL() {
         throw winged_error(L"Failed to load OpenGL");
     if (!CHECKERR(gladLoadWGLLoader(loadGLProc, dc)))
         throw winged_error(L"Failed to load WGL extensions\n");
-    if (GLVersion.major < 2)
+    if (!GLAD_GL_VERSION_2_0)
         throw winged_error(L"OpenGL 2.0 not available");
     CHECKERR(wglMakeCurrent(dc, NULL));
     CHECKERR(wglDeleteContext(dummyCtx));
@@ -937,53 +937,53 @@ void ViewportWindow::drawMesh(const RenderMesh &mesh) {
     if (view.showElem & PICK_EDGE) {
         glLineWidth(WIDTH_EDGE_SEL);
         setColorHex(g_flashSel ? COLOR_EDGE_FLASH : COLOR_EDGE_SEL);
-        drawElementVector(GL_LINES, mesh.selEdgeIs);
+        drawElementVector(GL_LINES, mesh.indices[ELEM_SEL_EDGE]);
 
         glLineWidth(WIDTH_EDGE_HOVER);
         setColorHex(COLOR_EDGE_HOVER);
-        drawElementVector(GL_LINES, mesh.hovEdgeIs);
+        drawElementVector(GL_LINES, mesh.indices[ELEM_HOV_EDGE]);
     }
 
     if (view.showElem & PICK_VERT) {
         glPointSize(SIZE_VERT);
         setColorHex(COLOR_VERT);
-        drawElementVector(GL_POINTS, mesh.regVertIs);
+        drawElementVector(GL_POINTS, mesh.indices[ELEM_REG_VERT]);
 
         setColorHex(g_flashSel ? COLOR_VERT_FLASH : COLOR_VERT_SEL);
-        drawElementVector(GL_POINTS, mesh.selVertIs);
+        drawElementVector(GL_POINTS, mesh.indices[ELEM_SEL_VERT]);
 
         setColorHex(COLOR_DRAW_POINT);
-        drawElementVector(GL_POINTS, mesh.drawPointIs);
+        drawElementVector(GL_POINTS, mesh.indices[ELEM_DRAW_POINT]);
 
         glPointSize(SIZE_VERT_HOVER);
         setColorHex(COLOR_VERT_HOVER);
-        drawElementVector(GL_POINTS, mesh.hovVertIs);
+        drawElementVector(GL_POINTS, mesh.indices[ELEM_HOV_VERT]);
 
         glLineWidth(WIDTH_DRAW);
         setColorHex(COLOR_DRAW_LINE);
-        drawElementVector(GL_LINE_STRIP, mesh.drawLineIs);
+        drawElementVector(GL_LINE_STRIP, mesh.indices[ELEM_DRAW_LINE]);
     }
 
     if (view.showElem & PICK_EDGE) {
         glLineWidth(WIDTH_EDGE);
         setColorHex(COLOR_EDGE);
-        drawElementVector(GL_LINES, mesh.regEdgeIs);
+        drawElementVector(GL_LINES, mesh.indices[ELEM_REG_EDGE]);
     }
 
     if (view.showElem & PICK_FACE) {
         glEnableVertexAttribArray(ATTR_NORMAL);
 
         setColorHex(g_flashSel ? COLOR_FACE_FLASH : COLOR_FACE_SEL);
-        drawElementVector(GL_TRIANGLES, mesh.selFaceIs);
+        drawElementVector(GL_TRIANGLES, mesh.indices[ELEM_SEL_FACE]);
         setColorHex(COLOR_FACE_HOVER);
-        drawElementVector(GL_TRIANGLES, mesh.hovFaceIs);
+        drawElementVector(GL_TRIANGLES, mesh.indices[ELEM_HOV_FACE]);
         setColorHex(COLOR_FACE_ERROR);
-        drawElementVector(GL_TRIANGLES, mesh.errFaceIs);
+        drawElementVector(GL_TRIANGLES, mesh.indices[ELEM_ERR_FACE]);
 
         if (view.mode != VIEW_ORTHO)
             glUseProgram(programs[PROG_FACE].id);
         setColorHex(COLOR_FACE);
-        drawElementVector(GL_TRIANGLES, mesh.regFaceIs);
+        drawElementVector(GL_TRIANGLES, mesh.indices[ELEM_REG_FACE]);
         if (view.mode != VIEW_ORTHO)
             glUseProgram(programs[PROG_UNLIT].id);
 

@@ -93,18 +93,8 @@ void initRenderMesh() {
 void RenderMesh::clear() {
     vertices.clear();
     normals.clear();
-    regVertIs.clear();
-    selVertIs.clear();
-    hovVertIs.clear();
-    regEdgeIs.clear();
-    selEdgeIs.clear();
-    hovEdgeIs.clear();
-    regFaceIs.clear();
-    selFaceIs.clear();
-    hovFaceIs.clear();
-    errFaceIs.clear();
-    drawPointIs.clear();
-    drawLineIs.clear();
+    for (int i = 0; i < ELEM_COUNT; i++)
+        indices[i].clear();
 }
 
 void generateRenderMesh(RenderMesh *mesh, const EditorState &state) {
@@ -136,70 +126,71 @@ void generateRenderMesh(RenderMesh *mesh, const EditorState &state) {
     if (state.selMode == SEL_ELEMENTS) {
         for (auto &pair : state.surf.verts) {
             if (state.selVerts.count(pair.first)) {
-                mesh->selVertIs.push_back(edgeIDIndices[pair.second.edge]);
+                mesh->indices[ELEM_SEL_VERT].push_back(edgeIDIndices[pair.second.edge]);
             } else {
-                mesh->regVertIs.push_back(edgeIDIndices[pair.second.edge]);
+                mesh->indices[ELEM_REG_VERT].push_back(edgeIDIndices[pair.second.edge]);
             }
         }
         if (TOOL_FLAGS[g_tool] & TOOLF_DRAW) {
             if (numDrawPoints() > 0) {
                 for (size_t i = 0; i < g_drawVerts.size(); i++) {
                     if (g_hover.type == PICK_DRAWVERT && g_hover.val == i) {
-                        mesh->regVertIs.push_back((index_t)(drawVertsStartI + i));
+                        mesh->indices[ELEM_REG_VERT].push_back((index_t)(drawVertsStartI + i));
                     } else {
-                        mesh->drawPointIs.push_back((index_t)(drawVertsStartI + i));
+                        mesh->indices[ELEM_DRAW_POINT].push_back((index_t)(drawVertsStartI + i));
                     }
                 }
             }
             if (g_hover.type && g_hover.type != PICK_VERT && g_hover.type != PICK_DRAWVERT) {
-                mesh->drawPointIs.push_back(hoverI);
+                mesh->indices[ELEM_DRAW_POINT].push_back(hoverI);
             }
         }
 
         if (g_hover.type == PICK_DRAWVERT || g_hover.vert.find(state.surf)) {
-            mesh->hovVertIs.push_back(hoverI);
+            mesh->indices[ELEM_HOV_VERT].push_back(hoverI);
         }
 
         if (numDrawPoints() + (g_hover.type ? 1 : 0) >= 2) {
             if (g_tool == TOOL_KNIFE) {
-                mesh->drawLineIs.push_back(
+                mesh->indices[ELEM_DRAW_LINE].push_back(
                     edgeIDIndices[state.selVerts.begin()->in(state.surf).edge]);
             }
             for (size_t i = 0; i < g_drawVerts.size(); i++)
-                mesh->drawLineIs.push_back((index_t)(drawVertsStartI + i));
+                mesh->indices[ELEM_DRAW_LINE].push_back((index_t)(drawVertsStartI + i));
             if (g_hover.type)
-                mesh->drawLineIs.push_back(hoverI);
+                mesh->indices[ELEM_DRAW_LINE].push_back(hoverI);
         }
 
         for (auto e : state.selEdges) {
-            mesh->selEdgeIs.push_back(edgeIDIndices[e]);
-            mesh->selEdgeIs.push_back(edgeIDIndices[e.in(state.surf).twin]);
+            mesh->indices[ELEM_SEL_EDGE].push_back(edgeIDIndices[e]);
+            mesh->indices[ELEM_SEL_EDGE].push_back(edgeIDIndices[e.in(state.surf).twin]);
         }
         if (auto hoverEdge = g_hover.edge.find(state.surf)) {
-            mesh->hovEdgeIs.push_back(edgeIDIndices[g_hover.edge]);
-            mesh->hovEdgeIs.push_back(edgeIDIndices[hoverEdge->twin]);
+            mesh->indices[ELEM_HOV_EDGE].push_back(edgeIDIndices[g_hover.edge]);
+            mesh->indices[ELEM_HOV_EDGE].push_back(edgeIDIndices[hoverEdge->twin]);
         }
     }
 
     for (auto &pair : state.surf.edges) {
         if (isPrimary(pair)) {
-            mesh->regEdgeIs.push_back(edgeIDIndices[pair.first]);
-            mesh->regEdgeIs.push_back(edgeIDIndices[pair.second.twin]);
+            mesh->indices[ELEM_REG_EDGE].push_back(edgeIDIndices[pair.first]);
+            mesh->indices[ELEM_REG_EDGE].push_back(edgeIDIndices[pair.second.twin]);
         }
     }
 
     for (auto &pair : state.surf.faces) {
         glm::vec3 normal = mesh->normals[edgeIDIndices[pair.second.edge]];
-        std::vector<index_t> *faceIs;
+        RenderElement elem;
         if (state.selFaces.count(pair.first)) {
-            faceIs = &mesh->selFaceIs;
+            elem = ELEM_SEL_FACE;
         } else if (g_hover.type && pair.first == g_hoverFace
                 && (g_hover.type == PICK_FACE || (TOOL_FLAGS[g_tool] & TOOLF_HOVFACE))) {
-            faceIs = &mesh->hovFaceIs;
+            elem = ELEM_HOV_FACE;
         } else {
-            faceIs = &mesh->regFaceIs;
+            elem = ELEM_REG_FACE;
         }
-        tesselateFace(*faceIs, mesh->errFaceIs, state.surf, pair.second, normal, edgeIDIndices);
+        tesselateFace(mesh->indices[elem], mesh->indices[ELEM_ERR_FACE],
+            state.surf, pair.second, normal, edgeIDIndices);
     }
 }
 
