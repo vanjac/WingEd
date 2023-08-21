@@ -1,4 +1,4 @@
-#version 110
+#version 150
 
 const float AMBIENT_INTENSITY = 0.4;
 const float DIFFUSE_INTENSITY = 0.6;
@@ -7,11 +7,11 @@ const vec3 LIGHT_DIR = vec3(0, 0, 1);
 uniform mat4 uModelViewMatrix, uProjectionMatrix;
 uniform mat3 uNormalMatrix;
 
-attribute vec3 aVertex;
-attribute vec3 aNormal;
-attribute vec4 aColor;
+in vec3 aVertex;
+in vec3 aNormal;
+in vec4 aColor;
 
-varying vec4 vColor;
+out vec4 vColor;
 
 void main (void)
 {

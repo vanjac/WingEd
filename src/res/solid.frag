@@ -1,7 +1,9 @@
-#version 110
+#version 150
 
-varying vec4 vColor;
+in vec4 vColor;
+
+out vec4 oFragColor;
 
 void main() {
-    gl_FragColor = vColor;
+    oFragColor = vColor;
 }
