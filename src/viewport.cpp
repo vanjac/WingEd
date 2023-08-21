@@ -1,13 +1,12 @@
 #include "viewport.h"
 #include <queue>
-#include <unordered_map>
 #include <gl/GL.h>
-#include <gl/GLU.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <immer/set_transient.hpp>
 #include "main.h"
 #include "ops.h"
+#include "rendermesh.h"
 
 using namespace chroma;
 
@@ -46,95 +45,10 @@ const GLfloat
 
 const float CAM_MOVE_SCALE = 600;
 const float NEAR_CLIP = 0.5f, FAR_CLIP = 500.0f;
+const int GRID_SIZE = 128;
 
 const HCURSOR knifeCur = LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_KNIFE));
 const HCURSOR drawCur = LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_DRAW));
-
-
-class FaceTesselator {
-public:
-    FaceTesselator() {
-        tess = gluNewTess();
-        gluTessCallback(tess, GLU_TESS_BEGIN_DATA, (GLvoid (CALLBACK*) ())beginCallback);
-        gluTessCallback(tess, GLU_TESS_END, (GLvoid (CALLBACK*) ())endCallback);
-        gluTessCallback(tess, GLU_TESS_VERTEX_DATA, (GLvoid (CALLBACK*) ())vertexCallback);
-        gluTessCallback(tess, GLU_TESS_ERROR_DATA, (GLvoid (CALLBACK*) ())errorCallback);
-        // gluTessCallback(tess, GLU_TESS_COMBINE_DATA, (GLvoid (*) ())combineCallback);
-        // gluTessCallback(tess, GLU_TESS_EDGE_FLAG_DATA, (GLvoid (*) ())edgeFlagCallback);
-    }
-
-    void tesselate(std::vector<GLushort> &faceIndicesOut, std::vector<GLushort> &errorIndicesOut,
-            const Surface &surf, const Face &face, glm::vec3 normal,
-            const std::unordered_map<edge_id, GLushort> &edgeIDIndices) {
-        // TODO cache faces
-        // https://www.glprogramming.com/red/chapter11.html
-        auto initialEnd = faceIndicesOut.end();
-        indices = &faceIndicesOut;
-        error = 0;
-        gluTessNormal(tess, normal.x, normal.y, normal.z);
-        gluTessBeginPolygon(tess, this);
-        gluTessBeginContour(tess);
-        for (auto &ep : FaceEdges(surf, face)) {
-            GLushort vertI = edgeIDIndices.at(ep.first);
-            glm::dvec3 dPos = ep.second.vert.in(surf).pos;
-            gluTessVertex(tess, glm::value_ptr(dPos), (void *)vertI);
-        }
-        gluTessEndContour(tess);
-        gluTessEndPolygon(tess);
-
-        if (error) {
-            faceIndicesOut.erase(initialEnd, faceIndicesOut.end());
-
-            size_t errorStart = errorIndicesOut.size();
-            for (auto &ep : FaceEdges(surf, face)) {
-                size_t numIndices = errorIndicesOut.size();
-                if (numIndices - errorStart >= 3) {
-                    errorIndicesOut.push_back(errorIndicesOut[errorStart]);
-                    errorIndicesOut.push_back(errorIndicesOut[numIndices - 1]);
-                }
-                errorIndicesOut.push_back(edgeIDIndices.at(ep.first));
-            }
-        }
-    }
-
-private:
-    GLUtesselator *tess;
-
-    std::vector<GLushort> *indices;
-    GLenum mode;
-    size_t startI;
-    GLenum error;
-
-    static void CALLBACK beginCallback(GLenum mode, void *data) {
-        auto self = (FaceTesselator *)data;
-        self->mode = mode;
-        self->startI = self->indices->size();
-    }
-    static void CALLBACK endCallback() {} // TODO: remove?
-    static void CALLBACK vertexCallback(void *vertex, void *data) {
-        auto self = (FaceTesselator *)data;
-        GLushort index = (GLushort)(size_t)vertex;
-        size_t numIndices = self->indices->size();
-        if (self->mode == GL_TRIANGLE_STRIP && numIndices - self->startI >= 3) {
-            if ((numIndices - self->startI) % 6 == 0) {
-                self->indices->push_back((*self->indices)[numIndices - 3]);
-                self->indices->push_back((*self->indices)[numIndices - 1]);
-            } else {
-                self->indices->push_back((*self->indices)[numIndices - 1]);
-                self->indices->push_back((*self->indices)[numIndices - 2]);
-            }
-        } else if (self->mode == GL_TRIANGLE_FAN && numIndices - self->startI >= 3) {
-            self->indices->push_back((*self->indices)[self->startI]);
-            self->indices->push_back((*self->indices)[numIndices - 1]);
-        }
-        self->indices->push_back(index);
-    }
-    static void CALLBACK errorCallback(GLenum error, void *data) {
-        ((FaceTesselator*)data)->error = error;
-    }
-};
-
-static FaceTesselator *g_tess;
 
 
 void initViewport() {
@@ -143,7 +57,7 @@ void initViewport() {
     viewClass.hCursor = NULL;
     RegisterClassEx(&viewClass);
 
-    g_tess = new FaceTesselator;
+    initRenderMesh();
 }
 
 static edge_pair edgeOnHoverFace(const Surface &surf, vert_id v) {
@@ -844,153 +758,62 @@ void ViewportWindow::drawState(const EditorState &state) {
     glColorHex(COLOR_Z_AXIS);
     glDrawElements(GL_LINES, 2, GL_UNSIGNED_BYTE, zAxisI);
 
-    std::vector<glm::vec3> vertices, normals;
-    std::unordered_map<edge_id, GLushort> edgeIDIndices;
-    vertices.reserve(state.surf.edges.size() + g_drawVerts.size() + 1);
-    normals.reserve(vertices.capacity());
-    edgeIDIndices.reserve(state.surf.edges.size());
+    static RenderMesh mesh;
+    generateRenderMesh(&mesh, state);
 
-    GLushort index = 0;
-    for (auto &fp : state.surf.faces) {
-        glm::vec3 normal = faceNormal(state.surf, fp.second);
-        for (auto &ep : FaceEdges(state.surf, fp.second)) {
-            vertices.push_back(ep.second.vert.in(state.surf).pos);
-            normals.push_back(normal);
-            edgeIDIndices[ep.first] = index++;
-        }
-    }
-    // no normals!
-    const GLushort drawVertsStartI = index;
-    for (auto &vec : g_drawVerts) {
-        vertices.push_back(vec);
-        index++;
-    }
-    const GLushort hoverI = index;
-    vertices.push_back(g_hover.point);
+    glVertexPointer(3, GL_FLOAT, 0, mesh.vertices.data());
+    glNormalPointer(GL_FLOAT, 0, mesh.normals.data());
 
-    glVertexPointer(3, GL_FLOAT, 0, vertices.data());
-    glNormalPointer(GL_FLOAT, 0, normals.data());
-
-    if (g_state.selMode == SEL_ELEMENTS && (view.showElem & PICK_EDGE)) {
-        std::vector<GLushort> selEdgeIndices;
-        for (auto e : state.selEdges) {
-            selEdgeIndices.push_back(edgeIDIndices[e]);
-            selEdgeIndices.push_back(edgeIDIndices[e.in(state.surf).twin]);
-        }
+    if (view.showElem & PICK_EDGE) {
         glLineWidth(WIDTH_EDGE_SEL);
         glColorHex(g_flashSel ? COLOR_EDGE_FLASH : COLOR_EDGE_SEL);
-        drawElementVector(GL_LINES, selEdgeIndices);
-        
-        if (auto hoverEdge = g_hover.edge.find(state.surf)) {
-            GLushort hoverEdgeIndices[] = {
-                edgeIDIndices[g_hover.edge], edgeIDIndices[hoverEdge->twin]
-            };
-            glLineWidth(WIDTH_EDGE_HOVER);
-            glColorHex(COLOR_EDGE_HOVER);
-            glDrawElements(GL_LINES, 2, GL_UNSIGNED_SHORT, hoverEdgeIndices);
-        }
+        drawElementVector(GL_LINES, mesh.selEdgeIs);
+
+        glLineWidth(WIDTH_EDGE_HOVER);
+        glColorHex(COLOR_EDGE_HOVER);
+        drawElementVector(GL_LINES, mesh.hovEdgeIs);
     }
 
-    if (g_state.selMode == SEL_ELEMENTS && (view.showElem & PICK_VERT)) {
-        std::vector<GLushort> normalVertIndices, selVertIndices, drawPointIndices;
-        for (auto &pair : state.surf.verts) {
-            if (state.selVerts.count(pair.first)) {
-                selVertIndices.push_back(edgeIDIndices[pair.second.edge]);
-            } else {
-                normalVertIndices.push_back(edgeIDIndices[pair.second.edge]);
-            }
-        }
-        if (TOOL_FLAGS[g_tool] & TOOLF_DRAW) {
-            if (numDrawPoints() > 0) {
-                for (size_t i = 0; i < g_drawVerts.size(); i++) {
-                    if (g_hover.type == PICK_DRAWVERT && g_hover.val == i) {
-                        normalVertIndices.push_back((GLushort)(drawVertsStartI + i));
-                    } else {
-                        drawPointIndices.push_back((GLushort)(drawVertsStartI + i));
-                    }
-                }
-            }
-            if (g_hover.type && g_hover.type != PICK_VERT && g_hover.type != PICK_DRAWVERT) {
-                drawPointIndices.push_back(hoverI);
-            }
-        }
-
+    if (view.showElem & PICK_VERT) {
         glPointSize(SIZE_VERT);
         glColorHex(COLOR_VERT);
-        drawElementVector(GL_POINTS, normalVertIndices);
+        drawElementVector(GL_POINTS, mesh.regVertIs);
+
         glColorHex(g_flashSel ? COLOR_VERT_FLASH : COLOR_VERT_SEL);
-        drawElementVector(GL_POINTS, selVertIndices);
-        if (TOOL_FLAGS[g_tool] & TOOLF_DRAW) {
-            glColorHex(COLOR_DRAW_POINT);
-            drawElementVector(GL_POINTS, drawPointIndices);
-        }
+        drawElementVector(GL_POINTS, mesh.selVertIs);
 
-        if (g_hover.type == PICK_DRAWVERT || g_hover.vert.find(state.surf)) {
-            glPointSize(SIZE_VERT_HOVER);
-            glColorHex(COLOR_VERT_HOVER);
-            glDrawElements(GL_POINTS, 1, GL_UNSIGNED_SHORT, &hoverI);
-        }
+        glColorHex(COLOR_DRAW_POINT);
+        drawElementVector(GL_POINTS, mesh.drawPointIs);
 
-        if (numDrawPoints() + (g_hover.type ? 1 : 0) >= 2) {
-            std::vector<GLushort> drawLineIndices;
-            if (g_tool == TOOL_KNIFE) {
-                drawLineIndices.push_back(
-                    edgeIDIndices[state.selVerts.begin()->in(state.surf).edge]);
-            }
-            for (size_t i = 0; i < g_drawVerts.size(); i++)
-                drawLineIndices.push_back((GLushort)(drawVertsStartI + i));
-            if (g_hover.type)
-                drawLineIndices.push_back(hoverI);
+        glPointSize(SIZE_VERT_HOVER);
+        glColorHex(COLOR_VERT_HOVER);
+        drawElementVector(GL_POINTS, mesh.hovVertIs);
 
-            glLineWidth(WIDTH_DRAW);
-            glColorHex(COLOR_DRAW_LINE);
-            drawElementVector(GL_LINE_STRIP, drawLineIndices);
-        }
+        glLineWidth(WIDTH_DRAW);
+        glColorHex(COLOR_DRAW_LINE);
+        drawElementVector(GL_LINE_STRIP, mesh.drawLineIs);
     }
 
     if (view.showElem & PICK_EDGE) {
-        std::vector<GLushort> edgeIndices;
-        for (auto &pair : state.surf.edges) {
-            if (isPrimary(pair)) {
-                edgeIndices.push_back(edgeIDIndices[pair.first]);
-                edgeIndices.push_back(edgeIDIndices[pair.second.twin]);
-            }
-        }
         glLineWidth(WIDTH_EDGE);
         glColorHex(COLOR_EDGE);
-        drawElementVector(GL_LINES, edgeIndices);
+        drawElementVector(GL_LINES, mesh.regEdgeIs);
     }
 
     if (view.showElem & PICK_FACE) {
-        std::vector<GLushort> normalFaceIndices, selFaceIndices, hoverFaceIndices, errorIndices;
-        for (auto &pair : state.surf.faces) {
-            glm::vec3 normal = normals[edgeIDIndices[pair.second.edge]];
-            if (state.selFaces.count(pair.first)) {
-                g_tess->tesselate(selFaceIndices, errorIndices,
-                    state.surf, pair.second, normal, edgeIDIndices);
-            } else if (g_hover.type && pair.first == g_hoverFace
-                    && (g_hover.type == PICK_FACE || (TOOL_FLAGS[g_tool] & TOOLF_HOVFACE))) {
-                g_tess->tesselate(hoverFaceIndices, errorIndices,
-                    state.surf, pair.second, normal, edgeIDIndices);
-            } else {
-                g_tess->tesselate(normalFaceIndices, errorIndices,
-                    state.surf, pair.second, normal, edgeIDIndices);
-            }
-        }
-
         glEnableClientState(GL_NORMAL_ARRAY);
 
         glColorHex(g_flashSel ? COLOR_FACE_FLASH : COLOR_FACE_SEL);
-        drawElementVector(GL_TRIANGLES, selFaceIndices);
+        drawElementVector(GL_TRIANGLES, mesh.selFaceIs);
         glColorHex(COLOR_FACE_HOVER);
-        drawElementVector(GL_TRIANGLES, hoverFaceIndices);
+        drawElementVector(GL_TRIANGLES, mesh.hovFaceIs);
         glColorHex(COLOR_FACE_ERROR);
-        drawElementVector(GL_TRIANGLES, errorIndices);
+        drawElementVector(GL_TRIANGLES, mesh.errFaceIs);
 
         glColorHex(COLOR_FACE);
         if (view.mode != VIEW_ORTHO)
             glEnable(GL_LIGHTING);
-        drawElementVector(GL_TRIANGLES, normalFaceIndices);
+        drawElementVector(GL_TRIANGLES, mesh.regFaceIs);
         if (view.mode != VIEW_ORTHO)
             glDisable(GL_LIGHTING);
 
@@ -1015,20 +838,19 @@ void ViewportWindow::drawState(const EditorState &state) {
         // snap origin to grid
         p.org -= uVec * glm::fract(p.org[u] / state.gridSize)
                + vVec * glm::fract(p.org[v] / state.gridSize);
-        std::vector<glm::vec3> gridPoints;
-        gridPoints.reserve(257 * 4);
-        for (int i = -128; i <= 128; i++) {
-            gridPoints.push_back(p.org - vVec * 128.0f + uVec * (float)i);
-            gridPoints.push_back(p.org + vVec * 128.0f + uVec * (float)i);
-            gridPoints.push_back(p.org - uVec * 128.0f + vVec * (float)i);
-            gridPoints.push_back(p.org + uVec * 128.0f + vVec * (float)i);
+        glm::vec3 gridPoints[(GRID_SIZE * 2 + 1) * 4];
+        for (int i = -GRID_SIZE, j = 0; i <= GRID_SIZE; i++) {
+            gridPoints[j++] = p.org - vVec * (float)GRID_SIZE + uVec * (float)i;
+            gridPoints[j++] = p.org + vVec * (float)GRID_SIZE + uVec * (float)i;
+            gridPoints[j++] = p.org - uVec * (float)GRID_SIZE + vVec * (float)i;
+            gridPoints[j++] = p.org + uVec * (float)GRID_SIZE + vVec * (float)i;
         }
-        glVertexPointer(3, GL_FLOAT, 0, gridPoints.data());
+        glVertexPointer(3, GL_FLOAT, 0, gridPoints);
         glEnable(GL_BLEND);
         glEnable(GL_LINE_SMOOTH);
         glLineWidth(WIDTH_GRID);
         glColorHex(COLOR_GRID);
-        glDrawArrays(GL_LINES, 0, (GLsizei)gridPoints.size());
+        glDrawArrays(GL_LINES, 0, (GLsizei)_countof(gridPoints));
         glDisable(GL_BLEND);
         glDisable(GL_LINE_SMOOTH);
         if (!workPlaneActive)
