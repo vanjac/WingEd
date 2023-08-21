@@ -12,7 +12,7 @@
 
 namespace winged {
 
-void initViewport();
+bool initViewport();
 
 enum MouseMode {
     MOUSE_NONE = 0, MOUSE_TOOL, MOUSE_CAM_ROTATE, MOUSE_CAM_PAN

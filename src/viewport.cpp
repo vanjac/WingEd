@@ -1,6 +1,6 @@
 #include "viewport.h"
 #include <queue>
-#include <gl/GL.h>
+#include <glad.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <immer/set_transient.hpp>
@@ -49,14 +49,64 @@ const int GRID_SIZE = 128;
 const HCURSOR knifeCur = LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_KNIFE));
 const HCURSOR drawCur = LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_DRAW));
 
+static PIXELFORMATDESCRIPTOR g_formatDesc;
+static HMODULE g_libGL;
 
-void initViewport() {
+static void * loadGLProc(const char *name) {
+    void *p = (void *)wglGetProcAddress(name);
+    if ((size_t)p <= (size_t)3 || (size_t)p == (size_t)-1) {
+        p = CHECKERR(GetProcAddress(g_libGL, name));
+    }
+    return p;
+}
+
+bool initViewport() {
     WNDCLASSEX viewClass = makeClass(VIEWPORT_CLASS, windowImplProc);
     viewClass.style = CS_HREDRAW | CS_VREDRAW;
     viewClass.hCursor = NULL;
     RegisterClassEx(&viewClass);
 
+    // https://www.khronos.org/opengl/wiki/Creating_an_OpenGL_Context_(WGL)
+    // https://www.khronos.org/opengl/wiki/Load_OpenGL_Functions
+
+    g_formatDesc.nSize = sizeof(g_formatDesc);
+    g_formatDesc.nVersion = 1;
+    g_formatDesc.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
+    g_formatDesc.iPixelType = PFD_TYPE_RGBA;
+    g_formatDesc.cColorBits = 24;
+    g_formatDesc.cDepthBits = 32;
+    g_formatDesc.iLayerType = PFD_MAIN_PLANE;
+
+    HWND tempWnd = createWindow(SCRATCH_CLASS.lpszClassName);
+    HDC dc = GetDC(tempWnd);
+    int pixelFormat = ChoosePixelFormat(dc, &g_formatDesc);
+    SetPixelFormat(dc, pixelFormat, &g_formatDesc);
+    HGLRC dummyCtx = CHECKERR(wglCreateContext(dc));
+    if (!dummyCtx) {
+        MessageBox(nullptr, L"Couldn't create OpenGL context", APP_NAME, MB_ICONERROR);
+        return false;
+    }
+    CHECKERR(wglMakeCurrent(dc, dummyCtx));
+    g_libGL = CHECKERR(LoadLibrary(L"opengl32.dll"));
+    if (!g_libGL) {
+        MessageBox(nullptr, L"Couldn't find opengl32.dll", APP_NAME, MB_ICONERROR);
+        return false;
+    }
+    if (!CHECKERR(gladLoadGLLoader(loadGLProc))) {
+        MessageBox(nullptr, L"Failed to load OpenGL", APP_NAME, MB_ICONERROR);
+        return false;
+    }
+    if (GLVersion.major < 2) {
+        MessageBox(nullptr, L"OpenGL 2.0 not available", APP_NAME, MB_ICONERROR);
+        return false;
+    }
+    CHECKERR(wglMakeCurrent(dc, NULL));
+    CHECKERR(wglDeleteContext(dummyCtx));
+    ReleaseDC(tempWnd, dc);
+    DestroyWindow(tempWnd);
+
     initRenderMesh();
+    return true;
 }
 
 static edge_pair edgeOnHoverFace(const Surface &surf, vert_id v) {
@@ -443,19 +493,11 @@ void ViewportWindow::toolAdjust(POINT pos, SIZE delta, UINT keyFlags) {
 }
 
 BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
-    PIXELFORMATDESCRIPTOR formatDesc = {sizeof(formatDesc)};
-    formatDesc.nVersion = 1;
-    formatDesc.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
-    formatDesc.iPixelType = PFD_TYPE_RGBA;
-    formatDesc.cColorBits = 24;
-    formatDesc.cDepthBits = 32;
-    formatDesc.iLayerType = PFD_MAIN_PLANE;
-
     HDC dc = GetDC(wnd);
-    int pixelFormat = ChoosePixelFormat(dc, &formatDesc);
-    SetPixelFormat(dc, pixelFormat, &formatDesc);
-    context = wglCreateContext(dc);
-    if (!CHECKERR(context)) return false;
+    int pixelFormat = ChoosePixelFormat(dc, &g_formatDesc);
+    SetPixelFormat(dc, pixelFormat, &g_formatDesc);
+    context = CHECKERR(wglCreateContext(dc));
+    if (!context) return false;
     CHECKERR(wglMakeCurrent(dc, context));
 
     glClearColor(
