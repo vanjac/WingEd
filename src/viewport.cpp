@@ -6,7 +6,6 @@
 #include <immer/set_transient.hpp>
 #include "main.h"
 #include "ops.h"
-#include "rendermesh.h"
 
 using namespace chroma;
 
@@ -715,6 +714,14 @@ void ViewportWindow::onSize(HWND, UINT, int cx, int cy) {
     }
 }
 
+static void glColorHex(uint32_t color) {
+    glColor4ub((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF, (color >> 24) & 0xFF);
+}
+
+static void drawElementVector(GLenum mode, const std::vector<GLushort> &v) {
+    glDrawElements(mode, (GLsizei)v.size(), GL_UNSIGNED_SHORT, v.data());
+}
+
 void ViewportWindow::onPaint(HWND) {
     PAINTSTRUCT ps;
     BeginPaint(wnd, &ps);
@@ -732,21 +739,7 @@ void ViewportWindow::onPaint(HWND) {
     mvMat = glm::translate(mvMat, view.camPivot);
     glLoadMatrixf(glm::value_ptr(mvMat));
 
-    drawState(g_state);
-
-    SwapBuffers(ps.hdc);
-    EndPaint(wnd, &ps);
-}
-
-static void glColorHex(uint32_t color) {
-    glColor4ub((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF, (color >> 24) & 0xFF);
-}
-
-static void drawElementVector(GLenum mode, const std::vector<GLushort> &v) {
-    glDrawElements(mode, (GLsizei)v.size(), GL_UNSIGNED_SHORT, v.data());
-}
-
-void ViewportWindow::drawState(const EditorState &state) {
+    // axes
     const glm::vec3 axisPoints[] = {{0, 0, 0}, {8, 0, 0}, {0, 8, 0}, {0, 0, 8}};
     const GLubyte xAxisI[] = {0, 1}, yAxisI[] = {0, 2}, zAxisI[] = {0, 3};
     glVertexPointer(3, GL_FLOAT, 0, axisPoints);
@@ -758,9 +751,55 @@ void ViewportWindow::drawState(const EditorState &state) {
     glColorHex(COLOR_Z_AXIS);
     glDrawElements(GL_LINES, 2, GL_UNSIGNED_BYTE, zAxisI);
 
-    static RenderMesh mesh;
-    generateRenderMesh(&mesh, state);
+    if (g_renderMeshDirty) {
+        generateRenderMesh(&g_renderMesh, g_state);
+        g_renderMeshDirty = false;
+    }
+    drawMesh(g_renderMesh);
 
+    // work plane grid
+    bool workPlaneActive = ((TOOL_FLAGS[g_tool] & TOOLF_DRAW)
+        && ((g_state.gridOn && g_hover.type) || !(TOOL_FLAGS[g_tool] & TOOLF_HOVFACE)))
+        || (g_tool == TOOL_SELECT && mouseMode == MOUSE_TOOL);
+    if (workPlaneActive || (view.mode == VIEW_ORTHO && g_state.gridOn)) {
+        auto p = g_state.workPlane;
+        if (!workPlaneActive) {
+            p.norm = forwardAxis();
+            glDisable(GL_DEPTH_TEST);
+        }
+        int axis = maxAxis(glm::abs(p.norm));
+        int u = (axis + 1) % 3, v = (axis + 2) % 3;
+        glm::vec3 uVec = {}, vVec = {};
+        uVec[u] = g_state.gridSize; vVec[v] = g_state.gridSize;
+        uVec[axis] = solvePlane(uVec, p.norm, axis);
+        vVec[axis] = solvePlane(vVec, p.norm, axis);
+        // snap origin to grid
+        p.org -= uVec * glm::fract(p.org[u] / g_state.gridSize)
+               + vVec * glm::fract(p.org[v] / g_state.gridSize);
+        glm::vec3 gridPoints[(GRID_SIZE * 2 + 1) * 4];
+        for (int i = -GRID_SIZE, j = 0; i <= GRID_SIZE; i++) {
+            gridPoints[j++] = p.org - vVec * (float)GRID_SIZE + uVec * (float)i;
+            gridPoints[j++] = p.org + vVec * (float)GRID_SIZE + uVec * (float)i;
+            gridPoints[j++] = p.org - uVec * (float)GRID_SIZE + vVec * (float)i;
+            gridPoints[j++] = p.org + uVec * (float)GRID_SIZE + vVec * (float)i;
+        }
+        glVertexPointer(3, GL_FLOAT, 0, gridPoints);
+        glEnable(GL_BLEND);
+        glEnable(GL_LINE_SMOOTH);
+        glLineWidth(WIDTH_GRID);
+        glColorHex(COLOR_GRID);
+        glDrawArrays(GL_LINES, 0, (GLsizei)_countof(gridPoints));
+        glDisable(GL_BLEND);
+        glDisable(GL_LINE_SMOOTH);
+        if (!workPlaneActive)
+            glEnable(GL_DEPTH_TEST);
+    }
+
+    SwapBuffers(ps.hdc);
+    EndPaint(wnd, &ps);
+}
+
+void ViewportWindow::drawMesh(const RenderMesh &mesh) {
     glVertexPointer(3, GL_FLOAT, 0, mesh.vertices.data());
     glNormalPointer(GL_FLOAT, 0, mesh.normals.data());
 
@@ -818,43 +857,6 @@ void ViewportWindow::drawState(const EditorState &state) {
             glDisable(GL_LIGHTING);
 
         glDisableClientState(GL_NORMAL_ARRAY);
-    }
-
-    bool workPlaneActive = ((TOOL_FLAGS[g_tool] & TOOLF_DRAW)
-        && ((state.gridOn && g_hover.type) || !(TOOL_FLAGS[g_tool] & TOOLF_HOVFACE)))
-        || (g_tool == TOOL_SELECT && mouseMode == MOUSE_TOOL);
-    if (workPlaneActive || (view.mode == VIEW_ORTHO && state.gridOn)) {
-        auto p = state.workPlane;
-        if (!workPlaneActive) {
-            p.norm = forwardAxis();
-            glDisable(GL_DEPTH_TEST);
-        }
-        int axis = maxAxis(glm::abs(p.norm));
-        int u = (axis + 1) % 3, v = (axis + 2) % 3;
-        glm::vec3 uVec = {}, vVec = {};
-        uVec[u] = state.gridSize; vVec[v] = state.gridSize;
-        uVec[axis] = solvePlane(uVec, p.norm, axis);
-        vVec[axis] = solvePlane(vVec, p.norm, axis);
-        // snap origin to grid
-        p.org -= uVec * glm::fract(p.org[u] / state.gridSize)
-               + vVec * glm::fract(p.org[v] / state.gridSize);
-        glm::vec3 gridPoints[(GRID_SIZE * 2 + 1) * 4];
-        for (int i = -GRID_SIZE, j = 0; i <= GRID_SIZE; i++) {
-            gridPoints[j++] = p.org - vVec * (float)GRID_SIZE + uVec * (float)i;
-            gridPoints[j++] = p.org + vVec * (float)GRID_SIZE + uVec * (float)i;
-            gridPoints[j++] = p.org - uVec * (float)GRID_SIZE + vVec * (float)i;
-            gridPoints[j++] = p.org + uVec * (float)GRID_SIZE + vVec * (float)i;
-        }
-        glVertexPointer(3, GL_FLOAT, 0, gridPoints);
-        glEnable(GL_BLEND);
-        glEnable(GL_LINE_SMOOTH);
-        glLineWidth(WIDTH_GRID);
-        glColorHex(COLOR_GRID);
-        glDrawArrays(GL_LINES, 0, (GLsizei)_countof(gridPoints));
-        glDisable(GL_BLEND);
-        glDisable(GL_LINE_SMOOTH);
-        if (!workPlaneActive)
-            glEnable(GL_DEPTH_TEST);
     }
 }
 

@@ -23,7 +23,6 @@ public:
     void tesselate(std::vector<index_t> &faceIsOut, std::vector<index_t> &errorIsOut,
             const Surface &surf, const Face &face, glm::vec3 normal,
             const std::unordered_map<edge_id, index_t> &edgeIDIndices) {
-        // TODO cache faces
         // https://www.glprogramming.com/red/chapter11.html
         size_t initialSize = faceIsOut.size();
         indices = &faceIsOut;

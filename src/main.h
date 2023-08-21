@@ -10,6 +10,7 @@
 #include "winchroma.h"
 #include "editor.h"
 #include "viewport.h"
+#include "rendermesh.h"
 #include "resource.h"
 
 namespace winged {
@@ -89,6 +90,8 @@ extern face_id g_hoverFace;
 extern Tool g_tool;
 extern std::vector<glm::vec3> g_drawVerts;
 
+extern RenderMesh g_renderMesh;
+extern bool g_renderMeshDirty;
 extern bool g_flashSel;
 
 size_t numDrawPoints();

@@ -29,6 +29,8 @@ PickResult g_hover;
 face_id g_hoverFace = {};
 Tool g_tool = TOOL_SELECT;
 std::vector<glm::vec3> g_drawVerts;
+RenderMesh g_renderMesh;
+bool g_renderMeshDirty = true;
 bool g_flashSel = false;
 
 
@@ -265,12 +267,14 @@ void MainWindow::updateStatus() {
 }
 
 void MainWindow::refreshAll() {
+    g_renderMeshDirty = true;
     mainViewport.refresh();
     for (auto viewport : extraViewports)
         viewport->refresh();
 }
 
 void MainWindow::refreshAllImmediate() {
+    g_renderMeshDirty = true;
     mainViewport.refreshImmediate();
     for (auto viewport : extraViewports)
         viewport->refreshImmediate();

@@ -3,8 +3,10 @@
 
 #pragma once
 #include "common.h"
+
 #include "winchroma.h"
 #include "editor.h"
+#include "rendermesh.h"
 #include <glm/vec2.hpp>
 #include <glm/mat4x4.hpp>
 
@@ -45,7 +47,7 @@ private:
     void updateHover(POINT pos);
     void startToolAdjust(POINT pos);
     void toolAdjust(POINT pos, SIZE delta, UINT keyFlags);
-    void drawState(const EditorState &state);
+    void drawMesh(const RenderMesh &mesh);
 
     BOOL onCreate(HWND, LPCREATESTRUCT);
     void onDestroy(HWND);
