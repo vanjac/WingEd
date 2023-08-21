@@ -326,6 +326,10 @@ static EditorState join(EditorState state) {
     return state;
 }
 
+void ViewportWindow::invalidateRenderMesh() {
+    renderMeshDirtyLocal = true;
+}
+
 void ViewportWindow::refresh() {
     InvalidateRect(wnd, NULL, false);
 }
@@ -546,6 +550,21 @@ static ShaderProgram programFromShaders(GLuint vert, GLuint frag) {
     return prog;
 }
 
+static void initSizedBuffer(SizedBuffer *buf, GLenum target, size_t initialSize, GLenum usage) {
+    buf->size = initialSize;
+    glBufferData(target, initialSize, NULL, usage);
+}
+
+static void writeSizedBuffer(SizedBuffer *buf, GLenum target, size_t dataSize, void *data,
+        GLenum usage) {
+    if (dataSize > buf->size) {
+        while (dataSize > buf->size)
+            buf->size *= 2;
+        glBufferData(target, buf->size, NULL, usage);
+    }
+    glBufferSubData(target, 0, dataSize, data);
+}
+
 BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
     HDC dc = GetDC(wnd);
     int pixelFormat = ChoosePixelFormat(dc, &g_formatDesc);
@@ -582,6 +601,36 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     glEnableVertexAttribArray(ATTR_VERTEX);
+
+    // static buffers
+    glGenBuffers(1, &axisPoints);
+    glGenBuffers(1, &axisIndices);
+    glBindBuffer(GL_ARRAY_BUFFER, axisPoints);
+    const glm::vec3 axisPointsData[] = {{0, 0, 0}, {8, 0, 0}, {0, 8, 0}, {0, 0, 8}};
+    glBufferData(GL_ARRAY_BUFFER, sizeof(axisPointsData), axisPointsData, GL_STATIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, axisIndices);
+    const GLubyte axisIndicesData[] = {0, 1, 0, 2, 0, 3};
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(axisIndicesData), axisIndicesData, GL_STATIC_DRAW);
+
+    // dynamic buffers
+    glGenBuffers(1, &verticesBuffer.id);
+    glGenBuffers(1, &normalsBuffer.id);
+    glBindBuffer(GL_ARRAY_BUFFER, verticesBuffer.id);
+    initSizedBuffer(&verticesBuffer, GL_ARRAY_BUFFER, 16 * sizeof(glm::vec3), GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, normalsBuffer.id);
+    initSizedBuffer(&normalsBuffer, GL_ARRAY_BUFFER, 16 * sizeof(glm::vec3), GL_DYNAMIC_DRAW);
+
+    GLuint buffers[ELEM_COUNT];
+    glGenBuffers(ELEM_COUNT, buffers);
+    for (GLuint i = 0; i < ELEM_COUNT; i++) {
+        indexBuffers[i].id = buffers[i];
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffers[i]);
+        initSizedBuffer(&indexBuffers[i], GL_ELEMENT_ARRAY_BUFFER, 32 * sizeof(GLushort),
+            GL_DYNAMIC_DRAW);
+    }
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
     GLuint vertUnlit = shaderFromResource(GL_VERTEX_SHADER, IDR_VERT_UNLIT);
     GLuint vertFace = shaderFromResource(GL_VERTEX_SHADER, IDR_VERT_FACE);
@@ -839,10 +888,6 @@ static void setColorHex(uint32_t color) {
         ((color >> 24) & 0xFF) / 255.0f);
 }
 
-static void drawElementVector(GLenum mode, const std::vector<GLushort> &v) {
-    glDrawElements(mode, (GLsizei)v.size(), GL_UNSIGNED_SHORT, v.data());
-}
-
 void ViewportWindow::onPaint(HWND) {
     PAINTSTRUCT ps;
     BeginPaint(wnd, &ps);
@@ -871,20 +916,23 @@ void ViewportWindow::onPaint(HWND) {
     glUseProgram(programs[PROG_UNLIT].id);
 
     // axes
-    const glm::vec3 axisPoints[] = {{0, 0, 0}, {8, 0, 0}, {0, 8, 0}, {0, 0, 8}};
-    const GLubyte xAxisI[] = {0, 1}, yAxisI[] = {0, 2}, zAxisI[] = {0, 3};
-    glVertexAttribPointer(ATTR_VERTEX, 3, GL_FLOAT, GL_FALSE, 0, axisPoints);
+    glBindBuffer(GL_ARRAY_BUFFER, axisPoints);
+    glVertexAttribPointer(ATTR_VERTEX, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
     glLineWidth(WIDTH_AXIS);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, axisIndices);
     setColorHex(COLOR_X_AXIS);
-    glDrawElements(GL_LINES, 2, GL_UNSIGNED_BYTE, xAxisI);
+    glDrawElements(GL_LINES, 2, GL_UNSIGNED_BYTE, (void *)0);
     setColorHex(COLOR_Y_AXIS);
-    glDrawElements(GL_LINES, 2, GL_UNSIGNED_BYTE, yAxisI);
+    glDrawElements(GL_LINES, 2, GL_UNSIGNED_BYTE, (void *)2);
     setColorHex(COLOR_Z_AXIS);
-    glDrawElements(GL_LINES, 2, GL_UNSIGNED_BYTE, zAxisI);
+    glDrawElements(GL_LINES, 2, GL_UNSIGNED_BYTE, (void *)4);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
     if (g_renderMeshDirty) {
-        generateRenderMesh(&g_renderMesh, g_state);
         g_renderMeshDirty = false;
+        generateRenderMesh(&g_renderMesh, g_state);
     }
     drawMesh(g_renderMesh);
 
@@ -914,6 +962,7 @@ void ViewportWindow::onPaint(HWND) {
             gridPoints[j++] = p.org - uVec * (float)GRID_SIZE + vVec * (float)i;
             gridPoints[j++] = p.org + uVec * (float)GRID_SIZE + vVec * (float)i;
         }
+        // TODO: use buffer
         glVertexAttribPointer(ATTR_VERTEX, 3, GL_FLOAT, GL_FALSE, 0, gridPoints);
         glEnable(GL_BLEND);
         glEnable(GL_LINE_SMOOTH);
@@ -931,64 +980,89 @@ void ViewportWindow::onPaint(HWND) {
 }
 
 void ViewportWindow::drawMesh(const RenderMesh &mesh) {
-    glVertexAttribPointer(ATTR_VERTEX, 3, GL_FLOAT, GL_FALSE, 0, mesh.vertices.data());
-    glVertexAttribPointer(ATTR_NORMAL, 3, GL_FLOAT, GL_FALSE, 0, mesh.normals.data());
+    if (renderMeshDirtyLocal) {
+        renderMeshDirtyLocal = false;
+        glBindBuffer(GL_ARRAY_BUFFER, verticesBuffer.id);
+        writeSizedBuffer(&verticesBuffer, GL_ARRAY_BUFFER, mesh.vertices.size() * sizeof(glm::vec3),
+            (void *)mesh.vertices.data(), GL_DYNAMIC_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, normalsBuffer.id);
+        writeSizedBuffer(&normalsBuffer, GL_ARRAY_BUFFER, mesh.normals.size() * sizeof(glm::vec3),
+            (void *)mesh.normals.data(), GL_DYNAMIC_DRAW);
+        for (GLuint i = 0; i < ELEM_COUNT; i++) {
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffers[i].id);
+            writeSizedBuffer(&indexBuffers[i], GL_ELEMENT_ARRAY_BUFFER,
+                mesh.indices[i].size() * sizeof(GLushort), (void *)mesh.indices[i].data(),
+                GL_DYNAMIC_DRAW);
+        }
+    }
+
+    glBindBuffer(GL_ARRAY_BUFFER, verticesBuffer.id);
+    glVertexAttribPointer(ATTR_VERTEX, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, normalsBuffer.id);
+    glVertexAttribPointer(ATTR_NORMAL, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     if (view.showElem & PICK_EDGE) {
         glLineWidth(WIDTH_EDGE_SEL);
         setColorHex(g_flashSel ? COLOR_EDGE_FLASH : COLOR_EDGE_SEL);
-        drawElementVector(GL_LINES, mesh.indices[ELEM_SEL_EDGE]);
+        drawMeshElements(mesh, ELEM_SEL_EDGE, GL_LINES);
 
         glLineWidth(WIDTH_EDGE_HOVER);
         setColorHex(COLOR_EDGE_HOVER);
-        drawElementVector(GL_LINES, mesh.indices[ELEM_HOV_EDGE]);
+        drawMeshElements(mesh, ELEM_HOV_EDGE, GL_LINES);
     }
 
     if (view.showElem & PICK_VERT) {
         glPointSize(SIZE_VERT);
         setColorHex(COLOR_VERT);
-        drawElementVector(GL_POINTS, mesh.indices[ELEM_REG_VERT]);
+        drawMeshElements(mesh, ELEM_REG_VERT, GL_POINTS);
 
         setColorHex(g_flashSel ? COLOR_VERT_FLASH : COLOR_VERT_SEL);
-        drawElementVector(GL_POINTS, mesh.indices[ELEM_SEL_VERT]);
+        drawMeshElements(mesh, ELEM_SEL_VERT, GL_POINTS);
 
         setColorHex(COLOR_DRAW_POINT);
-        drawElementVector(GL_POINTS, mesh.indices[ELEM_DRAW_POINT]);
+        drawMeshElements(mesh, ELEM_DRAW_POINT, GL_POINTS);
 
         glPointSize(SIZE_VERT_HOVER);
         setColorHex(COLOR_VERT_HOVER);
-        drawElementVector(GL_POINTS, mesh.indices[ELEM_HOV_VERT]);
+        drawMeshElements(mesh, ELEM_HOV_VERT, GL_POINTS);
 
         glLineWidth(WIDTH_DRAW);
         setColorHex(COLOR_DRAW_LINE);
-        drawElementVector(GL_LINE_STRIP, mesh.indices[ELEM_DRAW_LINE]);
+        drawMeshElements(mesh, ELEM_DRAW_LINE, GL_LINE_STRIP);
     }
 
     if (view.showElem & PICK_EDGE) {
         glLineWidth(WIDTH_EDGE);
         setColorHex(COLOR_EDGE);
-        drawElementVector(GL_LINES, mesh.indices[ELEM_REG_EDGE]);
+        drawMeshElements(mesh, ELEM_REG_EDGE, GL_LINES);
     }
 
     if (view.showElem & PICK_FACE) {
         glEnableVertexAttribArray(ATTR_NORMAL);
 
         setColorHex(g_flashSel ? COLOR_FACE_FLASH : COLOR_FACE_SEL);
-        drawElementVector(GL_TRIANGLES, mesh.indices[ELEM_SEL_FACE]);
+        drawMeshElements(mesh, ELEM_SEL_FACE, GL_TRIANGLES);
         setColorHex(COLOR_FACE_HOVER);
-        drawElementVector(GL_TRIANGLES, mesh.indices[ELEM_HOV_FACE]);
+        drawMeshElements(mesh, ELEM_HOV_FACE, GL_TRIANGLES);
         setColorHex(COLOR_FACE_ERROR);
-        drawElementVector(GL_TRIANGLES, mesh.indices[ELEM_ERR_FACE]);
+        drawMeshElements(mesh, ELEM_ERR_FACE, GL_TRIANGLES);
 
         if (view.mode != VIEW_ORTHO)
             glUseProgram(programs[PROG_FACE].id);
         setColorHex(COLOR_FACE);
-        drawElementVector(GL_TRIANGLES, mesh.indices[ELEM_REG_FACE]);
+        drawMeshElements(mesh, ELEM_REG_FACE, GL_TRIANGLES);
         if (view.mode != VIEW_ORTHO)
             glUseProgram(programs[PROG_UNLIT].id);
 
         glDisableVertexAttribArray(ATTR_NORMAL);
     }
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+}
+
+void ViewportWindow::drawMeshElements(const RenderMesh &mesh, RenderElement elem, GLenum mode) {
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffers[elem].id);
+    glDrawElements(mode, (GLsizei)mesh.indices[elem].size(), GL_UNSIGNED_SHORT, 0);
 }
 
 LRESULT ViewportWindow::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {

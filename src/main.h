@@ -47,6 +47,7 @@ public:
     void pushUndo();
     void pushUndo(EditorState newState);
     void updateStatus();
+    void invalidateRenderMesh();
     void refreshAll();
     void refreshAllImmediate();
     void flashSel();

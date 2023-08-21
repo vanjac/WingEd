@@ -269,16 +269,22 @@ void MainWindow::updateStatus() {
 
 void MainWindow::refreshAll() {
     g_renderMeshDirty = true;
+    mainViewport.invalidateRenderMesh();
     mainViewport.refresh();
-    for (auto viewport : extraViewports)
+    for (auto viewport : extraViewports) {
+        viewport->invalidateRenderMesh();
         viewport->refresh();
+    }
 }
 
 void MainWindow::refreshAllImmediate() {
     g_renderMeshDirty = true;
+    mainViewport.invalidateRenderMesh();
     mainViewport.refreshImmediate();
-    for (auto viewport : extraViewports)
+    for (auto viewport : extraViewports) {
+        viewport->invalidateRenderMesh();
         viewport->refreshImmediate();
+    }
 }
 
 void MainWindow::flashSel() {

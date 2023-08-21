@@ -19,6 +19,7 @@ enum MouseMode {
 };
 
 // OpenGL
+using buffer_t = unsigned int;
 enum ProgramIndex {
     PROG_UNLIT, PROG_FACE,
     PROG_COUNT
@@ -31,6 +32,10 @@ struct ShaderProgram {
     unsigned int id;
     int uniforms[UNIF_COUNT];
 };
+struct SizedBuffer {
+    buffer_t id;
+    size_t size;
+};
 
 const TCHAR VIEWPORT_CLASS[] = _T("WingEd Viewport");
 class ViewportWindow : public chroma::WindowImpl {
@@ -41,6 +46,7 @@ public:
     MouseMode mouseMode = MOUSE_NONE;
     glm::vec3 moved;
 
+    void invalidateRenderMesh();
     void refresh();
     void refreshImmediate();
     glm::vec3 forwardAxis();
@@ -55,7 +61,11 @@ private:
     glm::vec3 startPlanePos;
     float snapAccum;
 
+    bool renderMeshDirtyLocal = true;
     ShaderProgram programs[PROG_COUNT];
+    buffer_t axisPoints, axisIndices;
+    SizedBuffer verticesBuffer, normalsBuffer;
+    SizedBuffer indexBuffers[ELEM_COUNT];
 
     void lockMouse(POINT clientPos, MouseMode mode);
     void setViewMode(ViewMode mode);
@@ -64,6 +74,7 @@ private:
     void startToolAdjust(POINT pos);
     void toolAdjust(POINT pos, SIZE delta, UINT keyFlags);
     void drawMesh(const RenderMesh &mesh);
+    void drawMeshElements(const RenderMesh &mesh, RenderElement elem, unsigned int mode);
 
     BOOL onCreate(HWND, LPCREATESTRUCT);
     void onDestroy(HWND);
