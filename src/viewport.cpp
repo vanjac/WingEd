@@ -48,10 +48,19 @@ const float CAM_MOVE_SCALE = 600;
 const float NEAR_CLIP = 0.5f, FAR_CLIP = 500.0f;
 const int GRID_SIZE = 128;
 
+enum VertexAttribute {
+    ATTR_VERTEX, ATTR_NORMAL, ATTR_COLOR,
+    ATTR_COUNT
+};
+const GLchar * const ATTRIBUTE_NAMES[] = {
+    "aVertex", // ATTR_VERTEX
+    "aNormal", // ATTR_NORMAL
+    "aColor", // ATTR_COLOR
+};
 const GLchar * const UNIFORM_NAMES[] = {
-    "uModelViewMatrix", // UNF_MODELVIEW_MATRIX
-    "uProjectionMatrix", // UNF_PROJECTION_MATRIX
-    "uNormalMatrix", // UNF_NORMAL_MATRIX
+    "uModelViewMatrix", // UNIF_MODELVIEW_MATRIX
+    "uProjectionMatrix", // UNIF_PROJECTION_MATRIX
+    "uNormalMatrix", // UNIF_NORMAL_MATRIX
 };
 
 const HCURSOR knifeCur = LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_KNIFE));
@@ -355,7 +364,7 @@ void ViewportWindow::updateProjMat() {
 
     for (int i = 0; i < PROG_COUNT; i++) {
         glUseProgram(programs[i].id);
-        glUniformMatrix4fv(programs[i].uniforms[UNF_PROJECTION_MATRIX], 1, FALSE,
+        glUniformMatrix4fv(programs[i].uniforms[UNIF_PROJECTION_MATRIX], 1, FALSE,
             glm::value_ptr(projMat));
     }
     ReleaseDC(wnd, dc);
@@ -523,12 +532,15 @@ static GLuint shaderFromResource(GLenum type, WORD id) {
 static ShaderProgram programFromShaders(GLuint vert, GLuint frag) {
     ShaderProgram prog;
     prog.id = glCreateProgram();
+    for (GLuint i = 0; i < ATTR_COUNT; i++) {
+        glBindAttribLocation(prog.id, i, ATTRIBUTE_NAMES[i]);
+    }
     glAttachShader(prog.id, vert);
     glAttachShader(prog.id, frag);
     glLinkProgram(prog.id);
     glDetachShader(prog.id, vert);
     glDetachShader(prog.id, frag);
-    for (GLint i = 0; i < UNF_COUNT; i++) {
+    for (GLint i = 0; i < UNIF_COUNT; i++) {
         prog.uniforms[i] = glGetUniformLocation(prog.id, UNIFORM_NAMES[i]);
     }
     return prog;
@@ -569,7 +581,7 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
     glPolygonOffset(2.0, 1.0);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableVertexAttribArray(ATTR_VERTEX);
 
     GLuint vertUnlit = shaderFromResource(GL_VERTEX_SHADER, IDR_VERT_UNLIT);
     GLuint vertFace = shaderFromResource(GL_VERTEX_SHADER, IDR_VERT_FACE);
@@ -819,8 +831,12 @@ void ViewportWindow::onSize(HWND, UINT, int cx, int cy) {
     }
 }
 
-static void glColorHex(uint32_t color) {
-    glColor4ub((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF, (color >> 24) & 0xFF);
+static void setColorHex(uint32_t color) {
+    glVertexAttrib4f(ATTR_COLOR,
+        ((color >> 16) & 0xFF) / 255.0f,
+        ((color >> 8) & 0xFF) / 255.0f,
+        (color & 0xFF) / 255.0f,
+        ((color >> 24) & 0xFF) / 255.0f);
 }
 
 static void drawElementVector(GLenum mode, const std::vector<GLushort> &v) {
@@ -846,9 +862,9 @@ void ViewportWindow::onPaint(HWND) {
 
     for (int i = 0; i < PROG_COUNT; i++) {
         glUseProgram(programs[i].id);
-        glUniformMatrix4fv(programs[i].uniforms[UNF_MODELVIEW_MATRIX], 1, FALSE,
+        glUniformMatrix4fv(programs[i].uniforms[UNIF_MODELVIEW_MATRIX], 1, FALSE,
             glm::value_ptr(mvMat));
-        glUniformMatrix3fv(programs[i].uniforms[UNF_NORMAL_MATRIX], 1, FALSE,
+        glUniformMatrix3fv(programs[i].uniforms[UNIF_NORMAL_MATRIX], 1, FALSE,
             glm::value_ptr(normalMat));
     }
 
@@ -857,13 +873,13 @@ void ViewportWindow::onPaint(HWND) {
     // axes
     const glm::vec3 axisPoints[] = {{0, 0, 0}, {8, 0, 0}, {0, 8, 0}, {0, 0, 8}};
     const GLubyte xAxisI[] = {0, 1}, yAxisI[] = {0, 2}, zAxisI[] = {0, 3};
-    glVertexPointer(3, GL_FLOAT, 0, axisPoints);
+    glVertexAttribPointer(ATTR_VERTEX, 3, GL_FLOAT, GL_FALSE, 0, axisPoints);
     glLineWidth(WIDTH_AXIS);
-    glColorHex(COLOR_X_AXIS);
+    setColorHex(COLOR_X_AXIS);
     glDrawElements(GL_LINES, 2, GL_UNSIGNED_BYTE, xAxisI);
-    glColorHex(COLOR_Y_AXIS);
+    setColorHex(COLOR_Y_AXIS);
     glDrawElements(GL_LINES, 2, GL_UNSIGNED_BYTE, yAxisI);
-    glColorHex(COLOR_Z_AXIS);
+    setColorHex(COLOR_Z_AXIS);
     glDrawElements(GL_LINES, 2, GL_UNSIGNED_BYTE, zAxisI);
 
     if (g_renderMeshDirty) {
@@ -898,11 +914,11 @@ void ViewportWindow::onPaint(HWND) {
             gridPoints[j++] = p.org - uVec * (float)GRID_SIZE + vVec * (float)i;
             gridPoints[j++] = p.org + uVec * (float)GRID_SIZE + vVec * (float)i;
         }
-        glVertexPointer(3, GL_FLOAT, 0, gridPoints);
+        glVertexAttribPointer(ATTR_VERTEX, 3, GL_FLOAT, GL_FALSE, 0, gridPoints);
         glEnable(GL_BLEND);
         glEnable(GL_LINE_SMOOTH);
         glLineWidth(WIDTH_GRID);
-        glColorHex(COLOR_GRID);
+        setColorHex(COLOR_GRID);
         glDrawArrays(GL_LINES, 0, (GLsizei)_countof(gridPoints));
         glDisable(GL_BLEND);
         glDisable(GL_LINE_SMOOTH);
@@ -915,63 +931,63 @@ void ViewportWindow::onPaint(HWND) {
 }
 
 void ViewportWindow::drawMesh(const RenderMesh &mesh) {
-    glVertexPointer(3, GL_FLOAT, 0, mesh.vertices.data());
-    glNormalPointer(GL_FLOAT, 0, mesh.normals.data());
+    glVertexAttribPointer(ATTR_VERTEX, 3, GL_FLOAT, GL_FALSE, 0, mesh.vertices.data());
+    glVertexAttribPointer(ATTR_NORMAL, 3, GL_FLOAT, GL_FALSE, 0, mesh.normals.data());
 
     if (view.showElem & PICK_EDGE) {
         glLineWidth(WIDTH_EDGE_SEL);
-        glColorHex(g_flashSel ? COLOR_EDGE_FLASH : COLOR_EDGE_SEL);
+        setColorHex(g_flashSel ? COLOR_EDGE_FLASH : COLOR_EDGE_SEL);
         drawElementVector(GL_LINES, mesh.selEdgeIs);
 
         glLineWidth(WIDTH_EDGE_HOVER);
-        glColorHex(COLOR_EDGE_HOVER);
+        setColorHex(COLOR_EDGE_HOVER);
         drawElementVector(GL_LINES, mesh.hovEdgeIs);
     }
 
     if (view.showElem & PICK_VERT) {
         glPointSize(SIZE_VERT);
-        glColorHex(COLOR_VERT);
+        setColorHex(COLOR_VERT);
         drawElementVector(GL_POINTS, mesh.regVertIs);
 
-        glColorHex(g_flashSel ? COLOR_VERT_FLASH : COLOR_VERT_SEL);
+        setColorHex(g_flashSel ? COLOR_VERT_FLASH : COLOR_VERT_SEL);
         drawElementVector(GL_POINTS, mesh.selVertIs);
 
-        glColorHex(COLOR_DRAW_POINT);
+        setColorHex(COLOR_DRAW_POINT);
         drawElementVector(GL_POINTS, mesh.drawPointIs);
 
         glPointSize(SIZE_VERT_HOVER);
-        glColorHex(COLOR_VERT_HOVER);
+        setColorHex(COLOR_VERT_HOVER);
         drawElementVector(GL_POINTS, mesh.hovVertIs);
 
         glLineWidth(WIDTH_DRAW);
-        glColorHex(COLOR_DRAW_LINE);
+        setColorHex(COLOR_DRAW_LINE);
         drawElementVector(GL_LINE_STRIP, mesh.drawLineIs);
     }
 
     if (view.showElem & PICK_EDGE) {
         glLineWidth(WIDTH_EDGE);
-        glColorHex(COLOR_EDGE);
+        setColorHex(COLOR_EDGE);
         drawElementVector(GL_LINES, mesh.regEdgeIs);
     }
 
     if (view.showElem & PICK_FACE) {
-        glEnableClientState(GL_NORMAL_ARRAY);
+        glEnableVertexAttribArray(ATTR_NORMAL);
 
-        glColorHex(g_flashSel ? COLOR_FACE_FLASH : COLOR_FACE_SEL);
+        setColorHex(g_flashSel ? COLOR_FACE_FLASH : COLOR_FACE_SEL);
         drawElementVector(GL_TRIANGLES, mesh.selFaceIs);
-        glColorHex(COLOR_FACE_HOVER);
+        setColorHex(COLOR_FACE_HOVER);
         drawElementVector(GL_TRIANGLES, mesh.hovFaceIs);
-        glColorHex(COLOR_FACE_ERROR);
+        setColorHex(COLOR_FACE_ERROR);
         drawElementVector(GL_TRIANGLES, mesh.errFaceIs);
 
-        glColorHex(COLOR_FACE);
         if (view.mode != VIEW_ORTHO)
             glUseProgram(programs[PROG_FACE].id);
+        setColorHex(COLOR_FACE);
         drawElementVector(GL_TRIANGLES, mesh.regFaceIs);
         if (view.mode != VIEW_ORTHO)
             glUseProgram(programs[PROG_UNLIT].id);
 
-        glDisableClientState(GL_NORMAL_ARRAY);
+        glDisableVertexAttribArray(ATTR_NORMAL);
     }
 }
 

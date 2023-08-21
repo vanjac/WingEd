@@ -24,12 +24,12 @@ enum ProgramIndex {
     PROG_COUNT
 };
 enum UniformLocation {
-    UNF_MODELVIEW_MATRIX, UNF_PROJECTION_MATRIX, UNF_NORMAL_MATRIX,
-    UNF_COUNT
+    UNIF_MODELVIEW_MATRIX, UNIF_PROJECTION_MATRIX, UNIF_NORMAL_MATRIX,
+    UNIF_COUNT
 };
 struct ShaderProgram {
     unsigned int id;
-    int uniforms[UNF_COUNT];
+    int uniforms[UNIF_COUNT];
 };
 
 const TCHAR VIEWPORT_CLASS[] = _T("WingEd Viewport");
