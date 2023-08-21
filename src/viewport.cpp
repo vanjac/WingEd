@@ -540,8 +540,8 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
 #ifdef CHROMA_DEBUG
     glDebugMessageCallback(debugGLCallback, NULL);
     // disable warnings for deprecated behavior (TODO: re-enable these eventually)
-    glDebugMessageControl(GL_DONT_CARE, GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR, GL_DONT_CARE, 0, nullptr,
-        GL_FALSE);
+    glDebugMessageControl(GL_DEBUG_SOURCE_API, GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR, GL_DONT_CARE,
+        0, nullptr, GL_FALSE);
     glEnable(GL_DEBUG_OUTPUT);
 #endif
 
