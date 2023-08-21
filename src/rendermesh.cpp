@@ -8,92 +8,88 @@
 
 namespace winged {
 
-class FaceTesselator {
-public:
-    FaceTesselator() {
-        tess = gluNewTess();
-        gluTessCallback(tess, GLU_TESS_BEGIN_DATA, (GLvoid (CALLBACK*) ())beginCallback);
-        gluTessCallback(tess, GLU_TESS_END, (GLvoid (CALLBACK*) ())endCallback);
-        gluTessCallback(tess, GLU_TESS_VERTEX_DATA, (GLvoid (CALLBACK*) ())vertexCallback);
-        gluTessCallback(tess, GLU_TESS_ERROR_DATA, (GLvoid (CALLBACK*) ())errorCallback);
-        // gluTessCallback(tess, GLU_TESS_COMBINE_DATA, (GLvoid (*) ())combineCallback);
-        // gluTessCallback(tess, GLU_TESS_EDGE_FLAG_DATA, (GLvoid (*) ())edgeFlagCallback);
-    }
-
-    void tesselate(std::vector<index_t> &faceIsOut, std::vector<index_t> &errorIsOut,
-            const Surface &surf, const Face &face, glm::vec3 normal,
-            const std::unordered_map<edge_id, index_t> &edgeIDIndices) {
-        // https://www.glprogramming.com/red/chapter11.html
-        size_t initialSize = faceIsOut.size();
-        indices = &faceIsOut;
-        error = 0;
-        gluTessNormal(tess, normal.x, normal.y, normal.z);
-        gluTessBeginPolygon(tess, this);
-        gluTessBeginContour(tess);
-        for (auto &ep : FaceEdges(surf, face)) {
-            index_t vertI = edgeIDIndices.at(ep.first);
-            glm::dvec3 dPos = ep.second.vert.in(surf).pos;
-            gluTessVertex(tess, glm::value_ptr(dPos), (void *)vertI);
-        }
-        gluTessEndContour(tess);
-        gluTessEndPolygon(tess);
-
-        if (error) {
-            faceIsOut.erase(faceIsOut.begin() + initialSize, faceIsOut.end());
-
-            size_t errorStart = errorIsOut.size();
-            for (auto &ep : FaceEdges(surf, face)) {
-                size_t numIndices = errorIsOut.size();
-                if (numIndices - errorStart >= 3) {
-                    errorIsOut.push_back(errorIsOut[errorStart]);
-                    errorIsOut.push_back(errorIsOut[numIndices - 1]);
-                }
-                errorIsOut.push_back(edgeIDIndices.at(ep.first));
-            }
-        }
-    }
-
-private:
-    GLUtesselator *tess;
-
+struct FaceTessState {
     std::vector<index_t> *indices;
     GLenum mode;
     size_t startI;
     GLenum error;
-
-    static void CALLBACK beginCallback(GLenum mode, void *data) {
-        auto self = (FaceTesselator *)data;
-        self->mode = mode;
-        self->startI = self->indices->size();
-    }
-    static void CALLBACK endCallback() {} // TODO: remove?
-    static void CALLBACK vertexCallback(void *vertex, void *data) {
-        auto self = (FaceTesselator *)data;
-        index_t index = (index_t)(size_t)vertex;
-        size_t numIndices = self->indices->size();
-        if (self->mode == GL_TRIANGLE_STRIP && numIndices - self->startI >= 3) {
-            if ((numIndices - self->startI) % 6 == 0) {
-                self->indices->push_back((*self->indices)[numIndices - 3]);
-                self->indices->push_back((*self->indices)[numIndices - 1]);
-            } else {
-                self->indices->push_back((*self->indices)[numIndices - 1]);
-                self->indices->push_back((*self->indices)[numIndices - 2]);
-            }
-        } else if (self->mode == GL_TRIANGLE_FAN && numIndices - self->startI >= 3) {
-            self->indices->push_back((*self->indices)[self->startI]);
-            self->indices->push_back((*self->indices)[numIndices - 1]);
-        }
-        self->indices->push_back(index);
-    }
-    static void CALLBACK errorCallback(GLenum error, void *data) {
-        ((FaceTesselator*)data)->error = error;
-    }
 };
 
-static std::unique_ptr<FaceTesselator> g_tess;
+static GLUtesselator *g_tess;
+
+static void CALLBACK tessBeginCallback(GLenum mode, void *data) {
+    auto state = (FaceTessState *)data;
+    state->mode = mode;
+    state->startI = state->indices->size();
+}
+
+static void CALLBACK tessEndCallback() {} // TODO: remove?
+
+static void CALLBACK tessVertexCallback(void *vertex, void *data) {
+    auto state = (FaceTessState *)data;
+    index_t index = (index_t)(size_t)vertex;
+    size_t numIndices = state->indices->size();
+    if (state->mode == GL_TRIANGLE_STRIP && numIndices - state->startI >= 3) {
+        if ((numIndices - state->startI) % 6 == 0) {
+            state->indices->push_back((*state->indices)[numIndices - 3]);
+            state->indices->push_back((*state->indices)[numIndices - 1]);
+        } else {
+            state->indices->push_back((*state->indices)[numIndices - 1]);
+            state->indices->push_back((*state->indices)[numIndices - 2]);
+        }
+    } else if (state->mode == GL_TRIANGLE_FAN && numIndices - state->startI >= 3) {
+        state->indices->push_back((*state->indices)[state->startI]);
+        state->indices->push_back((*state->indices)[numIndices - 1]);
+    }
+    state->indices->push_back(index);
+}
+
+static void CALLBACK tessErrorCallback(GLenum error, void *data) {
+    ((FaceTessState *)data)->error = error;
+}
+
+static void tesselateFace(std::vector<index_t> &faceIsOut, std::vector<index_t> &errorIsOut,
+        const Surface &surf, const Face &face, glm::vec3 normal,
+        const std::unordered_map<edge_id, index_t> &edgeIDIndices) {
+    // https://www.glprogramming.com/red/chapter11.html
+    size_t initialSize = faceIsOut.size();
+    FaceTessState state;
+    state.indices = &faceIsOut;
+    state.error = 0;
+    gluTessNormal(g_tess, normal.x, normal.y, normal.z);
+    gluTessBeginPolygon(g_tess, &state);
+    gluTessBeginContour(g_tess);
+    for (auto &ep : FaceEdges(surf, face)) {
+        index_t vertI = edgeIDIndices.at(ep.first);
+        glm::dvec3 dPos = ep.second.vert.in(surf).pos;
+        gluTessVertex(g_tess, glm::value_ptr(dPos), (void *)vertI);
+    }
+    gluTessEndContour(g_tess);
+    gluTessEndPolygon(g_tess);
+
+    if (state.error) {
+        faceIsOut.erase(faceIsOut.begin() + initialSize, faceIsOut.end());
+
+        size_t errorStart = errorIsOut.size();
+        for (auto &ep : FaceEdges(surf, face)) {
+            size_t numIndices = errorIsOut.size();
+            if (numIndices - errorStart >= 3) {
+                errorIsOut.push_back(errorIsOut[errorStart]);
+                errorIsOut.push_back(errorIsOut[numIndices - 1]);
+            }
+            errorIsOut.push_back(edgeIDIndices.at(ep.first));
+        }
+    }
+}
 
 void initRenderMesh() {
-    g_tess = std::make_unique<FaceTesselator>();
+    g_tess = gluNewTess();
+    gluTessCallback(g_tess, GLU_TESS_BEGIN_DATA, (GLvoid (CALLBACK*) ())tessBeginCallback);
+    gluTessCallback(g_tess, GLU_TESS_END, (GLvoid (CALLBACK*) ())tessEndCallback);
+    gluTessCallback(g_tess, GLU_TESS_VERTEX_DATA, (GLvoid (CALLBACK*) ())tessVertexCallback);
+    gluTessCallback(g_tess, GLU_TESS_ERROR_DATA, (GLvoid (CALLBACK*) ())tessErrorCallback);
+    // gluTessCallback(g_tess, GLU_TESS_COMBINE_DATA, (GLvoid (*) ())tessCombineCallback);
+    // gluTessCallback(g_tess, GLU_TESS_EDGE_FLAG_DATA, (GLvoid (*) ())tessEdgeFlagCallback);
 }
 
 void RenderMesh::clear() {
@@ -205,7 +201,7 @@ void generateRenderMesh(RenderMesh *mesh, const EditorState &state) {
         } else {
             faceIs = &mesh->regFaceIs;
         }
-        g_tess->tesselate(*faceIs, mesh->errFaceIs, state.surf, pair.second, normal, edgeIDIndices);
+        tesselateFace(*faceIs, mesh->errFaceIs, state.surf, pair.second, normal, edgeIDIndices);
     }
 }
 
