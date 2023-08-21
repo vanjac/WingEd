@@ -1,6 +1,8 @@
 #version 110
 
+uniform mat4 uModelViewMatrix, uProjectionMatrix;
+
 void main() {
-    gl_Position = gl_ProjectionMatrix * gl_ModelViewMatrix * gl_Vertex;
+    gl_Position = uProjectionMatrix * uModelViewMatrix * gl_Vertex;
     gl_FrontColor = gl_Color;
 }

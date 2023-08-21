@@ -48,6 +48,12 @@ const float CAM_MOVE_SCALE = 600;
 const float NEAR_CLIP = 0.5f, FAR_CLIP = 500.0f;
 const int GRID_SIZE = 128;
 
+const GLchar * const UNIFORM_NAMES[] = {
+    "uModelViewMatrix", // UNF_MODELVIEW_MATRIX
+    "uProjectionMatrix", // UNF_PROJECTION_MATRIX
+    "uNormalMatrix", // UNF_NORMAL_MATRIX
+};
+
 const HCURSOR knifeCur = LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_KNIFE));
 const HCURSOR drawCur = LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_DRAW));
 
@@ -339,7 +345,6 @@ void ViewportWindow::updateProjMat() {
     HDC dc = GetDC(wnd);
     CHECKERR(wglMakeCurrent(dc, context));
     glViewport(0, 0, (GLsizei)viewportDim.x, (GLsizei)viewportDim.y);
-    glMatrixMode(GL_PROJECTION);
     float aspect = viewportDim.x / viewportDim.y;
     if (view.mode == VIEW_ORTHO) {
         projMat = glm::ortho(-aspect, aspect, -1.0f, 1.0f, -FAR_CLIP / 2, FAR_CLIP / 2);
@@ -347,8 +352,12 @@ void ViewportWindow::updateProjMat() {
         float fov = glm::radians((view.mode == VIEW_FLY) ? 90.0f : 60.0f);
         projMat = glm::perspective(fov, aspect, NEAR_CLIP, FAR_CLIP);
     }
-    glLoadMatrixf(glm::value_ptr(projMat));
-    glMatrixMode(GL_MODELVIEW);
+
+    for (int i = 0; i < PROG_COUNT; i++) {
+        glUseProgram(programs[i].id);
+        glUniformMatrix4fv(programs[i].uniforms[UNF_PROJECTION_MATRIX], 1, FALSE,
+            glm::value_ptr(projMat));
+    }
     ReleaseDC(wnd, dc);
 }
 
@@ -502,7 +511,7 @@ void debugGLCallback(GLenum, GLenum, GLuint, GLenum, GLsizei, const GLchar *msg,
 }
 #endif
 
-GLuint shaderFromResource(GLenum type, WORD id) {
+static GLuint shaderFromResource(GLenum type, WORD id) {
     GLuint shader = glCreateShader(type);
     DWORD sourceSize;
     auto source = (const GLchar *)getResource(MAKEINTRESOURCE(id), RT_RCDATA, NULL, &sourceSize);
@@ -511,13 +520,17 @@ GLuint shaderFromResource(GLenum type, WORD id) {
     return shader;
 }
 
-GLuint programFromShaders(GLuint vert, GLuint frag) {
-    GLuint prog = glCreateProgram();
-    glAttachShader(prog, vert);
-    glAttachShader(prog, frag);
-    glLinkProgram(prog);
-    glDetachShader(prog, vert);
-    glDetachShader(prog, frag);
+static ShaderProgram programFromShaders(GLuint vert, GLuint frag) {
+    ShaderProgram prog;
+    prog.id = glCreateProgram();
+    glAttachShader(prog.id, vert);
+    glAttachShader(prog.id, frag);
+    glLinkProgram(prog.id);
+    glDetachShader(prog.id, vert);
+    glDetachShader(prog.id, frag);
+    for (GLint i = 0; i < UNF_COUNT; i++) {
+        prog.uniforms[i] = glGetUniformLocation(prog.id, UNIFORM_NAMES[i]);
+    }
     return prog;
 }
 
@@ -562,8 +575,8 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
     GLuint vertFace = shaderFromResource(GL_VERTEX_SHADER, IDR_VERT_FACE);
     GLuint fragSolid = shaderFromResource(GL_FRAGMENT_SHADER, IDR_FRAG_SOLID);
 
-    progUnlit = programFromShaders(vertUnlit, fragSolid);
-    progFace = programFromShaders(vertFace, fragSolid);
+    programs[PROG_UNLIT] = programFromShaders(vertUnlit, fragSolid);
+    programs[PROG_FACE] = programFromShaders(vertFace, fragSolid);
 
     glDeleteShader(vertUnlit);
     glDeleteShader(vertFace);
@@ -829,9 +842,17 @@ void ViewportWindow::onPaint(HWND) {
     mvMat = glm::rotate(mvMat, view.rotX, glm::vec3(1, 0, 0));
     mvMat = glm::rotate(mvMat, view.rotY, glm::vec3(0, 1, 0));
     mvMat = glm::translate(mvMat, view.camPivot);
-    glLoadMatrixf(glm::value_ptr(mvMat));
+    glm::mat3 normalMat = glm::transpose(glm::inverse(mvMat));
 
-    glUseProgram(progUnlit);
+    for (int i = 0; i < PROG_COUNT; i++) {
+        glUseProgram(programs[i].id);
+        glUniformMatrix4fv(programs[i].uniforms[UNF_MODELVIEW_MATRIX], 1, FALSE,
+            glm::value_ptr(mvMat));
+        glUniformMatrix3fv(programs[i].uniforms[UNF_NORMAL_MATRIX], 1, FALSE,
+            glm::value_ptr(normalMat));
+    }
+
+    glUseProgram(programs[PROG_UNLIT].id);
 
     // axes
     const glm::vec3 axisPoints[] = {{0, 0, 0}, {8, 0, 0}, {0, 8, 0}, {0, 0, 8}};
@@ -945,10 +966,10 @@ void ViewportWindow::drawMesh(const RenderMesh &mesh) {
 
         glColorHex(COLOR_FACE);
         if (view.mode != VIEW_ORTHO)
-            glUseProgram(progFace);
+            glUseProgram(programs[PROG_FACE].id);
         drawElementVector(GL_TRIANGLES, mesh.regFaceIs);
         if (view.mode != VIEW_ORTHO)
-            glUseProgram(progUnlit);
+            glUseProgram(programs[PROG_UNLIT].id);
 
         glDisableClientState(GL_NORMAL_ARRAY);
     }
