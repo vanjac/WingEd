@@ -18,6 +18,8 @@ enum MouseMode {
     MOUSE_NONE = 0, MOUSE_TOOL, MOUSE_CAM_ROTATE, MOUSE_CAM_PAN
 };
 
+using program_t = unsigned int; // GLuint
+
 const TCHAR VIEWPORT_CLASS[] = _T("WingEd Viewport");
 class ViewportWindow : public chroma::WindowImpl {
     const TCHAR * className() const override { return VIEWPORT_CLASS; }
@@ -40,6 +42,8 @@ private:
     POINT lastCurPos;
     glm::vec3 startPlanePos;
     float snapAccum;
+
+    program_t progUnlit, progFace;
 
     void lockMouse(POINT clientPos, MouseMode mode);
     void setViewMode(ViewMode mode);

@@ -1,5 +1,10 @@
 #include "resgen.rc"
 
+// shaders
+IDR_VERT_UNLIT      RCDATA "res/unlit.vert"
+IDR_VERT_FACE       RCDATA "res/face.vert"
+IDR_FRAG_SOLID      RCDATA "res/solid.frag"
+
 // menu help strings
 STRINGTABLE
 {

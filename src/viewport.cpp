@@ -7,6 +7,7 @@
 #include <immer/set_transient.hpp>
 #include "main.h"
 #include "ops.h"
+#include "resource.h"
 
 using namespace chroma;
 
@@ -501,6 +502,25 @@ void debugGLCallback(GLenum, GLenum, GLuint, GLenum, GLsizei, const GLchar *msg,
 }
 #endif
 
+GLuint shaderFromResource(GLenum type, WORD id) {
+    GLuint shader = glCreateShader(type);
+    DWORD sourceSize;
+    auto source = (const GLchar *)getResource(MAKEINTRESOURCE(id), RT_RCDATA, NULL, &sourceSize);
+    glShaderSource(shader, 1, &source, (GLint *)&sourceSize);
+    glCompileShader(shader);
+    return shader;
+}
+
+GLuint programFromShaders(GLuint vert, GLuint frag) {
+    GLuint prog = glCreateProgram();
+    glAttachShader(prog, vert);
+    glAttachShader(prog, frag);
+    glLinkProgram(prog);
+    glDetachShader(prog, vert);
+    glDetachShader(prog, frag);
+    return prog;
+}
+
 BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
     HDC dc = GetDC(wnd);
     int pixelFormat = ChoosePixelFormat(dc, &g_formatDesc);
@@ -536,13 +556,18 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
     glPolygonOffset(2.0, 1.0);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    glEnable(GL_LIGHT0);
-    glEnable(GL_COLOR_MATERIAL);
-    glShadeModel(GL_FLAT);
-    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, glm::value_ptr(glm::vec4(.4, .4, .4, 1)));
-    glLightfv(GL_LIGHT0, GL_DIFFUSE, glm::value_ptr(glm::vec4(.6, .6, .6, 1)));
-
     glEnableClientState(GL_VERTEX_ARRAY);
+
+    GLuint vertUnlit = shaderFromResource(GL_VERTEX_SHADER, IDR_VERT_UNLIT);
+    GLuint vertFace = shaderFromResource(GL_VERTEX_SHADER, IDR_VERT_FACE);
+    GLuint fragSolid = shaderFromResource(GL_FRAGMENT_SHADER, IDR_FRAG_SOLID);
+
+    progUnlit = programFromShaders(vertUnlit, fragSolid);
+    progFace = programFromShaders(vertFace, fragSolid);
+
+    glDeleteShader(vertUnlit);
+    glDeleteShader(vertFace);
+    glDeleteShader(fragSolid);
 
     ReleaseDC(wnd, dc);
     return true;
@@ -806,6 +831,8 @@ void ViewportWindow::onPaint(HWND) {
     mvMat = glm::translate(mvMat, view.camPivot);
     glLoadMatrixf(glm::value_ptr(mvMat));
 
+    glUseProgram(progUnlit);
+
     // axes
     const glm::vec3 axisPoints[] = {{0, 0, 0}, {8, 0, 0}, {0, 8, 0}, {0, 0, 8}};
     const GLubyte xAxisI[] = {0, 1}, yAxisI[] = {0, 2}, zAxisI[] = {0, 3};
@@ -918,10 +945,10 @@ void ViewportWindow::drawMesh(const RenderMesh &mesh) {
 
         glColorHex(COLOR_FACE);
         if (view.mode != VIEW_ORTHO)
-            glEnable(GL_LIGHTING);
+            glUseProgram(progFace);
         drawElementVector(GL_TRIANGLES, mesh.regFaceIs);
         if (view.mode != VIEW_ORTHO)
-            glDisable(GL_LIGHTING);
+            glUseProgram(progUnlit);
 
         glDisableClientState(GL_NORMAL_ARRAY);
     }

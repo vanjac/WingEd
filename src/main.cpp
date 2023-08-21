@@ -3,6 +3,7 @@
 #include "ops.h"
 #include "file.h"
 #include "mathutil.h"
+#include "resource.h"
 #include <immer/set_transient.hpp>
 
 #pragma comment(lib, "Rpcrt4.lib")

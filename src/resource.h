@@ -50,10 +50,14 @@
 #define IDM_WIREFRAME                       148
 #define IDM_PERSPECTIVE                     149
 
+#define IDR_VERT_UNLIT                      100
+#define IDR_FRAG_SOLID                      101
+#define IDR_VERT_FACE                       102
+
 #ifdef APSTUDIO_INVOKED
     #ifndef APSTUDIO_READONLY_SYMBOLS
         #define _APS_NO_MFC                 1
-        #define _APS_NEXT_RESOURCE_VALUE    100
+        #define _APS_NEXT_RESOURCE_VALUE    103
         #define _APS_NEXT_COMMAND_VALUE     150
         #define _APS_NEXT_CONTROL_VALUE     1000
         #define _APS_NEXT_SYMED_VALUE       300

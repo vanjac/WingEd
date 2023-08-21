@@ -2,6 +2,7 @@
     "C_Cpp.default.includePath": [
         "lib/glm",
         "lib/immer",
-        "lib/winchroma"
+        "lib/winchroma",
+        "lib/glad",
     ],
 }

@@ -11,7 +11,6 @@
 #include "editor.h"
 #include "viewport.h"
 #include "rendermesh.h"
-#include "resource.h"
 
 namespace winged {
 
