@@ -1,6 +1,7 @@
 #include "viewport.h"
 #include <queue>
 #include <glad.h>
+#include <glad_wgl.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <immer/set_transient.hpp>
@@ -60,15 +61,9 @@ static void * loadGLProc(const char *name) {
     return p;
 }
 
-bool initViewport() {
-    WNDCLASSEX viewClass = makeClass(VIEWPORT_CLASS, windowImplProc);
-    viewClass.style = CS_HREDRAW | CS_VREDRAW;
-    viewClass.hCursor = NULL;
-    RegisterClassEx(&viewClass);
-
+static void initGL() {
     // https://www.khronos.org/opengl/wiki/Creating_an_OpenGL_Context_(WGL)
     // https://www.khronos.org/opengl/wiki/Load_OpenGL_Functions
-
     g_formatDesc.nSize = sizeof(g_formatDesc);
     g_formatDesc.nVersion = 1;
     g_formatDesc.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
@@ -82,28 +77,36 @@ bool initViewport() {
     int pixelFormat = ChoosePixelFormat(dc, &g_formatDesc);
     SetPixelFormat(dc, pixelFormat, &g_formatDesc);
     HGLRC dummyCtx = CHECKERR(wglCreateContext(dc));
-    if (!dummyCtx) {
-        MessageBox(nullptr, L"Couldn't create OpenGL context", APP_NAME, MB_ICONERROR);
-        return false;
-    }
+    if (!dummyCtx)
+        throw winged_error(L"Couldn't create OpenGL context");
     CHECKERR(wglMakeCurrent(dc, dummyCtx));
     g_libGL = CHECKERR(LoadLibrary(L"opengl32.dll"));
-    if (!g_libGL) {
-        MessageBox(nullptr, L"Couldn't find opengl32.dll", APP_NAME, MB_ICONERROR);
-        return false;
-    }
-    if (!CHECKERR(gladLoadGLLoader(loadGLProc))) {
-        MessageBox(nullptr, L"Failed to load OpenGL", APP_NAME, MB_ICONERROR);
-        return false;
-    }
-    if (GLVersion.major < 2) {
-        MessageBox(nullptr, L"OpenGL 2.0 not available", APP_NAME, MB_ICONERROR);
-        return false;
-    }
+    if (!g_libGL)
+        throw winged_error(L"Couldn't find opengl32.dll");
+    if (!CHECKERR(gladLoadGLLoader(loadGLProc)))
+        throw winged_error(L"Failed to load OpenGL");
+    if (!CHECKERR(gladLoadWGLLoader(loadGLProc, dc)))
+        throw winged_error(L"Failed to load WGL extensions\n");
+    if (GLVersion.major < 2)
+        throw winged_error(L"OpenGL 2.0 not available");
     CHECKERR(wglMakeCurrent(dc, NULL));
     CHECKERR(wglDeleteContext(dummyCtx));
     ReleaseDC(tempWnd, dc);
     DestroyWindow(tempWnd);
+}
+
+bool initViewport() {
+    WNDCLASSEX viewClass = makeClass(VIEWPORT_CLASS, windowImplProc);
+    viewClass.style = CS_HREDRAW | CS_VREDRAW;
+    viewClass.hCursor = NULL;
+    RegisterClassEx(&viewClass);
+
+    try {
+        initGL();
+    } catch (winged_error err) {
+        MessageBox(nullptr, err.message, APP_NAME, MB_ICONERROR);
+        return false;
+    }
 
     initRenderMesh();
     return true;
@@ -492,13 +495,35 @@ void ViewportWindow::toolAdjust(POINT pos, SIZE delta, UINT keyFlags) {
     }
 }
 
+#ifdef CHROMA_DEBUG
+void debugGLCallback(GLenum, GLenum, GLuint, GLenum, GLsizei, const GLchar *msg, const void *) {
+    wprintf(L"[OpenGL] %S\n", msg);
+}
+#endif
+
 BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
     HDC dc = GetDC(wnd);
     int pixelFormat = ChoosePixelFormat(dc, &g_formatDesc);
     SetPixelFormat(dc, pixelFormat, &g_formatDesc);
-    context = CHECKERR(wglCreateContext(dc));
+    const int attribs[] = {
+        WGL_CONTEXT_MAJOR_VERSION_ARB, 2,
+        WGL_CONTEXT_MINOR_VERSION_ARB, 0,
+#ifdef CHROMA_DEBUG
+        WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB,
+#endif
+        0
+    };
+    context = CHECKERR(wglCreateContextAttribsARB(dc, NULL, attribs));
     if (!context) return false;
     CHECKERR(wglMakeCurrent(dc, context));
+
+#ifdef CHROMA_DEBUG
+    glDebugMessageCallback(debugGLCallback, NULL);
+    // disable warnings for deprecated behavior (TODO: re-enable these eventually)
+    glDebugMessageControl(GL_DONT_CARE, GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR, GL_DONT_CARE, 0, nullptr,
+        GL_FALSE);
+    glEnable(GL_DEBUG_OUTPUT);
+#endif
 
     glClearColor(
         ((COLOR_CLEAR >> 16) & 0xFF) / 255.0f,
