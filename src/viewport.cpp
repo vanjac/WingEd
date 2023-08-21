@@ -103,8 +103,8 @@ static void initGL() {
         throw winged_error(L"Failed to load OpenGL");
     if (!CHECKERR(gladLoadWGLLoader(loadGLProc, dc)))
         throw winged_error(L"Failed to load WGL extensions\n");
-    if (!GLAD_GL_VERSION_2_0)
-        throw winged_error(L"OpenGL 2.0 not available");
+    if (!GLAD_GL_VERSION_3_0)
+        throw winged_error(L"OpenGL 3.0 not available");
     CHECKERR(wglMakeCurrent(dc, NULL));
     CHECKERR(wglDeleteContext(dummyCtx));
     ReleaseDC(tempWnd, dc);
@@ -570,7 +570,7 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
     int pixelFormat = ChoosePixelFormat(dc, &g_formatDesc);
     SetPixelFormat(dc, pixelFormat, &g_formatDesc);
     const int attribs[] = {
-        WGL_CONTEXT_MAJOR_VERSION_ARB, 2,
+        WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
         WGL_CONTEXT_MINOR_VERSION_ARB, 0,
 #ifdef CHROMA_DEBUG
         WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB,
@@ -599,6 +599,11 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
     glEnable(GL_POLYGON_OFFSET_FILL);
     glPolygonOffset(2.0, 1.0);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    // TODO: use multiple VAOs!
+    GLuint vao;
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
 
     glEnableVertexAttribArray(ATTR_VERTEX);
 
