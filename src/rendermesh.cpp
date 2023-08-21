@@ -23,8 +23,6 @@ static void CALLBACK tessBeginCallback(GLenum mode, void *data) {
     state->startI = state->indices->size();
 }
 
-static void CALLBACK tessEndCallback() {} // TODO: remove?
-
 static void CALLBACK tessVertexCallback(void *vertex, void *data) {
     auto state = (FaceTessState *)data;
     index_t index = (index_t)(size_t)vertex;
@@ -85,7 +83,7 @@ static void tesselateFace(std::vector<index_t> &faceIsOut, std::vector<index_t> 
 void initRenderMesh() {
     g_tess = gluNewTess();
     gluTessCallback(g_tess, GLU_TESS_BEGIN_DATA, (GLvoid (CALLBACK*) ())tessBeginCallback);
-    gluTessCallback(g_tess, GLU_TESS_END, (GLvoid (CALLBACK*) ())tessEndCallback);
+    // gluTessCallback(g_tess, GLU_TESS_END, (GLvoid (CALLBACK*) ())tessEndCallback);
     gluTessCallback(g_tess, GLU_TESS_VERTEX_DATA, (GLvoid (CALLBACK*) ())tessVertexCallback);
     gluTessCallback(g_tess, GLU_TESS_ERROR_DATA, (GLvoid (CALLBACK*) ())tessErrorCallback);
     // gluTessCallback(g_tess, GLU_TESS_COMBINE_DATA, (GLvoid (*) ())tessCombineCallback);
