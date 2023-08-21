@@ -916,12 +916,10 @@ void ViewportWindow::onPaint(HWND) {
         }
         glVertexAttribPointer(ATTR_VERTEX, 3, GL_FLOAT, GL_FALSE, 0, gridPoints);
         glEnable(GL_BLEND);
-        glEnable(GL_LINE_SMOOTH);
         glLineWidth(WIDTH_GRID);
         setColorHex(COLOR_GRID);
         glDrawArrays(GL_LINES, 0, (GLsizei)_countof(gridPoints));
         glDisable(GL_BLEND);
-        glDisable(GL_LINE_SMOOTH);
         if (!workPlaneActive)
             glEnable(GL_DEPTH_TEST);
     }
