@@ -103,8 +103,8 @@ static void initGL() {
         throw winged_error(L"Failed to load OpenGL");
     if (!CHECKERR(gladLoadWGLLoader(loadGLProc, dc)))
         throw winged_error(L"Failed to load WGL extensions\n");
-    if (!GLAD_GL_VERSION_3_2)
-        throw winged_error(L"OpenGL 3.2 not available");
+    if (!GLAD_GL_VERSION_2_0)
+        throw winged_error(L"OpenGL 2.0 not available");
     CHECKERR(wglMakeCurrent(dc, NULL));
     CHECKERR(wglDeleteContext(dummyCtx));
     ReleaseDC(tempWnd, dc);
@@ -578,17 +578,30 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
 #endif
         0
     };
-    context = CHECKERR(wglCreateContextAttribsARB(dc, NULL, attribs));
+    if (GLAD_WGL_ARB_create_context && GLAD_GL_VERSION_3_2) {
+        context = CHECKERR(wglCreateContextAttribsARB(dc, NULL, attribs));
+    } else {
+        context = CHECKERR(wglCreateContext(dc));
+    }
     if (!context) return false;
     CHECKERR(wglMakeCurrent(dc, context));
 
 #ifdef CHROMA_DEBUG
-    glDebugMessageCallback(debugGLCallback, NULL);
-    // disable warnings for deprecated behavior (TODO: re-enable these eventually)
-    glDebugMessageControl(GL_DEBUG_SOURCE_API, GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR, GL_DONT_CARE,
-        0, nullptr, GL_FALSE);
-    glEnable(GL_DEBUG_OUTPUT);
+    if (GLAD_GL_KHR_debug) {
+        glDebugMessageCallback(debugGLCallback, NULL);
+        // disable warnings for deprecated behavior (TODO: re-enable these eventually)
+        glDebugMessageControl(GL_DEBUG_SOURCE_API, GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR, GL_DONT_CARE,
+            0, nullptr, GL_FALSE);
+        glEnable(GL_DEBUG_OUTPUT);
+    }
 #endif
+
+    // TODO: use multiple VAOs
+    if (GLAD_GL_VERSION_3_0) {
+        GLuint vao;
+        glGenVertexArrays(1, &vao);
+        glBindVertexArray(vao);
+    }
 
     glClearColor(
         ((COLOR_CLEAR >> 16) & 0xFF) / 255.0f,
@@ -600,11 +613,6 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
     glEnable(GL_POLYGON_OFFSET_FILL);
     glPolygonOffset(2.0, 1.0);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    // TODO: use multiple VAOs!
-    GLuint vao;
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
 
     glEnableVertexAttribArray(ATTR_VERTEX);
 
