@@ -578,7 +578,8 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
 #endif
         0
     };
-    if (GLAD_WGL_ARB_create_context && GLAD_GL_VERSION_3_2) {
+    if (GLAD_WGL_ARB_create_context &&
+            ((GLVersion.major == 3 && GLVersion.major >= 2) || GLVersion.major > 3)) {
         context = CHECKERR(wglCreateContextAttribsARB(dc, NULL, attribs));
     } else {
         context = CHECKERR(wglCreateContext(dc));
