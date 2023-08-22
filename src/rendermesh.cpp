@@ -93,6 +93,7 @@ void initRenderMesh() {
 void RenderMesh::clear() {
     vertices.clear();
     normals.clear();
+    texCoords.clear();
     for (int i = 0; i < ELEM_COUNT; i++)
         indices[i].clear();
 }
@@ -108,13 +109,16 @@ void generateRenderMesh(RenderMesh *mesh, const EditorState &state) {
     index_t index = 0;
     for (auto &fp : state.surf.faces) {
         glm::vec3 normal = faceNormal(state.surf, fp.second);
+        int axis = maxAxis(glm::abs(normal));
         for (auto &ep : FaceEdges(state.surf, fp.second)) {
-            mesh->vertices.push_back(ep.second.vert.in(state.surf).pos);
+            glm::vec3 v = ep.second.vert.in(state.surf).pos;
+            mesh->vertices.push_back(v);
             mesh->normals.push_back(normal);
+            mesh->texCoords.push_back(glm::vec2(v[(axis + 1) % 3], v[(axis + 2) % 3]));
             edgeIDIndices[ep.first] = index++;
         }
     }
-    // no normals!
+    // no normals / texCoords!
     const index_t drawVertsStartI = index;
     for (auto &vec : g_drawVerts) {
         mesh->vertices.push_back(vec);

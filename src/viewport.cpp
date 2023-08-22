@@ -32,9 +32,9 @@ const GLfloat
 #define COLOR_EDGE_HOVER    0xff##b0004c
 #define COLOR_EDGE_SEL      0xff##ff4c7f
 #define COLOR_EDGE_FLASH    0xff##fffa6b
-#define COLOR_FACE          0xff##6200cb
-#define COLOR_FACE_HOVER    0xff##603be5
-#define COLOR_FACE_SEL      0xff##a200ff
+#define COLOR_FACE          0xff##dddddd
+#define COLOR_FACE_HOVER    0xff##ad97ff
+#define COLOR_FACE_SEL      0xff##c96bff
 #define COLOR_FACE_FLASH    0xff##ff00ff
 #define COLOR_FACE_ERROR    0xff##ff0000
 #define COLOR_DRAW_POINT    0xff##ffffff
@@ -49,13 +49,14 @@ const float NEAR_CLIP = 0.5f, FAR_CLIP = 500.0f;
 const int GRID_SIZE = 128;
 
 enum VertexAttribute {
-    ATTR_VERTEX, ATTR_NORMAL, ATTR_COLOR,
+    ATTR_VERTEX, ATTR_NORMAL, ATTR_COLOR, ATTR_TEXCOORD,
     ATTR_COUNT
 };
 const GLchar * const ATTRIBUTE_NAMES[] = {
     "aVertex", // ATTR_VERTEX
     "aNormal", // ATTR_NORMAL
     "aColor", // ATTR_COLOR
+    "aTexCoord", // ATTR_TEXCOORD
 };
 const GLchar * const UNIFORM_NAMES[] = {
     "uModelViewMatrix", // UNIF_MODELVIEW_MATRIX
@@ -640,10 +641,13 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
     // dynamic buffers
     glGenBuffers(1, &verticesBuffer.id);
     glGenBuffers(1, &normalsBuffer.id);
+    glGenBuffers(1, &texCoordsBuffer.id);
     glBindBuffer(GL_ARRAY_BUFFER, verticesBuffer.id);
     initSizedBuffer(&verticesBuffer, GL_ARRAY_BUFFER, 16 * sizeof(glm::vec3), GL_DYNAMIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, normalsBuffer.id);
     initSizedBuffer(&normalsBuffer, GL_ARRAY_BUFFER, 16 * sizeof(glm::vec3), GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, texCoordsBuffer.id);
+    initSizedBuffer(&texCoordsBuffer, GL_ARRAY_BUFFER, 16 * sizeof(glm::vec2), GL_DYNAMIC_DRAW);
 
     GLuint buffers[ELEM_COUNT];
     glGenBuffers(ELEM_COUNT, buffers);
@@ -660,9 +664,10 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
     GLuint vertUnlit = shaderFromResource(GL_VERTEX_SHADER, IDR_VERT_UNLIT);
     GLuint vertFace = shaderFromResource(GL_VERTEX_SHADER, IDR_VERT_FACE);
     GLuint fragSolid = shaderFromResource(GL_FRAGMENT_SHADER, IDR_FRAG_SOLID);
+    GLuint fragFace = shaderFromResource(GL_FRAGMENT_SHADER, IDR_FRAG_FACE);
 
     programs[PROG_UNLIT] = programFromShaders(vertUnlit, fragSolid);
-    programs[PROG_FACE] = programFromShaders(vertFace, fragSolid);
+    programs[PROG_FACE] = programFromShaders(vertFace, fragFace);
 
     glDeleteShader(vertUnlit);
     glDeleteShader(vertFace);
@@ -1012,6 +1017,10 @@ void ViewportWindow::drawMesh(const RenderMesh &mesh) {
         glBindBuffer(GL_ARRAY_BUFFER, normalsBuffer.id);
         writeSizedBuffer(&normalsBuffer, GL_ARRAY_BUFFER, mesh.normals.size() * sizeof(glm::vec3),
             (void *)mesh.normals.data(), GL_DYNAMIC_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, texCoordsBuffer.id);
+        writeSizedBuffer(&texCoordsBuffer, GL_ARRAY_BUFFER,
+            mesh.texCoords.size() * sizeof(glm::vec2), (void *)mesh.texCoords.data(),
+            GL_DYNAMIC_DRAW);
         for (GLuint i = 0; i < ELEM_COUNT; i++) {
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffers[i].id);
             writeSizedBuffer(&indexBuffers[i], GL_ELEMENT_ARRAY_BUFFER,
@@ -1024,6 +1033,8 @@ void ViewportWindow::drawMesh(const RenderMesh &mesh) {
     glVertexAttribPointer(ATTR_VERTEX, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glBindBuffer(GL_ARRAY_BUFFER, normalsBuffer.id);
     glVertexAttribPointer(ATTR_NORMAL, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, texCoordsBuffer.id);
+    glVertexAttribPointer(ATTR_TEXCOORD, 2, GL_FLOAT, GL_FALSE, 0, 0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     if (view.showElem & PICK_EDGE) {
@@ -1064,6 +1075,9 @@ void ViewportWindow::drawMesh(const RenderMesh &mesh) {
 
     if (view.showElem & PICK_FACE) {
         glEnableVertexAttribArray(ATTR_NORMAL);
+        glEnableVertexAttribArray(ATTR_TEXCOORD);
+        if (view.mode != VIEW_ORTHO)
+            glUseProgram(programs[PROG_FACE].id);
 
         setColorHex(g_flashSel ? COLOR_FACE_FLASH : COLOR_FACE_SEL);
         drawMeshElements(mesh, ELEM_SEL_FACE, GL_TRIANGLES);
@@ -1071,15 +1085,13 @@ void ViewportWindow::drawMesh(const RenderMesh &mesh) {
         drawMeshElements(mesh, ELEM_HOV_FACE, GL_TRIANGLES);
         setColorHex(COLOR_FACE_ERROR);
         drawMeshElements(mesh, ELEM_ERR_FACE, GL_TRIANGLES);
-
-        if (view.mode != VIEW_ORTHO)
-            glUseProgram(programs[PROG_FACE].id);
         setColorHex(COLOR_FACE);
         drawMeshElements(mesh, ELEM_REG_FACE, GL_TRIANGLES);
+
         if (view.mode != VIEW_ORTHO)
             glUseProgram(programs[PROG_UNLIT].id);
-
         glDisableVertexAttribArray(ATTR_NORMAL);
+        glDisableVertexAttribArray(ATTR_TEXCOORD);
     }
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }

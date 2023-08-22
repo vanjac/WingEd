@@ -10,8 +10,10 @@ uniform mat3 uNormalMatrix;
 in vec3 aVertex;
 in vec3 aNormal;
 in vec4 aColor;
+in vec2 aTexCoord;
 
 out vec4 vColor;
+out vec2 vTexCoord;
 
 void main (void)
 {
@@ -20,4 +22,6 @@ void main (void)
     vec3 normal = uNormalMatrix * aNormal;
     float intensity = AMBIENT_INTENSITY + DIFFUSE_INTENSITY * max(0.0, dot(normal, LIGHT_DIR));
     vColor = clamp(intensity * aColor, 0.0, 1.0);
+
+    vTexCoord = aTexCoord;
 }

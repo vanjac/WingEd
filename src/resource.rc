@@ -4,6 +4,7 @@
 IDR_VERT_UNLIT      RCDATA "res/unlit.vert"
 IDR_VERT_FACE       RCDATA "res/face.vert"
 IDR_FRAG_SOLID      RCDATA "res/solid.frag"
+IDR_FRAG_FACE       RCDATA "res/face.frag"
 
 // menu help strings
 STRINGTABLE
