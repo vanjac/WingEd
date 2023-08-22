@@ -511,7 +511,8 @@ void ViewportWindow::toolAdjust(POINT pos, SIZE delta, UINT keyFlags) {
                 moved = diff;
             }
             if (amount != glm::vec3(0)) {
-                g_state.surf = transformVertices(std::move(g_state.surf), selAttachedVerts(g_state),
+                auto verts = selAttachedVerts(g_state);
+                g_state.surf = transformVertices(std::move(g_state.surf), verts,
                     glm::translate(glm::mat4(1), amount));
                 g_mainWindow.updateStatus();
             }
