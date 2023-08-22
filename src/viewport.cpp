@@ -594,11 +594,13 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
         glDebugMessageControl(GL_DEBUG_SOURCE_API, GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR, GL_DONT_CARE,
             0, nullptr, GL_FALSE);
         glEnable(GL_DEBUG_OUTPUT);
+        glDebugMessageInsert(GL_DEBUG_SOURCE_APPLICATION, GL_DEBUG_TYPE_OTHER, 0,
+            GL_DEBUG_SEVERITY_NOTIFICATION, -1, "OpenGL debugging enabled");
     }
 #endif
 
     // TODO: use multiple VAOs
-    if (GLAD_GL_VERSION_3_0) {
+    if (GLAD_GL_ARB_vertex_array_object) {
         GLuint vao;
         glGenVertexArrays(1, &vao);
         glBindVertexArray(vao);
