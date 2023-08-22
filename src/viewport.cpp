@@ -520,7 +520,7 @@ void ViewportWindow::toolAdjust(POINT pos, SIZE delta, UINT keyFlags) {
 }
 
 #ifdef CHROMA_DEBUG
-void debugGLCallback(GLenum, GLenum, GLuint, GLenum, GLsizei, const GLchar *msg, const void *) {
+void APIENTRY debugGLCallback(GLenum, GLenum, GLuint, GLenum, GLsizei, const GLchar *msg, const void *) {
     wprintf(L"[OpenGL] %S\n", msg);
 }
 #endif
