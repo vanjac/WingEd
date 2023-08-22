@@ -89,7 +89,8 @@ static void initGL() {
     g_formatDesc.cDepthBits = 32;
     g_formatDesc.iLayerType = PFD_MAIN_PLANE;
 
-    HWND tempWnd = createWindow(SCRATCH_CLASS.lpszClassName);
+    RegisterClassEx(&SCRATCH_CLASS);
+    HWND tempWnd = CHECKERR(createWindow(SCRATCH_CLASS.lpszClassName));
     HDC dc = GetDC(tempWnd);
     int pixelFormat = ChoosePixelFormat(dc, &g_formatDesc);
     SetPixelFormat(dc, pixelFormat, &g_formatDesc);
@@ -588,8 +589,8 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
     if (!context) return false;
     CHECKERR(wglMakeCurrent(dc, context));
 
-#ifdef CHROMA_DEBUG
     if (GLAD_GL_KHR_debug) {
+#ifdef CHROMA_DEBUG
         glDebugMessageCallback(debugGLCallback, NULL);
         // disable warnings for deprecated behavior (TODO: re-enable these eventually)
         glDebugMessageControl(GL_DEBUG_SOURCE_API, GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR, GL_DONT_CARE,
@@ -597,8 +598,12 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
         glEnable(GL_DEBUG_OUTPUT);
         glDebugMessageInsert(GL_DEBUG_SOURCE_APPLICATION, GL_DEBUG_TYPE_OTHER, 0,
             GL_DEBUG_SEVERITY_NOTIFICATION, -1, "OpenGL debugging enabled");
-    }
+#else
+        glDisable(GL_DEBUG_OUTPUT);
+        // window freezes if this isn't called?
+        glDebugMessageCallback(NULL, NULL);
 #endif
+    }
 
     // TODO: use multiple VAOs
     if (GLAD_GL_ARB_vertex_array_object) {
