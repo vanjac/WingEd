@@ -13,11 +13,11 @@ static void write(HANDLE handle, const void *buf, DWORD size) {
 }
 
 template<typename K, typename V>
-static void writeMap(HANDLE handle, const immer::map<K, V> &map) {
+static void writeMap(HANDLE handle, const immer::map<K, V> &map, DWORD vSize = sizeof(V)) {
     write(handle, tempPtr(map.size()), 4);
     for (auto &pair : map) {
         write(handle, &pair.first, sizeof(pair.first));
-        write(handle, &pair.second, sizeof(pair.second));
+        write(handle, &pair.second, vSize);
     }
 }
 
@@ -36,7 +36,7 @@ void writeFile(TCHAR *file, const EditorState &state, const ViewState &view) {
     write(handle, tempPtr('WING'), 4);
     write(handle, tempPtr(1), 4);
     writeMap(handle, state.surf.verts);
-    writeMap(handle, state.surf.faces);
+    writeMap(handle, state.surf.faces, sizeof(edge_id));
     writeMap(handle, state.surf.edges);
     writeSet(handle, state.selVerts);
     writeSet(handle, state.selFaces);
@@ -51,19 +51,19 @@ static void read(HANDLE handle, void *buf, DWORD size) {
 }
 
 template<typename T>
-static T readVal(HANDLE handle) {
+static T readVal(HANDLE handle, DWORD size = sizeof(T)) {
     T val;
-    read(handle, &val, sizeof(val));
+    read(handle, &val, size);
     return val;
 }
 
 template<typename K, typename V>
-static immer::map<K, V> readMap(HANDLE handle) {
+static immer::map<K, V> readMap(HANDLE handle, DWORD vSize = sizeof(V)) {
     immer::map<K, V> map;
     uint32_t size = readVal<uint32_t>(handle);
     for (uint32_t i = 0; i < size; i++) {
         K key = readVal<K>(handle);
-        V val = readVal<V>(handle);
+        V val = readVal<V>(handle, vSize);
         map = std::move(map).set(key, val);
     }
     return map;
@@ -89,7 +89,7 @@ std::tuple<EditorState, ViewState> readFile(TCHAR *file) {
         throw winged_error(L"Unrecognized file version");
     EditorState state;
     state.surf.verts = readMap<vert_id, Vertex>(handle);
-    state.surf.faces = readMap<face_id, Face>(handle);
+    state.surf.faces = readMap<face_id, Face>(handle, sizeof(edge_id));
     state.surf.edges = readMap<edge_id, HEdge>(handle);
     state.selVerts = readSet<vert_id>(handle);
     state.selFaces = readSet<face_id>(handle);

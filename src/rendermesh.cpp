@@ -93,6 +93,7 @@ void initRenderMesh() {
 void RenderMesh::clear() {
     vertices.clear();
     normals.clear();
+    colors.clear();
     texCoords.clear();
     for (int i = 0; i < ELEM_COUNT; i++)
         indices[i].clear();
@@ -104,21 +105,27 @@ void generateRenderMesh(RenderMesh *mesh, const EditorState &state) {
     std::unordered_map<edge_id, index_t> edgeIDIndices;
     mesh->vertices.reserve(state.surf.edges.size() + g_drawVerts.size() + 1);
     mesh->normals.reserve(mesh->vertices.capacity());
+    mesh->colors.reserve(mesh->vertices.capacity());
     edgeIDIndices.reserve(state.surf.edges.size());
 
     index_t index = 0;
     for (auto &fp : state.surf.faces) {
         glm::vec3 normal = faceNormal(state.surf, fp.second);
+        id_t mat = fp.second.material;
+        // generate color from GUID
+        glm::ivec3 iColor = glm::ivec3(mat.Data4[0], mat.Data4[1], mat.Data4[2]) ^ 0xFF;
+        glm::vec3 color = glm::vec3(iColor) / 255.0f;
         int axis = maxAxis(glm::abs(normal));
         for (auto &ep : FaceEdges(state.surf, fp.second)) {
             glm::vec3 v = ep.second.vert.in(state.surf).pos;
             mesh->vertices.push_back(v);
             mesh->normals.push_back(normal);
+            mesh->colors.push_back(color);
             mesh->texCoords.push_back(glm::vec2(v[(axis + 1) % 3], v[(axis + 2) % 3]));
             edgeIDIndices[ep.first] = index++;
         }
     }
-    // no normals / texCoords!
+    // no normals / texCoords / colors!
     const index_t drawVertsStartI = index;
     for (auto &vec : g_drawVerts) {
         mesh->vertices.push_back(vec);

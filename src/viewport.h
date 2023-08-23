@@ -64,7 +64,7 @@ private:
     bool renderMeshDirtyLocal = true;
     ShaderProgram programs[PROG_COUNT];
     buffer_t axisPoints, gridPoints;
-    SizedBuffer verticesBuffer, normalsBuffer, texCoordsBuffer;
+    SizedBuffer verticesBuffer, normalsBuffer, colorsBuffer, texCoordsBuffer;
     SizedBuffer indexBuffers[ELEM_COUNT];
 
     void lockMouse(POINT clientPos, MouseMode mode);

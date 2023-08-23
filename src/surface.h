@@ -79,6 +79,8 @@ struct Vertex {
 struct Face {
     edge_id edge = {}; // any bordering
     // Invariant: edge->face == this, edge->next->next->next...vert == this
+
+    id_t material = {};
 };
 
 // "Half-Edge"

@@ -20,7 +20,7 @@ enum RenderElement {
 };
 
 struct RenderMesh {
-    std::vector<glm::vec3> vertices, normals;
+    std::vector<glm::vec3> vertices, normals, colors;
     std::vector<glm::vec2> texCoords;
     // indices into above vectors:
     std::vector<index_t> indices[ELEM_COUNT];

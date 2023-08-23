@@ -41,6 +41,8 @@ Surface makePolygonPlane(Surface surf, const std::vector<glm::vec3> &points, fac
 Surface transformVertices(Surface surf, const immer::set<vert_id> &verts, const glm::mat4 &m);
 Surface snapVertices(Surface surf, const immer::set<vert_id> &verts, float grid);
 
+Surface assignMaterial(Surface surf, const immer::set<face_id> &faces, id_t material);
+
 Surface duplicate(Surface surf, const immer::set<edge_id> &edges, 
     const immer::set<vert_id> &verts, const immer::set<face_id> &faces);
 Surface flipAllNormals(Surface surf);
