@@ -111,18 +111,26 @@ void writeObj(TCHAR *file, const Surface &surf) {
     int i = 1;
     for (auto &vert : surf.verts) {
         auto pos = vert.second.pos;
-        int len = sprintf(buf, "v %f %f %f\n", pos.x, pos.y, pos.z);
-        write(handle, buf, len);
+        write(handle, buf, sprintf(buf, "v %f %f %f\n", pos.x, pos.y, pos.z));
         vertIndices[vert.first] = i++;
     }
 
+    int vn = 1, vt = 1;
     for (auto &face : surf.faces) {
+        glm::vec3 normal = faceNormal(surf, face.second);
+        int axis = maxAxis(glm::abs(normal));
+        write(handle, buf, sprintf(buf, "\nvn %f %f %f", normal.x, normal.y, normal.z));
+        for (auto edge : FaceEdges(surf, face.second)) {
+            auto pos = edge.second.vert.in(surf).pos;
+            glm::vec2 uv(pos[(axis + 1) % 3], pos[(axis + 2) % 3]);
+            write(handle, buf, sprintf(buf, "\nvt %f %f", uv.x, uv.y));
+        }
         write(handle, "\nf", 2);
         for (auto edge : FaceEdges(surf, face.second)) {
             int v = vertIndices[edge.second.vert];
-            int len = sprintf(buf, " %d", v);
-            write(handle, buf, len);
+            write(handle, buf, sprintf(buf, " %d/%d/%d", v, vt++, vn));
         }
+        vn++;
     }
 }
 

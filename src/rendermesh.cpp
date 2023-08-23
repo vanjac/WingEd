@@ -111,11 +111,11 @@ void generateRenderMesh(RenderMesh *mesh, const EditorState &state) {
     index_t index = 0;
     for (auto &fp : state.surf.faces) {
         glm::vec3 normal = faceNormal(state.surf, fp.second);
+        int axis = maxAxis(glm::abs(normal));
         id_t mat = fp.second.material;
         // generate color from GUID
         glm::ivec3 iColor = glm::ivec3(mat.Data4[0], mat.Data4[1], mat.Data4[2]) ^ 0xFF;
         glm::vec3 color = glm::vec3(iColor) / 255.0f;
-        int axis = maxAxis(glm::abs(normal));
         for (auto &ep : FaceEdges(state.surf, fp.second)) {
             glm::vec3 v = ep.second.vert.in(state.surf).pos;
             mesh->vertices.push_back(v);
