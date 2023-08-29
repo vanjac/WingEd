@@ -111,8 +111,8 @@ void generateRenderMesh(RenderMesh *mesh, const EditorState &state) {
     index_t index = 0;
     for (auto &fp : state.surf.faces) {
         glm::vec3 normal = faceNormal(state.surf, fp.second);
-        int axis = maxAxis(glm::abs(normal));
-        id_t mat = fp.second.material;
+        glm::mat4x2 texMat = faceTexMat(fp.second.paint, normal);
+        id_t mat = fp.second.paint->material;
         // generate color from GUID
         glm::ivec3 iColor = glm::ivec3(mat.Data4[0], mat.Data4[1], mat.Data4[2]) ^ 0xFF;
         glm::vec3 color = glm::vec3(iColor) / 255.0f;
@@ -121,7 +121,7 @@ void generateRenderMesh(RenderMesh *mesh, const EditorState &state) {
             mesh->vertices.push_back(v);
             mesh->normals.push_back(normal);
             mesh->colors.push_back(color);
-            mesh->texCoords.push_back(glm::vec2(v[(axis + 1) % 3], v[(axis + 2) % 3]));
+            mesh->texCoords.push_back(texMat * glm::vec4(v, 1));
             edgeIDIndices[ep.first] = index++;
         }
     }

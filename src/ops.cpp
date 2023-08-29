@@ -248,7 +248,7 @@ Surface joinVerts(Surface surf, edge_id e1, edge_id e2) {
             eraseAll(&surf.faces, {edge1.second.face});
         } else if (!collapsedFace1 && !collapsedFace2) {
             face_pair newFace = makeFacePair();
-            newFace.second = edge1.second.face.in(surf); // copy material properties
+            newFace.second = edge1.second.face.in(surf); // copy paint
             newFace.second.edge = edge1.first; // existing face has been assigned to edge2
             surf = assignFaceEdges(std::move(surf), newFace.second, newFace.first);
             insertAll(&surf.faces, {newFace});
@@ -347,7 +347,7 @@ Surface splitFace(Surface surf, edge_id e1, edge_id e2,
     linkNext(&newEdges1.back(), &edge2);
     linkNext(&prev2, &newEdges2.back());
     newEdges2.back().second.vert = edge2.second.vert;
-    newFace.second = face.second; // copy material properties
+    newFace.second = face.second; // copy paint
     newFace.second.edge = newEdges2.back().first;
 
     insertAll(&surf.edges, {edge2, prev2, newEdges1.back(), newEdges2.back()});
@@ -502,7 +502,7 @@ Surface extrudeFace(Surface surf, face_id f, const immer::set<edge_id> &extEdges
         baseEdges[i].second.vert = baseVerts[i].first;
         if (!extrudeEdgeJ) baseTwins[j].second.vert = topVerts[i].first;
 
-        sideFaces[i].second = face.second; // copy material properties
+        sideFaces[i].second = face.second; // copy paint
         linkFace(&baseEdges[i], &sideFaces[i]);
         topTwins[i].second.face = sideFaces[i].first;
         topEdges[i].second.face = face.first;
@@ -561,7 +561,7 @@ Surface splitEdgeLoop(Surface surf, const std::vector<edge_id> &loop) {
         insertAll(&surf.verts, {vert});
     }
 
-    // TODO material?
+    // TODO paint?
     newFace1.second.edge = newEdges1[0].first;
     newFace2.second.edge = newEdges2[0].first;
     insertAll(&surf.faces, {newFace1, newFace2});
@@ -667,10 +667,10 @@ Surface snapVertices(Surface surf, const immer::set<vert_id> &verts, float grid)
     return surf;
 }
 
-Surface assignMaterial(Surface surf, const immer::set<face_id> &faces, id_t material) {
+Surface assignPaint(Surface surf, const immer::set<face_id> &faces, immer::box<Paint> paint) {
     for (auto &f : faces) {
         face_pair face = f.pair(surf);
-        face.second.material = material;
+        face.second.paint = paint;
         insertAll(&surf.faces, {face});
     }
     return surf;

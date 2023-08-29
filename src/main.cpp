@@ -614,7 +614,9 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                 break;
             case IDM_NEW_MATERIAL: {
                 EditorState newState = g_state;
-                newState.surf = assignMaterial(g_state.surf, g_state.selFaces, genId());
+                Paint paint;
+                paint.material = genId();
+                newState.surf = assignPaint(g_state.surf, g_state.selFaces, paint);
                 pushUndo(std::move(newState));
                 break;
             }

@@ -7,7 +7,10 @@
 
 #include <utility>
 #include <glm/vec3.hpp>
+#include <glm/mat3x2.hpp>
+#include <glm/mat4x2.hpp>
 #include <immer/map.hpp>
+#include <immer/box.hpp>
 #include "id.h"
 #include "mathutil.h"
 
@@ -75,12 +78,20 @@ struct Vertex {
     glm::vec3 pos = {};
 };
 
+struct Paint {
+    id_t material = {};
+    // note: glm uses backwards CxR naming for matrices
+    glm::mat4x2 texAxes = glm::mat4x2(0.0f); // zero = auto align to axis
+    glm::mat3x2 texTF = glm::mat3x2(1.0f);
+};
+
 // Faces must be simple polygons, may be concave but may not contain holes
 struct Face {
     edge_id edge = {}; // any bordering
     // Invariant: edge->face == this, edge->next->next->next...vert == this
 
-    id_t material = {};
+    const static immer::box<Paint> DEF_PAINT;
+    immer::box<Paint> paint = DEF_PAINT; // avoid allocation
 };
 
 // "Half-Edge"
@@ -123,6 +134,7 @@ edge_id primaryEdge(const edge_pair &pair);
 glm::vec3 faceNormalNonUnit(const Surface &surf, const Face &face); // faster than faceNormal
 glm::vec3 faceNormal(const Surface &surf, const Face &face);
 Plane facePlane(const Surface &surf, const Face &face);
+glm::mat4x2 faceTexMat(const Paint &paint, glm::vec3 normal);
 
 /* iteration utils */
 

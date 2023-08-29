@@ -19,6 +19,9 @@ const face_pair makeFacePair() { return {genId(), Face{}}; }
 const edge_pair makeEdgePair() { return {genId(), HEdge{}}; }
 
 
+const immer::box<Paint> Face::DEF_PAINT;
+
+
 bool isPrimary(const edge_pair &pair) {
     return memcmp(&pair.first, &pair.second.twin, sizeof(edge_id)) < 0;
 }
@@ -43,6 +46,18 @@ glm::vec3 faceNormal(const Surface &surf, const Face &face) {
 
 Plane facePlane(const Surface &surf, const Face &face) {
     return {face.edge.in(surf).vert.in(surf).pos, faceNormal(surf, face)};
+}
+
+glm::mat4x2 faceTexMat(const Paint &paint, glm::vec3 normal) {
+    glm::mat4x2 texAxes = paint.texAxes;
+    if (texAxes == glm::mat4x2{}) {
+        int axis = maxAxis(glm::abs(normal));
+        texAxes[(axis + 1) % 3] = glm::vec2(1, 0); // u
+        texAxes[(axis + 2) % 3] = glm::vec2(0, 1); // v
+    }
+    glm::mat4x3 expand = texAxes;
+    expand[3][2] = 1;
+    return paint.texTF * expand;
 }
 
 

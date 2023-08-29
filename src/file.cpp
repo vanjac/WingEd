@@ -118,11 +118,10 @@ void writeObj(TCHAR *file, const Surface &surf) {
     int vn = 1, vt = 1;
     for (auto &face : surf.faces) {
         glm::vec3 normal = faceNormal(surf, face.second);
-        int axis = maxAxis(glm::abs(normal));
+        glm::mat4x2 texMat = faceTexMat(face.second.paint, normal);
         write(handle, buf, sprintf(buf, "\nvn %f %f %f", normal.x, normal.y, normal.z));
         for (auto edge : FaceEdges(surf, face.second)) {
-            auto pos = edge.second.vert.in(surf).pos;
-            glm::vec2 uv(pos[(axis + 1) % 3], pos[(axis + 2) % 3]);
+            glm::vec2 uv = texMat * glm::vec4(edge.second.vert.in(surf).pos, 1);
             write(handle, buf, sprintf(buf, "\nvt %f %f", uv.x, uv.y));
         }
         write(handle, "\nf", 2);
