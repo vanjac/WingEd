@@ -85,11 +85,14 @@ static void initGL() {
     g_formatDesc.nVersion = 1;
     g_formatDesc.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
     g_formatDesc.iPixelType = PFD_TYPE_RGBA;
-    g_formatDesc.cColorBits = 24;
-    g_formatDesc.cDepthBits = 32;
+    g_formatDesc.cColorBits = 32;
+    g_formatDesc.cDepthBits = 24;
+    g_formatDesc.cStencilBits = 8;
     g_formatDesc.iLayerType = PFD_MAIN_PLANE;
 
-    RegisterClassEx(&SCRATCH_CLASS);
+    WNDCLASSEX tempClass = SCRATCH_CLASS;
+    tempClass.style |= CS_OWNDC;
+    RegisterClassEx(&tempClass);
     HWND tempWnd = CHECKERR(createWindow(SCRATCH_CLASS.lpszClassName));
     HDC dc = GetDC(tempWnd);
     int pixelFormat = ChoosePixelFormat(dc, &g_formatDesc);
@@ -115,7 +118,7 @@ static void initGL() {
 
 bool initViewport() {
     WNDCLASSEX viewClass = makeClass(VIEWPORT_CLASS, windowImplProc);
-    viewClass.style = CS_HREDRAW | CS_VREDRAW;
+    viewClass.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
     viewClass.hCursor = NULL;
     RegisterClassEx(&viewClass);
 
@@ -590,8 +593,8 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
     if (!context) return false;
     CHECKERR(wglMakeCurrent(dc, context));
 
-    if (GLAD_GL_KHR_debug) {
 #ifdef CHROMA_DEBUG
+    if (GLAD_GL_KHR_debug) {
         glDebugMessageCallback(debugGLCallback, NULL);
         // disable warnings for deprecated behavior (TODO: re-enable these eventually)
         glDebugMessageControl(GL_DEBUG_SOURCE_API, GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR, GL_DONT_CARE,
@@ -599,12 +602,8 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
         glEnable(GL_DEBUG_OUTPUT);
         glDebugMessageInsert(GL_DEBUG_SOURCE_APPLICATION, GL_DEBUG_TYPE_OTHER, 0,
             GL_DEBUG_SEVERITY_NOTIFICATION, -1, "OpenGL debugging enabled");
-#else
-        glDisable(GL_DEBUG_OUTPUT);
-        // window freezes if this isn't called?
-        glDebugMessageCallback(NULL, NULL);
-#endif
     }
+#endif
 
     // TODO: use multiple VAOs
     if (GLAD_GL_ARB_vertex_array_object) {
