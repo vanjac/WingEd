@@ -6,6 +6,7 @@
 
 #include <vector>
 #include <stack>
+#include <memory>
 #include <unordered_set>
 #include "winchroma.h"
 #include "editor.h"
@@ -64,7 +65,7 @@ private:
 
     HWND toolbarWnd, statusWnd;
     ViewportWindow mainViewport;
-    std::unordered_set<ViewportWindow *> extraViewports;
+    std::unordered_set<std::unique_ptr<ViewportWindow>> extraViewports;
 
     void closeExtraViewports();
     void saveAs();

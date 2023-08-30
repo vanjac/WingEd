@@ -274,7 +274,7 @@ void MainWindow::refreshAll() {
     g_renderMeshDirty = true;
     mainViewport.invalidateRenderMesh();
     mainViewport.refresh();
-    for (auto viewport : extraViewports) {
+    for (auto &viewport : extraViewports) {
         viewport->invalidateRenderMesh();
         viewport->refresh();
     }
@@ -284,7 +284,7 @@ void MainWindow::refreshAllImmediate() {
     g_renderMeshDirty = true;
     mainViewport.invalidateRenderMesh();
     mainViewport.refreshImmediate();
-    for (auto viewport : extraViewports) {
+    for (auto &viewport : extraViewports) {
         viewport->invalidateRenderMesh();
         viewport->refreshImmediate();
     }
@@ -311,19 +311,17 @@ void MainWindow::showError(winged_error err) {
 bool MainWindow::removeViewport(ViewportWindow *viewport) {
     if (activeViewport == viewport)
         activeViewport = &mainViewport;
-    if (extraViewports.count(viewport)) {
-        extraViewports.erase(viewport);
-        return true;
-    }
-    return false;
+    // hack https://stackoverflow.com/a/60220391/11525734
+    std::unique_ptr<ViewportWindow> stalePtr(viewport);
+    auto ret = extraViewports.erase(stalePtr);
+    stalePtr.release();
+    return ret;
 }
 
 void MainWindow::closeExtraViewports() {
     activeViewport = &mainViewport;
-    for (auto viewport : extraViewports) {
+    for (auto &viewport : extraViewports)
         viewport->destroy();
-        delete viewport;
-    }
     extraViewports.clear();
 }
 
@@ -523,13 +521,12 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
 #endif
             /* View */
             case IDM_NEW_VIEWPORT: {
-                ViewportWindow *newViewport = new ViewportWindow;
+                auto &newViewport = *extraViewports.emplace(new ViewportWindow).first;
                 newViewport->view = activeViewport->view;
                 RECT rect = defaultWindowRect(clientSize(activeViewport->wnd),
                     false, WS_OVERLAPPEDWINDOW, WS_EX_TOOLWINDOW);
                 newViewport->create(APP_NAME, rect, WS_OVERLAPPEDWINDOW, WS_EX_TOOLWINDOW, wnd);
                 ShowWindow(newViewport->wnd, SW_NORMAL);
-                extraViewports.insert(newViewport);
                 break;
             }
             /* Edit */

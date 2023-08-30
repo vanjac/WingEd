@@ -724,10 +724,8 @@ void ViewportWindow::onDestroy(HWND) {
 }
 
 void ViewportWindow::onClose(HWND) {
-    if (g_mainWindow.removeViewport(this)) {
-        destroy();
-        delete this;
-    }
+    destroy();
+    g_mainWindow.removeViewport(this); // will delete this!
 }
 
 void ViewportWindow::onActivate(HWND, UINT state, HWND, BOOL minimized) {
