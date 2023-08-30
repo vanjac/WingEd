@@ -50,7 +50,6 @@
 #define IDM_VIEW_SIDE                       147
 #define IDM_WIREFRAME                       148
 #define IDM_PERSPECTIVE                     149
-#define IDM_NEW_MATERIAL                    150
 #define IDM_ADD_TEXTURE                     151
 
 #define IDR_VERT_UNLIT                      100

@@ -692,6 +692,8 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
 
     CHECKERR(wglMakeCurrent(NULL, NULL));
     ReleaseDC(wnd, dc);
+
+    DragAcceptFiles(wnd, TRUE);
     return true;
 }
 
@@ -943,6 +945,24 @@ bool ViewportWindow::onCommand(HWND, int id, HWND, UINT) {
     return false;
 }
 
+void ViewportWindow::onDropFiles(HWND, HDROP drop) {
+    TCHAR texFile[MAX_PATH];
+    if (DragQueryFile(drop, 0, texFile, _countof(texFile))) {
+        std::wstring texFileStr = texFile;
+        id_t texId = g_library.pathIds[texFileStr];
+        if (texId == id_t{}) {
+            texId = genId();
+            g_library.addFile(texId, texFileStr);
+        }
+
+        EditorState newState = g_state;
+        newState.surf = assignPaint(g_state.surf, g_state.selFaces, Paint{texId});
+        g_mainWindow.pushUndo(std::move(newState));
+        g_mainWindow.updateStatus();
+        g_mainWindow.refreshAll();
+    }
+}
+
 void ViewportWindow::onSize(HWND, UINT, int cx, int cy) {
     if (cx > 0 && cy > 0) {
         viewportDim = {cx, cy};
@@ -1191,6 +1211,7 @@ LRESULT ViewportWindow::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         HANDLE_MSG(wnd, WM_MOUSEMOVE, onMouseMove);
         HANDLE_MSG(wnd, WM_MOUSEWHEEL, onMouseWheel);
         HANDLE_MSG(wnd, WM_COMMAND, onCommand);
+        HANDLE_MSG(wnd, WM_DROPFILES, onDropFiles);
         HANDLE_MSG(wnd, WM_SIZE, onSize);
         HANDLE_MSG(wnd, WM_PAINT, onPaint);
     }

@@ -636,12 +636,6 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                     pushUndo(std::move(newState));
                 }
                 break;
-            case IDM_NEW_MATERIAL: {
-                EditorState newState = g_state;
-                newState.surf = assignPaint(g_state.surf, g_state.selFaces, Paint{genId()});
-                pushUndo(std::move(newState));
-                break;
-            }
             }
         }
     } catch (winged_error err) {

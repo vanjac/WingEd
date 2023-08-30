@@ -4,7 +4,10 @@
 #pragma once
 #include "common.h"
 
+#define _INC_SHELLAPI // for windowsx.h
 #include "winchroma.h"
+#undef _INC_SHELLAPI
+#include <shellapi.h>
 #include "editor.h"
 #include "rendermesh.h"
 #include <unordered_map>
@@ -92,6 +95,7 @@ private:
     void onButtonUp(HWND, int, int, UINT);
     void onMouseMove(HWND, int, int, UINT);
     void onMouseWheel(HWND, int, int, int, UINT);
+    void onDropFiles(HWND, HDROP);
     void onSize(HWND, UINT, int, int);
     void onPaint(HWND);
     LRESULT handleMessage(UINT, WPARAM, LPARAM) override;
