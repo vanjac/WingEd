@@ -321,7 +321,7 @@ bool MainWindow::removeViewport(ViewportWindow *viewport) {
 void MainWindow::closeExtraViewports() {
     activeViewport = &mainViewport;
     for (auto viewport : extraViewports) {
-        DestroyWindow(viewport->wnd);
+        viewport->destroy();
         delete viewport;
     }
     extraViewports.clear();
@@ -380,8 +380,10 @@ BOOL MainWindow::onCreate(HWND, LPCREATESTRUCT) {
     return true;
 }
 
-void MainWindow::onDestroy(HWND) {
+void MainWindow::onClose(HWND) {
     closeExtraViewports();
+    mainViewport.destroy();
+    FORWARD_WM_CLOSE(wnd, DefWindowProc);
 }
 
 void MainWindow::onNCDestroy(HWND) {
@@ -706,7 +708,7 @@ LRESULT MainWindow::onNotify(HWND, int, NMHDR *nmHdr) {
 LRESULT MainWindow::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         HANDLE_MSG(wnd, WM_CREATE, onCreate);
-        HANDLE_MSG(wnd, WM_DESTROY, onDestroy);
+        HANDLE_MSG(wnd, WM_CLOSE, onClose);
         HANDLE_MSG(wnd, WM_NCDESTROY, onNCDestroy);
         HANDLE_MSG(wnd, WM_ACTIVATE, onActivate);
         HANDLE_MSG(wnd, WM_SIZE, onSize);

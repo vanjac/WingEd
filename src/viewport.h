@@ -47,6 +47,7 @@ public:
     MouseMode mouseMode = MOUSE_NONE;
     glm::vec3 moved;
 
+    void destroy();
     void invalidateRenderMesh();
     void refresh();
     void refreshImmediate();

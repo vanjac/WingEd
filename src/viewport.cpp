@@ -111,7 +111,7 @@ static void initGL() {
         throw winged_error(L"Failed to load WGL extensions\n");
     if (!GLAD_GL_VERSION_2_0)
         throw winged_error(L"OpenGL 2.0 not available");
-    CHECKERR(wglMakeCurrent(dc, NULL));
+    CHECKERR(wglMakeCurrent(NULL, NULL));
     CHECKERR(wglDeleteContext(dummyCtx));
     ReleaseDC(tempWnd, dc);
     DestroyWindow(tempWnd);
@@ -377,6 +377,7 @@ void ViewportWindow::updateProjMat() {
         glUniformMatrix4fv(programs[i].uniforms[UNIF_PROJECTION_MATRIX], 1, FALSE,
             glm::value_ptr(projMat));
     }
+    CHECKERR(wglMakeCurrent(NULL, NULL));
     ReleaseDC(wnd, dc);
 }
 
@@ -689,17 +690,42 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
     DeleteObject(defHBmp);
     glBindTexture(GL_TEXTURE_2D, 0);
 
+    CHECKERR(wglMakeCurrent(NULL, NULL));
     ReleaseDC(wnd, dc);
     return true;
 }
 
+void ViewportWindow::destroy() {
+    HDC dc = GetDC(wnd);
+    CHECKERR(wglMakeCurrent(dc, context)); // doesn't work in WM_DESTROY
+
+    glDeleteBuffers(1, &axisPoints);
+    glDeleteBuffers(1, &gridPoints);
+    glDeleteBuffers(1, &verticesBuffer.id);
+    glDeleteBuffers(1, &normalsBuffer.id);
+    glDeleteBuffers(1, &texCoordsBuffer.id);
+    glDeleteBuffers(1, &indicesBuffer.id);
+
+    glDeleteTextures(1, &defTexture);
+    for (auto &pair : loadedTextures)
+        glDeleteTextures(1, &pair.second);
+
+    for (int i = 0; i < PROG_COUNT; i++)
+        glDeleteProgram(programs[i].id);
+
+    CHECKERR(wglMakeCurrent(NULL, NULL));
+    ReleaseDC(wnd, dc);
+
+    DestroyWindow(wnd);
+}
+
 void ViewportWindow::onDestroy(HWND) {
-    wglDeleteContext(context);
+    CHECKERR(wglDeleteContext(context));
 }
 
 void ViewportWindow::onClose(HWND) {
     if (g_mainWindow.removeViewport(this)) {
-        DestroyWindow(wnd);
+        destroy();
         delete this;
     }
 }
@@ -1026,6 +1052,7 @@ void ViewportWindow::onPaint(HWND) {
 
     SwapBuffers(ps.hdc);
     EndPaint(wnd, &ps);
+    CHECKERR(wglMakeCurrent(NULL, NULL));
 }
 
 void ViewportWindow::drawMesh(const RenderMesh &mesh) {

@@ -70,7 +70,7 @@ private:
     void saveAs();
 
     BOOL onCreate(HWND, LPCREATESTRUCT);
-    void onDestroy(HWND);
+    void onClose(HWND);
     void onNCDestroy(HWND);
     void onActivate(HWND, UINT, HWND, BOOL);
     void onSize(HWND, UINT, int, int);
