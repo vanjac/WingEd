@@ -7,6 +7,7 @@
 #include "winchroma.h"
 #include "editor.h"
 #include "rendermesh.h"
+#include <unordered_map>
 #include <glm/vec2.hpp>
 #include <glm/mat4x4.hpp>
 
@@ -66,6 +67,8 @@ private:
     buffer_t axisPoints, gridPoints;
     SizedBuffer verticesBuffer, normalsBuffer, texCoordsBuffer;
     SizedBuffer indicesBuffer;
+    unsigned int defTexture;
+    std::unordered_map<id_t, unsigned int> loadedTextures;
 
     void lockMouse(POINT clientPos, MouseMode mode);
     void setViewMode(ViewMode mode);
@@ -75,6 +78,7 @@ private:
     void toolAdjust(POINT pos, SIZE delta, UINT keyFlags);
     void drawMesh(const RenderMesh &mesh);
     void drawIndexRange(const IndexRange &range, unsigned int mode);
+    void bindTexture(id_t tex);
 
     BOOL onCreate(HWND, LPCREATESTRUCT);
     void onDestroy(HWND);

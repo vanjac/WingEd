@@ -124,6 +124,8 @@ void generateRenderMesh(RenderMesh *mesh, const EditorState &state) {
         glm::vec3 normal = faceNormal(state.surf, fp.second);
         glm::mat4x2 texMat = faceTexMat(fp.second.paint, normal);
         id_t mat = fp.second.paint->material;
+        if (mat == id_t{})
+            texMat = glm::mat2x2(0.25f) * texMat; // apply scaling to default texture
         for (auto &ep : FaceEdges(state.surf, fp.second)) {
             glm::vec3 v = ep.second.vert.in(state.surf).pos;
             mesh->vertices.push_back(v);

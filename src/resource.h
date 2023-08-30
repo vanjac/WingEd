@@ -4,6 +4,7 @@
 // resgen.rc
 
 #define IDB_TOOLBAR                         100
+#define IDB_DEFAULT_TEXTURE                 101
 
 #define IDC_KNIFE                           100
 #define IDC_DRAW                            101

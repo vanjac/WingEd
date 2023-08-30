@@ -7,6 +7,8 @@
 #include <immer/set_transient.hpp>
 #include "main.h"
 #include "ops.h"
+#include "image.h"
+#include "glutil.h"
 #include "resource.h"
 
 using namespace chroma;
@@ -32,7 +34,6 @@ const GLfloat
 #define COLOR_EDGE_HOVER    0xff##b0004c
 #define COLOR_EDGE_SEL      0xff##ff4c7f
 #define COLOR_EDGE_FLASH    0xff##fffa6b
-#define COLOR_FACE          0xff##dddddd
 #define COLOR_FACE_HOVER    0xff##ad97ff
 #define COLOR_FACE_SEL      0xff##c96bff
 #define COLOR_FACE_FLASH    0xff##ff00ff
@@ -673,6 +674,21 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
     glDeleteShader(vertFace);
     glDeleteShader(fragSolid);
 
+    glGenTextures(1, &defTexture);
+    glBindTexture(GL_TEXTURE_2D, defTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    HBITMAP defHBmp = (HBITMAP)LoadImage(GetModuleHandle(NULL),
+        MAKEINTRESOURCE(IDB_DEFAULT_TEXTURE), IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION);
+    BITMAP defBmp;
+    GetObject(defHBmp, sizeof(defBmp), (void *)&defBmp);
+    texImageMipmaps(GL_TEXTURE_2D, GL_RGBA, defBmp.bmWidth, defBmp.bmHeight,
+        GL_BGR, GL_UNSIGNED_BYTE, defBmp.bmBits);
+    DeleteObject(defHBmp);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
     ReleaseDC(wnd, dc);
     return true;
 }
@@ -1083,16 +1099,16 @@ void ViewportWindow::drawMesh(const RenderMesh &mesh) {
         for (auto &faceMesh : mesh.faceMeshes) {
             // generate color from GUID
             id_t mat = faceMesh.material;
-            glm::ivec3 iColor = glm::ivec3(mat.Data4[0], mat.Data4[1], mat.Data4[2]) ^ 0xFF;
-            glm::vec4 color = glm::vec4(glm::vec3(iColor) / 255.0f, 1.0f);
+            bindTexture(mat);
             if (faceMesh.state == RenderFaceMesh::HOV)
-                setColor(hexColor(COLOR_FACE_HOVER) * color);
+                setColor(hexColor(COLOR_FACE_HOVER));
             else if (faceMesh.state == RenderFaceMesh::SEL)
-                setColor(hexColor(COLOR_FACE_SEL) * color);
+                setColor(hexColor(COLOR_FACE_SEL));
             else
-                setColor(hexColor(COLOR_FACE) * color);
+                setColor(glm::vec4(1));
             drawIndexRange(faceMesh.range, GL_TRIANGLES);
         }
+        glBindTexture(GL_TEXTURE_2D, 0);
         setColor(hexColor(COLOR_FACE_ERROR));
         drawIndexRange(mesh.ranges[ELEM_ERR_FACE], GL_TRIANGLES);
         glDisableVertexAttribArray(ATTR_TEXCOORD);
@@ -1106,6 +1122,32 @@ void ViewportWindow::drawMesh(const RenderMesh &mesh) {
 void ViewportWindow::drawIndexRange(const IndexRange &range, GLenum mode) {
     glDrawElements(mode, (GLsizei)range.count, GL_UNSIGNED_SHORT,
         (void *)(range.start * sizeof(GLushort)));
+}
+
+void ViewportWindow::bindTexture(id_t texture) {
+    if (texture == id_t{}) {
+        glBindTexture(GL_TEXTURE_2D, defTexture);
+        return;
+    }
+    GLuint name = loadedTextures[texture];
+    if (name) {
+        glBindTexture(GL_TEXTURE_2D, name);
+    } else {
+        glGenTextures(1, &name);
+        glBindTexture(GL_TEXTURE_2D, name);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        if (g_library.idPaths.count(texture)) {
+            ImageData image = loadImage(g_library.idPaths[texture].c_str());
+            if (image.data) {
+                texImageMipmaps(GL_TEXTURE_2D, GL_RGBA, image.width, image.height,
+                    GL_BGRA, GL_UNSIGNED_BYTE, image.data.get());
+            }
+        }
+        loadedTextures[texture] = name;
+    }
 }
 
 LRESULT ViewportWindow::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {

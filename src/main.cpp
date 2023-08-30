@@ -2,6 +2,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include "ops.h"
 #include "file.h"
+#include "image.h"
 #include "mathutil.h"
 #include "resource.h"
 #include <immer/set_transient.hpp>
@@ -9,6 +10,7 @@
 #pragma comment(lib, "Rpcrt4.lib")
 #pragma comment(lib, "Opengl32.lib")
 #pragma comment(lib, "Glu32.lib")
+#pragma comment(lib, "Gdiplus.lib")
 
 using namespace chroma;
 
@@ -724,6 +726,7 @@ using namespace winged;
 int APIENTRY _tWinMain(HINSTANCE instance, HINSTANCE, LPTSTR, int showCmd) {
     if (!initViewport())
         return 0;
+    initImage();
     WNDCLASSEX mainClass = makeClass(APP_NAME, windowImplProc);
     mainClass.lpszMenuName = APP_NAME;
     RegisterClassEx(&mainClass);
@@ -740,6 +743,7 @@ int APIENTRY _tWinMain(HINSTANCE instance, HINSTANCE, LPTSTR, int showCmd) {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
+    uninitImage();
     return (int)msg.wParam;
 }
 

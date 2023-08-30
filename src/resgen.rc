@@ -20,6 +20,8 @@ LANGUAGE LANG_ENGLISH, SUBLANG_DEFAULT
 
 IDB_TOOLBAR BITMAP "res/1033_Bitmap_100.bmp"
 
+IDB_DEFAULT_TEXTURE BITMAP "res/1033_Bitmap_101.bmp"
+
 //////////////////////////////////////////////////////////////////////////////
 
 // RT_MENU
