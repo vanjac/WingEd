@@ -64,8 +64,8 @@ private:
     bool renderMeshDirtyLocal = true;
     ShaderProgram programs[PROG_COUNT];
     buffer_t axisPoints, gridPoints;
-    SizedBuffer verticesBuffer, normalsBuffer, colorsBuffer, texCoordsBuffer;
-    SizedBuffer indexBuffers[ELEM_COUNT];
+    SizedBuffer verticesBuffer, normalsBuffer, texCoordsBuffer;
+    SizedBuffer indicesBuffer;
 
     void lockMouse(POINT clientPos, MouseMode mode);
     void setViewMode(ViewMode mode);
@@ -74,7 +74,7 @@ private:
     void startToolAdjust(POINT pos);
     void toolAdjust(POINT pos, SIZE delta, UINT keyFlags);
     void drawMesh(const RenderMesh &mesh);
-    void drawMeshElements(const RenderMesh &mesh, RenderElement elem, unsigned int mode);
+    void drawIndexRange(const IndexRange &range, unsigned int mode);
 
     BOOL onCreate(HWND, LPCREATESTRUCT);
     void onDestroy(HWND);

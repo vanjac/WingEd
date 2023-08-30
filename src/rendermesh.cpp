@@ -93,10 +93,22 @@ void initRenderMesh() {
 void RenderMesh::clear() {
     vertices.clear();
     normals.clear();
-    colors.clear();
     texCoords.clear();
+    indices.clear();
     for (int i = 0; i < ELEM_COUNT; i++)
-        indices[i].clear();
+        ranges[i] = {};
+    faceMeshes.clear();
+}
+
+void insertFaceIndices(RenderMesh *mesh,
+        const std::unordered_map<id_t, std::vector<index_t>> &matIndices,
+        RenderFaceMesh::State state) {
+    for (auto &pair : matIndices) {
+        IndexRange range = {mesh->indices.size(), pair.second.size()};
+        RenderFaceMesh faceMesh = {pair.first, range, state};
+        mesh->faceMeshes.push_back(faceMesh);
+        mesh->indices.insert(mesh->indices.end(), pair.second.begin(), pair.second.end());
+    }
 }
 
 void generateRenderMesh(RenderMesh *mesh, const EditorState &state) {
@@ -105,7 +117,6 @@ void generateRenderMesh(RenderMesh *mesh, const EditorState &state) {
     std::unordered_map<edge_id, index_t> edgeIDIndices;
     mesh->vertices.reserve(state.surf.edges.size() + g_drawVerts.size() + 1);
     mesh->normals.reserve(mesh->vertices.capacity());
-    mesh->colors.reserve(mesh->vertices.capacity());
     edgeIDIndices.reserve(state.surf.edges.size());
 
     index_t index = 0;
@@ -113,19 +124,15 @@ void generateRenderMesh(RenderMesh *mesh, const EditorState &state) {
         glm::vec3 normal = faceNormal(state.surf, fp.second);
         glm::mat4x2 texMat = faceTexMat(fp.second.paint, normal);
         id_t mat = fp.second.paint->material;
-        // generate color from GUID
-        glm::ivec3 iColor = glm::ivec3(mat.Data4[0], mat.Data4[1], mat.Data4[2]) ^ 0xFF;
-        glm::vec3 color = glm::vec3(iColor) / 255.0f;
         for (auto &ep : FaceEdges(state.surf, fp.second)) {
             glm::vec3 v = ep.second.vert.in(state.surf).pos;
             mesh->vertices.push_back(v);
             mesh->normals.push_back(normal);
-            mesh->colors.push_back(color);
             mesh->texCoords.push_back(texMat * glm::vec4(v, 1));
             edgeIDIndices[ep.first] = index++;
         }
     }
-    // no normals / texCoords / colors!
+    // no normals / texCoords!
     const index_t drawVertsStartI = index;
     for (auto &vec : g_drawVerts) {
         mesh->vertices.push_back(vec);
@@ -135,74 +142,123 @@ void generateRenderMesh(RenderMesh *mesh, const EditorState &state) {
     mesh->vertices.push_back(g_hover.point);
 
     if (state.selMode == SEL_ELEMENTS) {
+        mesh->ranges[ELEM_REG_VERT].start = mesh->indices.size();
         for (auto &pair : state.surf.verts) {
-            if (state.selVerts.count(pair.first)) {
-                mesh->indices[ELEM_SEL_VERT].push_back(edgeIDIndices[pair.second.edge]);
-            } else {
-                mesh->indices[ELEM_REG_VERT].push_back(edgeIDIndices[pair.second.edge]);
+            if (!state.selVerts.count(pair.first)) {
+                mesh->indices.push_back(edgeIDIndices[pair.second.edge]);
+                mesh->ranges[ELEM_REG_VERT].count++;
             }
         }
+
         if (TOOL_FLAGS[g_tool] & TOOLF_DRAW) {
-            if (numDrawPoints() > 0) {
-                for (size_t i = 0; i < g_drawVerts.size(); i++) {
-                    if (g_hover.type == PICK_DRAWVERT && g_hover.val == i) {
-                        mesh->indices[ELEM_REG_VERT].push_back((index_t)(drawVertsStartI + i));
-                    } else {
-                        mesh->indices[ELEM_DRAW_POINT].push_back((index_t)(drawVertsStartI + i));
-                    }
+            if (g_hover.type == PICK_DRAWVERT) {
+                mesh->indices.push_back((index_t)(drawVertsStartI + g_hover.val));
+                mesh->ranges[ELEM_REG_VERT].count++;
+            }
+
+            mesh->ranges[ELEM_DRAW_POINT].start = mesh->indices.size();
+            for (size_t i = 0; i < g_drawVerts.size(); i++) {
+                if (g_hover.type != PICK_DRAWVERT || g_hover.val != i) {
+                    mesh->indices.push_back((index_t)(drawVertsStartI + i));
+                    mesh->ranges[ELEM_DRAW_POINT].count++;
                 }
             }
             if (g_hover.type && g_hover.type != PICK_VERT && g_hover.type != PICK_DRAWVERT) {
-                mesh->indices[ELEM_DRAW_POINT].push_back(hoverI);
+                mesh->indices.push_back(hoverI);
+                mesh->ranges[ELEM_DRAW_POINT].count++;
             }
+        }
+
+        mesh->ranges[ELEM_SEL_VERT].start = mesh->indices.size();
+        for (auto &v : state.selVerts) {
+            mesh->indices.push_back(edgeIDIndices[v.in(state.surf).edge]);
+            mesh->ranges[ELEM_SEL_VERT].count++;
         }
 
         if (g_hover.type == PICK_DRAWVERT || g_hover.vert.find(state.surf)) {
-            mesh->indices[ELEM_HOV_VERT].push_back(hoverI);
+            mesh->ranges[ELEM_HOV_VERT] = {mesh->indices.size(), 1};
+            mesh->indices.push_back(hoverI);
         }
 
         if (numDrawPoints() + (g_hover.type ? 1 : 0) >= 2) {
+            mesh->ranges[ELEM_DRAW_LINE].start = mesh->indices.size();
             if (g_tool == TOOL_KNIFE) {
-                mesh->indices[ELEM_DRAW_LINE].push_back(
-                    edgeIDIndices[state.selVerts.begin()->in(state.surf).edge]);
+                mesh->indices.push_back(edgeIDIndices[state.selVerts.begin()->in(state.surf).edge]);
+                mesh->ranges[ELEM_DRAW_LINE].count++;
             }
-            for (size_t i = 0; i < g_drawVerts.size(); i++)
-                mesh->indices[ELEM_DRAW_LINE].push_back((index_t)(drawVertsStartI + i));
-            if (g_hover.type)
-                mesh->indices[ELEM_DRAW_LINE].push_back(hoverI);
+            for (size_t i = 0; i < g_drawVerts.size(); i++) {
+                mesh->indices.push_back((index_t)(drawVertsStartI + i));
+                mesh->ranges[ELEM_DRAW_LINE].count++;
+            }
+            if (g_hover.type) {
+                mesh->indices.push_back(hoverI);
+                mesh->ranges[ELEM_DRAW_LINE].count++;
+            }
         }
 
+        mesh->ranges[ELEM_SEL_EDGE].start = mesh->indices.size();
         for (auto e : state.selEdges) {
-            mesh->indices[ELEM_SEL_EDGE].push_back(edgeIDIndices[e]);
-            mesh->indices[ELEM_SEL_EDGE].push_back(edgeIDIndices[e.in(state.surf).twin]);
+            mesh->indices.push_back(edgeIDIndices[e]);
+            mesh->indices.push_back(edgeIDIndices[e.in(state.surf).twin]);
+            mesh->ranges[ELEM_SEL_EDGE].count += 2;
         }
+
         if (auto hoverEdge = g_hover.edge.find(state.surf)) {
-            mesh->indices[ELEM_HOV_EDGE].push_back(edgeIDIndices[g_hover.edge]);
-            mesh->indices[ELEM_HOV_EDGE].push_back(edgeIDIndices[hoverEdge->twin]);
+            mesh->ranges[ELEM_HOV_EDGE] = {mesh->indices.size(), 2};
+            mesh->indices.push_back(edgeIDIndices[g_hover.edge]);
+            mesh->indices.push_back(edgeIDIndices[hoverEdge->twin]);
         }
     }
 
+    mesh->ranges[ELEM_REG_EDGE].start = mesh->indices.size();
     for (auto &pair : state.surf.edges) {
         if (isPrimary(pair)) {
-            mesh->indices[ELEM_REG_EDGE].push_back(edgeIDIndices[pair.first]);
-            mesh->indices[ELEM_REG_EDGE].push_back(edgeIDIndices[pair.second.twin]);
+            mesh->indices.push_back(edgeIDIndices[pair.first]);
+            mesh->indices.push_back(edgeIDIndices[pair.second.twin]);
+            mesh->ranges[ELEM_REG_EDGE].count += 2;
         }
     }
 
-    for (auto &pair : state.surf.faces) {
-        glm::vec3 normal = mesh->normals[edgeIDIndices[pair.second.edge]];
-        RenderElement elem;
-        if (state.selFaces.count(pair.first)) {
-            elem = ELEM_SEL_FACE;
-        } else if (g_hover.type && pair.first == g_hoverFace
-                && (g_hover.type == PICK_FACE || (TOOL_FLAGS[g_tool] & TOOLF_HOVFACE))) {
-            elem = ELEM_HOV_FACE;
-        } else {
-            elem = ELEM_REG_FACE;
+    std::vector<index_t> errIndices;
+
+    face_id hovFace = {};
+    if (g_hover.type && (g_hover.type == PICK_FACE || (TOOL_FLAGS[g_tool] & TOOLF_HOVFACE))) {
+        hovFace = g_hoverFace;
+        if (!state.selFaces.count(hovFace)) {
+            const Face &face = hovFace.in(state.surf);
+            RenderFaceMesh faceMesh;
+            faceMesh.material = face.paint->material;
+            faceMesh.range.start = mesh->indices.size();
+            faceMesh.state = RenderFaceMesh::HOV;
+            glm::vec3 normal = mesh->normals[edgeIDIndices[face.edge]];
+            tesselateFace(mesh->indices, errIndices, state.surf, face, normal, edgeIDIndices);
+            faceMesh.range.count = mesh->indices.size() - faceMesh.range.start;
+            mesh->faceMeshes.push_back(faceMesh);
         }
-        tesselateFace(mesh->indices[elem], mesh->indices[ELEM_ERR_FACE],
-            state.surf, pair.second, normal, edgeIDIndices);
     }
+
+    std::unordered_map<id_t, std::vector<index_t>> matIndices;
+
+    for (auto &pair : state.surf.faces) {
+        if (!state.selFaces.count(pair.first) && pair.first != hovFace) {
+            glm::vec3 normal = mesh->normals[edgeIDIndices[pair.second.edge]];
+            tesselateFace(matIndices[pair.second.paint->material], errIndices,
+                state.surf, pair.second, normal, edgeIDIndices);
+        }
+    }
+    insertFaceIndices(mesh, matIndices, RenderFaceMesh::REG);
+    matIndices.clear();
+
+    for (auto &f : state.selFaces) {
+        const Face &face = f.in(state.surf);
+        glm::vec3 normal = mesh->normals[edgeIDIndices[face.edge]];
+        tesselateFace(matIndices[face.paint->material], errIndices,
+            state.surf, face, normal, edgeIDIndices);
+    }
+    insertFaceIndices(mesh, matIndices, RenderFaceMesh::SEL);
+
+    mesh->ranges[ELEM_ERR_FACE] = {mesh->indices.size(), errIndices.size()};
+    mesh->indices.insert(mesh->indices.end(), errIndices.begin(), errIndices.end());
 }
 
 } // namespace

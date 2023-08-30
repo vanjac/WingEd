@@ -646,25 +646,17 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
     // dynamic buffers
     glGenBuffers(1, &verticesBuffer.id);
     glGenBuffers(1, &normalsBuffer.id);
-    glGenBuffers(1, &colorsBuffer.id);
     glGenBuffers(1, &texCoordsBuffer.id);
+    glGenBuffers(1, &indicesBuffer.id);
     glBindBuffer(GL_ARRAY_BUFFER, verticesBuffer.id);
     initSizedBuffer(&verticesBuffer, GL_ARRAY_BUFFER, 16 * sizeof(glm::vec3), GL_DYNAMIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, normalsBuffer.id);
     initSizedBuffer(&normalsBuffer, GL_ARRAY_BUFFER, 16 * sizeof(glm::vec3), GL_DYNAMIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, colorsBuffer.id);
-    initSizedBuffer(&colorsBuffer, GL_ARRAY_BUFFER, 16 * sizeof(glm::vec3), GL_DYNAMIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, texCoordsBuffer.id);
     initSizedBuffer(&texCoordsBuffer, GL_ARRAY_BUFFER, 16 * sizeof(glm::vec2), GL_DYNAMIC_DRAW);
-
-    GLuint buffers[ELEM_COUNT];
-    glGenBuffers(ELEM_COUNT, buffers);
-    for (GLuint i = 0; i < ELEM_COUNT; i++) {
-        indexBuffers[i].id = buffers[i];
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffers[i]);
-        initSizedBuffer(&indexBuffers[i], GL_ELEMENT_ARRAY_BUFFER, 32 * sizeof(GLushort),
-            GL_DYNAMIC_DRAW);
-    }
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indicesBuffer.id);
+    initSizedBuffer(&indicesBuffer, GL_ELEMENT_ARRAY_BUFFER, 64 * sizeof(GLushort),
+        GL_DYNAMIC_DRAW);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -918,12 +910,16 @@ void ViewportWindow::onSize(HWND, UINT, int cx, int cy) {
     }
 }
 
-static void setColorHex(uint32_t color) {
-    glVertexAttrib4f(ATTR_COLOR,
+static constexpr glm::vec4 hexColor(uint32_t color) {
+    return glm::vec4(
         ((color >> 16) & 0xFF) / 255.0f,
         ((color >> 8) & 0xFF) / 255.0f,
         (color & 0xFF) / 255.0f,
         ((color >> 24) & 0xFF) / 255.0f);
+}
+
+static void setColor(glm::vec4 color) {
+    glVertexAttrib4f(ATTR_COLOR, color.r, color.g, color.b, color.a);
 }
 
 void ViewportWindow::onPaint(HWND) {
@@ -958,11 +954,11 @@ void ViewportWindow::onPaint(HWND) {
     glVertexAttribPointer(ATTR_VERTEX, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glLineWidth(WIDTH_AXIS);
-    setColorHex(COLOR_X_AXIS);
+    setColor(hexColor(COLOR_X_AXIS));
     glDrawArrays(GL_LINES, 0, 2);
-    setColorHex(COLOR_Y_AXIS);
+    setColor(hexColor(COLOR_Y_AXIS));
     glDrawArrays(GL_LINES, 2, 2);
-    setColorHex(COLOR_Z_AXIS);
+    setColor(hexColor(COLOR_Z_AXIS));
     glDrawArrays(GL_LINES, 4, 2);
 
     if (g_renderMeshDirty) {
@@ -1004,7 +1000,7 @@ void ViewportWindow::onPaint(HWND) {
         glEnable(GL_BLEND);
         glEnable(GL_LINE_SMOOTH);
         glLineWidth(WIDTH_GRID);
-        setColorHex(COLOR_GRID);
+        setColor(hexColor(COLOR_GRID));
         glDrawArrays(GL_LINES, 0, (GRID_SIZE * 2 + 1) * 4);
         glDisable(GL_BLEND);
         glDisable(GL_LINE_SMOOTH);
@@ -1025,65 +1021,58 @@ void ViewportWindow::drawMesh(const RenderMesh &mesh) {
         glBindBuffer(GL_ARRAY_BUFFER, normalsBuffer.id);
         writeSizedBuffer(&normalsBuffer, GL_ARRAY_BUFFER, mesh.normals.size() * sizeof(glm::vec3),
             (void *)mesh.normals.data(), GL_DYNAMIC_DRAW);
-        glBindBuffer(GL_ARRAY_BUFFER, colorsBuffer.id);
-        writeSizedBuffer(&colorsBuffer, GL_ARRAY_BUFFER, mesh.colors.size() * sizeof(glm::vec3),
-            (void *)mesh.colors.data(), GL_DYNAMIC_DRAW);
         glBindBuffer(GL_ARRAY_BUFFER, texCoordsBuffer.id);
         writeSizedBuffer(&texCoordsBuffer, GL_ARRAY_BUFFER,
             mesh.texCoords.size() * sizeof(glm::vec2), (void *)mesh.texCoords.data(),
             GL_DYNAMIC_DRAW);
-        for (GLuint i = 0; i < ELEM_COUNT; i++) {
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffers[i].id);
-            writeSizedBuffer(&indexBuffers[i], GL_ELEMENT_ARRAY_BUFFER,
-                mesh.indices[i].size() * sizeof(GLushort), (void *)mesh.indices[i].data(),
-                GL_DYNAMIC_DRAW);
-        }
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indicesBuffer.id);
+        writeSizedBuffer(&indicesBuffer, GL_ELEMENT_ARRAY_BUFFER,
+            mesh.indices.size() * sizeof(GLushort), (void *)mesh.indices.data(), GL_DYNAMIC_DRAW);
     }
 
     glBindBuffer(GL_ARRAY_BUFFER, verticesBuffer.id);
     glVertexAttribPointer(ATTR_VERTEX, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glBindBuffer(GL_ARRAY_BUFFER, normalsBuffer.id);
     glVertexAttribPointer(ATTR_NORMAL, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    glBindBuffer(GL_ARRAY_BUFFER, colorsBuffer.id);
-    glVertexAttribPointer(ATTR_COLOR, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glBindBuffer(GL_ARRAY_BUFFER, texCoordsBuffer.id);
     glVertexAttribPointer(ATTR_TEXCOORD, 2, GL_FLOAT, GL_FALSE, 0, 0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indicesBuffer.id);
 
     if (view.showElem & PICK_EDGE) {
         glLineWidth(WIDTH_EDGE_SEL);
-        setColorHex(g_flashSel ? COLOR_EDGE_FLASH : COLOR_EDGE_SEL);
-        drawMeshElements(mesh, ELEM_SEL_EDGE, GL_LINES);
+        setColor(hexColor(g_flashSel ? COLOR_EDGE_FLASH : COLOR_EDGE_SEL));
+        drawIndexRange(mesh.ranges[ELEM_SEL_EDGE], GL_LINES);
 
         glLineWidth(WIDTH_EDGE_HOVER);
-        setColorHex(COLOR_EDGE_HOVER);
-        drawMeshElements(mesh, ELEM_HOV_EDGE, GL_LINES);
+        setColor(hexColor(COLOR_EDGE_HOVER));
+        drawIndexRange(mesh.ranges[ELEM_HOV_EDGE], GL_LINES);
     }
 
     if (view.showElem & PICK_VERT) {
         glPointSize(SIZE_VERT);
-        setColorHex(COLOR_VERT);
-        drawMeshElements(mesh, ELEM_REG_VERT, GL_POINTS);
+        setColor(hexColor(COLOR_VERT));
+        drawIndexRange(mesh.ranges[ELEM_REG_VERT], GL_POINTS);
 
-        setColorHex(g_flashSel ? COLOR_VERT_FLASH : COLOR_VERT_SEL);
-        drawMeshElements(mesh, ELEM_SEL_VERT, GL_POINTS);
+        setColor(hexColor(g_flashSel ? COLOR_VERT_FLASH : COLOR_VERT_SEL));
+        drawIndexRange(mesh.ranges[ELEM_SEL_VERT], GL_POINTS);
 
-        setColorHex(COLOR_DRAW_POINT);
-        drawMeshElements(mesh, ELEM_DRAW_POINT, GL_POINTS);
+        setColor(hexColor(COLOR_DRAW_POINT));
+        drawIndexRange(mesh.ranges[ELEM_DRAW_POINT], GL_POINTS);
 
         glPointSize(SIZE_VERT_HOVER);
-        setColorHex(COLOR_VERT_HOVER);
-        drawMeshElements(mesh, ELEM_HOV_VERT, GL_POINTS);
+        setColor(hexColor(COLOR_VERT_HOVER));
+        drawIndexRange(mesh.ranges[ELEM_HOV_VERT], GL_POINTS);
 
         glLineWidth(WIDTH_DRAW);
-        setColorHex(COLOR_DRAW_LINE);
-        drawMeshElements(mesh, ELEM_DRAW_LINE, GL_LINE_STRIP);
+        setColor(hexColor(COLOR_DRAW_LINE));
+        drawIndexRange(mesh.ranges[ELEM_DRAW_LINE], GL_LINE_STRIP);
     }
 
     if (view.showElem & PICK_EDGE) {
         glLineWidth(WIDTH_EDGE);
-        setColorHex(COLOR_EDGE);
-        drawMeshElements(mesh, ELEM_REG_EDGE, GL_LINES);
+        setColor(hexColor(COLOR_EDGE));
+        drawIndexRange(mesh.ranges[ELEM_REG_EDGE], GL_LINES);
     }
 
     if (view.showElem & PICK_FACE) {
@@ -1091,18 +1080,21 @@ void ViewportWindow::drawMesh(const RenderMesh &mesh) {
             glUseProgram(programs[PROG_FACE].id);
         glEnableVertexAttribArray(ATTR_NORMAL);
         glEnableVertexAttribArray(ATTR_TEXCOORD);
-
-        setColorHex(g_flashSel ? COLOR_FACE_FLASH : COLOR_FACE_SEL);
-        drawMeshElements(mesh, ELEM_SEL_FACE, GL_TRIANGLES);
-        setColorHex(COLOR_FACE_HOVER);
-        drawMeshElements(mesh, ELEM_HOV_FACE, GL_TRIANGLES);
-        setColorHex(COLOR_FACE_ERROR);
-        drawMeshElements(mesh, ELEM_ERR_FACE, GL_TRIANGLES);
-        glEnableVertexAttribArray(ATTR_COLOR);
-        setColorHex(COLOR_FACE);
-        drawMeshElements(mesh, ELEM_REG_FACE, GL_TRIANGLES);
-
-        glDisableVertexAttribArray(ATTR_COLOR);
+        for (auto &faceMesh : mesh.faceMeshes) {
+            // generate color from GUID
+            id_t mat = faceMesh.material;
+            glm::ivec3 iColor = glm::ivec3(mat.Data4[0], mat.Data4[1], mat.Data4[2]) ^ 0xFF;
+            glm::vec4 color = glm::vec4(glm::vec3(iColor) / 255.0f, 1.0f);
+            if (faceMesh.state == RenderFaceMesh::HOV)
+                setColor(hexColor(COLOR_FACE_HOVER) * color);
+            else if (faceMesh.state == RenderFaceMesh::SEL)
+                setColor(hexColor(COLOR_FACE_SEL) * color);
+            else
+                setColor(hexColor(COLOR_FACE) * color);
+            drawIndexRange(faceMesh.range, GL_TRIANGLES);
+        }
+        setColor(hexColor(COLOR_FACE_ERROR));
+        drawIndexRange(mesh.ranges[ELEM_ERR_FACE], GL_TRIANGLES);
         glDisableVertexAttribArray(ATTR_TEXCOORD);
         glDisableVertexAttribArray(ATTR_NORMAL);
         if (view.mode != VIEW_ORTHO)
@@ -1111,9 +1103,9 @@ void ViewportWindow::drawMesh(const RenderMesh &mesh) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
-void ViewportWindow::drawMeshElements(const RenderMesh &mesh, RenderElement elem, GLenum mode) {
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffers[elem].id);
-    glDrawElements(mode, (GLsizei)mesh.indices[elem].size(), GL_UNSIGNED_SHORT, 0);
+void ViewportWindow::drawIndexRange(const IndexRange &range, GLenum mode) {
+    glDrawElements(mode, (GLsizei)range.count, GL_UNSIGNED_SHORT,
+        (void *)(range.start * sizeof(GLushort)));
 }
 
 LRESULT ViewportWindow::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
