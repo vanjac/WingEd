@@ -33,6 +33,8 @@ WINGED MENUEX
         MENUITEM "&Save\tCtrl+S", IDM_SAVE
         MENUITEM "Save &as...\tCtrl+Shift+S", IDM_SAVE_AS
         MENUITEM "&Export OBJ", IDM_EXPORT_OBJ
+        MENUITEM "", 0, MFT_SEPARATOR
+        MENUITEM "Add &Texture", IDM_ADD_TEXTURE
         MENUITEM "", 0, MFT_SEPARATOR | MFT_OWNERDRAW
     }
     POPUP "&Select", IDM_SEL_MENU

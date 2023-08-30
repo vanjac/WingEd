@@ -1,7 +1,7 @@
 #include "file.h"
 #include <unordered_map>
 #include "winchroma.h"
-#include "atlbase.h"
+#include <atlbase.h>
 
 using namespace chroma;
 
@@ -28,7 +28,7 @@ static void writeSet(HANDLE handle, const immer::set<T> &set) {
         write(handle, &v, sizeof(v));
 }
 
-void writeFile(TCHAR *file, const EditorState &state, const ViewState &view) {
+void writeFile(const TCHAR *file, const EditorState &state, const ViewState &view) {
     CHandle handle(CreateFile(file, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
         FILE_ATTRIBUTE_NORMAL, NULL));
     if (handle == INVALID_HANDLE_VALUE)
@@ -78,7 +78,7 @@ static immer::set<T> readSet(HANDLE handle) {
     return set;
 }
 
-std::tuple<EditorState, ViewState> readFile(TCHAR *file) {
+std::tuple<EditorState, ViewState> readFile(const TCHAR *file) {
     CHandle handle(CreateFile(file, GENERIC_READ, 0, NULL, OPEN_EXISTING,
         FILE_ATTRIBUTE_NORMAL, NULL));
     if (handle == INVALID_HANDLE_VALUE)
@@ -100,7 +100,7 @@ std::tuple<EditorState, ViewState> readFile(TCHAR *file) {
 }
 
 
-void writeObj(TCHAR *file, const Surface &surf) {
+void writeObj(const TCHAR *file, const Surface &surf) {
     CHandle handle(CreateFile(file, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
         FILE_ATTRIBUTE_NORMAL, NULL));
     if (handle == INVALID_HANDLE_VALUE)

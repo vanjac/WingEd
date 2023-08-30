@@ -9,6 +9,7 @@
 #include <unordered_set>
 #include "winchroma.h"
 #include "editor.h"
+#include "library.h"
 #include "viewport.h"
 #include "rendermesh.h"
 
@@ -84,6 +85,7 @@ private:
 
 extern MainWindow g_mainWindow;
 extern EditorState g_state;
+extern Library g_library;
 extern PickResult g_hover;
 extern face_id g_hoverFace;
 

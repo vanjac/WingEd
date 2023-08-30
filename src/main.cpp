@@ -26,6 +26,7 @@ enum StatusPart {
 // main.h
 MainWindow g_mainWindow;
 EditorState g_state;
+Library g_library;
 PickResult g_hover;
 face_id g_hoverFace = {};
 Tool g_tool = TOOL_SELECT;
@@ -449,6 +450,28 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                     writeObj(objFile, g_state.surf);
                 break;
             }
+            case IDM_ADD_TEXTURE: {
+                TCHAR texFile[MAX_PATH];
+                texFile[0] = 0;
+                // https://learn.microsoft.com/en-us/windows/win32/gdiplus/-gdiplus-types-of-bitmaps-about
+                const TCHAR filters[] =
+                    L"Supported Images (.png, .jpg, .jpeg, .bmp, .gif, .tif, .tiff)\0"
+                    "*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.tif;*.tiff\0"
+                    "All Files\0*.*\0\0";
+                if (GetOpenFileName(tempPtr(makeOpenFileName(texFile, wnd, filters)))) {
+                    std::wstring texFileStr = texFile;
+                    id_t texId = g_library.pathIds[texFileStr];
+                    if (texId == id_t{}) {
+                        texId = genId();
+                        g_library.addFile(texId, texFileStr);
+                    }
+
+                    EditorState newState = g_state;
+                    newState.surf = assignPaint(g_state.surf, g_state.selFaces, Paint{texId});
+                    pushUndo(std::move(newState));
+                }
+                break;
+            }
             /* Tool */
             case IDM_TOOL_SELECT:
                 setTool(TOOL_SELECT);
@@ -614,9 +637,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                 break;
             case IDM_NEW_MATERIAL: {
                 EditorState newState = g_state;
-                Paint paint;
-                paint.material = genId();
-                newState.surf = assignPaint(g_state.surf, g_state.selFaces, paint);
+                newState.surf = assignPaint(g_state.surf, g_state.selFaces, Paint{genId()});
                 pushUndo(std::move(newState));
                 break;
             }
