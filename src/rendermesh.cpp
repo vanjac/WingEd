@@ -225,17 +225,18 @@ void generateRenderMesh(RenderMesh *mesh, const EditorState &state) {
 
     face_id hovFace = {};
     if (g_hover.type && (g_hover.type == PICK_FACE || (TOOL_FLAGS[g_tool] & TOOLF_HOVFACE))) {
-        hovFace = g_hoverFace;
-        if (!state.selFaces.count(hovFace)) {
-            const Face &face = hovFace.in(state.surf);
-            RenderFaceMesh faceMesh;
-            faceMesh.material = face.paint->material;
-            faceMesh.range.start = mesh->indices.size();
-            faceMesh.state = RenderFaceMesh::HOV;
-            glm::vec3 normal = mesh->normals[edgeIDIndices[face.edge]];
-            tesselateFace(mesh->indices, errIndices, state.surf, face, normal, edgeIDIndices);
-            faceMesh.range.count = mesh->indices.size() - faceMesh.range.start;
-            mesh->faceMeshes.push_back(faceMesh);
+        if (auto face = g_hoverFace.find(state.surf)) {
+            hovFace = g_hoverFace;
+            if (!state.selFaces.count(hovFace)) {
+                RenderFaceMesh faceMesh;
+                faceMesh.material = face->paint->material;
+                faceMesh.range.start = mesh->indices.size();
+                faceMesh.state = RenderFaceMesh::HOV;
+                glm::vec3 normal = mesh->normals[edgeIDIndices[face->edge]];
+                tesselateFace(mesh->indices, errIndices, state.surf, *face, normal, edgeIDIndices);
+                faceMesh.range.count = mesh->indices.size() - faceMesh.range.start;
+                mesh->faceMeshes.push_back(faceMesh);
+            }
         }
     }
 
