@@ -41,5 +41,7 @@ struct RenderMesh {
 
 void initRenderMesh();
 void generateRenderMesh(RenderMesh *mesh, const EditorState &state);
+void tesselateFace(std::vector<index_t> &faceIsOut, const Surface &surf,
+    const Face &face, glm::vec3 normal);
 
 } // namespace

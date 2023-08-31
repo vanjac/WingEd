@@ -3,6 +3,7 @@
 #include <unordered_set>
 #include "winchroma.h"
 #include <atlbase.h>
+#include "rendermesh.h"
 #include "stdutil.h"
 
 using namespace chroma;
@@ -21,15 +22,27 @@ struct std::hash<std::pair<winged::vert_id, winged::vert_id>> {
 };
 
 template<>
+struct std::hash<glm::vec2> {
+    std::size_t operator() (const glm::vec2 &key) const {
+        return hashCombine(hashCombine(0, key.x), key.y);
+    }
+};
+
+template<>
+struct std::hash<glm::vec3> {
+    std::size_t operator() (const glm::vec3 &key) const {
+        return hashCombine(hashCombine(hashCombine(0, key.x), key.y), key.z);
+    }
+};
+
+template<>
 struct std::hash<winged::Paint> {
     std::size_t operator() (const winged::Paint &key) const {
         auto hash = hashCombine(0, key.material);
-        for (int r = 0; r < 2; r++) {
-            for (int c = 0; c < 4; c++)
-                hash = hashCombine(hash, key.texAxes[c][r]);
-            for (int c = 0; c < 3; c++)
-                hash = hashCombine(hash, key.texTF[c][r]);
-        }
+        for (int c = 0; c < 4; c++)
+            hash = hashCombine(hash, key.texAxes[c]);
+        for (int c = 0; c < 3; c++)
+            hash = hashCombine(hash, key.texTF[c]);
         return hash;
     }
 };
@@ -274,6 +287,10 @@ std::tuple<EditorState, ViewState, Library> readFile(const wchar_t *file,
 }
 
 
+struct ObjFaceVert {
+    int v, vt;
+};
+
 void writeObj(const wchar_t *file, const Surface &surf) {
     CHandle handle(CreateFile(file, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
         FILE_ATTRIBUTE_NORMAL, NULL));
@@ -282,26 +299,51 @@ void writeObj(const wchar_t *file, const Surface &surf) {
     char buf[256];
 
     std::unordered_map<vert_id, int> vertIndices;
-    int i = 1;
+    int v = 1;
     for (auto &vert : surf.verts) {
         auto pos = vert.second.pos;
         write(handle, buf, sprintf(buf, "v %f %f %f\n", pos.x, pos.y, pos.z));
-        vertIndices[vert.first] = i++;
+        vertIndices[vert.first] = v++;
     }
 
-    int vn = 1, vt = 1;
+    std::unordered_map<glm::vec3, int> normalIndices;
+    std::unordered_map<glm::vec2, int> texCoordIndices;
+    std::vector<ObjFaceVert> faceVerts;
+    std::vector<index_t> faceIndices;
     for (auto &face : surf.faces) {
         glm::vec3 normal = faceNormal(surf, face.second);
-        glm::mat4x2 texMat = faceTexMat(face.second.paint, normal);
-        write(handle, buf, sprintf(buf, "\nvn %f %f %f", normal.x, normal.y, normal.z));
-        for (auto &edge : FaceEdges(surf, face.second)) {
-            glm::vec2 uv = texMat * glm::vec4(edge.second.vert.in(surf).pos, 1);
-            write(handle, buf, sprintf(buf, "\nvt %f %f", uv.x, uv.y));
+        int vn;
+        if (auto vnPtr = tryGet(normalIndices, normal)) {
+            vn = *vnPtr;
+        } else {
+            vn = (int)normalIndices.size() + 1;
+            normalIndices[normal] = vn;
+            write(handle, buf, sprintf(buf, "\nvn %f %f %f", normal.x, normal.y, normal.z));
         }
-        write(handle, "\nf", 2);
+
+        glm::mat4x2 texMat = faceTexMat(face.second.paint, normal);
+        faceVerts.clear();
         for (auto &edge : FaceEdges(surf, face.second)) {
-            int v = vertIndices[edge.second.vert];
-            write(handle, buf, sprintf(buf, " %d/%d/%d", v, vt++, vn));
+            glm::vec2 texCoord = texMat * glm::vec4(edge.second.vert.in(surf).pos, 1);
+            int vt;
+            if (auto vtPtr = tryGet(texCoordIndices, texCoord)) {
+                vt = *vtPtr;
+            } else {
+                vt = (int)texCoordIndices.size() + 1;
+                texCoordIndices[texCoord] = vt;
+                write(handle, buf, sprintf(buf, "\nvt %f %f", texCoord.x, texCoord.y));
+            }
+            faceVerts.push_back({vertIndices[edge.second.vert], vt});
+        }
+
+        faceIndices.clear();
+        tesselateFace(faceIndices, surf, face.second, normal);
+        for (size_t i = 0; i < faceIndices.size(); ) {
+            write(handle, "\nf", 2);
+            for (size_t j = 0; j < 3; j++, i++) {
+                const ObjFaceVert &ofv = faceVerts[faceIndices[i]];
+                write(handle, buf, sprintf(buf, " %d/%d/%d", ofv.v, ofv.vt, vn));
+            }
         }
         vn++;
     }

@@ -12,7 +12,7 @@ struct FaceTessState {
     std::vector<index_t> *indices;
     GLenum mode;
     size_t startI;
-    GLenum error;
+    GLenum error = 0;
 };
 
 static GLUtesselator *g_tess;
@@ -53,7 +53,6 @@ static void tesselateFace(std::vector<index_t> &faceIsOut, std::vector<index_t> 
     size_t initialSize = faceIsOut.size();
     FaceTessState state;
     state.indices = &faceIsOut;
-    state.error = 0;
     gluTessNormal(g_tess, normal.x, normal.y, normal.z);
     gluTessBeginPolygon(g_tess, &state);
     gluTessBeginContour(g_tess);
@@ -78,6 +77,22 @@ static void tesselateFace(std::vector<index_t> &faceIsOut, std::vector<index_t> 
             errorIsOut.push_back(edgeIDIndices.at(ep.first));
         }
     }
+}
+
+void tesselateFace(std::vector<index_t> &faceIsOut, const Surface &surf,
+        const Face &face, glm::vec3 normal) {
+    FaceTessState state;
+    state.indices = &faceIsOut;
+    gluTessNormal(g_tess, normal.x, normal.y, normal.z);
+    gluTessBeginPolygon(g_tess, &state);
+    gluTessBeginContour(g_tess);
+    index_t vertI = 0;
+    for (auto &ep : FaceEdges(surf, face)) {
+        glm::dvec3 dPos = ep.second.vert.in(surf).pos;
+        gluTessVertex(g_tess, glm::value_ptr(dPos), (void *)vertI++);
+    }
+    gluTessEndContour(g_tess);
+    gluTessEndPolygon(g_tess);
 }
 
 void initRenderMesh() {
