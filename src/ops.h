@@ -5,6 +5,7 @@
 
 #include <vector>
 #include <glm/mat4x4.hpp>
+#include <glm/mat3x3.hpp>
 #include <immer/set.hpp>
 #include "surface.h"
 
@@ -42,6 +43,7 @@ Surface transformVertices(Surface surf, const immer::set<vert_id> &verts, const 
 Surface snapVertices(Surface surf, const immer::set<vert_id> &verts, float grid);
 
 Surface assignPaint(Surface surf, const immer::set<face_id> &faces, immer::box<Paint> paint);
+Surface transformPaint(Surface surf, const immer::set<face_id> &faces, const glm::mat3 &m);
 
 Surface duplicate(Surface surf, const immer::set<edge_id> &edges, 
     const immer::set<vert_id> &verts, const immer::set<face_id> &faces);

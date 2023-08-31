@@ -63,6 +63,7 @@ private:
     TCHAR fileName[MAX_PATH] = {0};
 
     glm::mat4 userMatrix = glm::mat4(1);
+    glm::mat4 userPaintMatrix = glm::mat4(1);
 
     HWND toolbarWnd, statusWnd;
     ViewportWindow mainViewport;

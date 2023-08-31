@@ -636,7 +636,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                 pushUndo(std::move(newState));
                 break;
             }
-            case IDM_TRANSFORM_MATRIX: {
+            case IDM_TRANSFORM_MATRIX:
                 if (DialogBoxParam(GetModuleHandle(NULL), L"IDD_MATRIX", wnd, matrixDlgProc,
                         (LPARAM)&userMatrix) == IDOK) {
                     auto verts = selAttachedVerts(g_state);
@@ -647,7 +647,15 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                     pushUndo(std::move(newState));
                 }
                 break;
-            }
+            case IDM_PAINT_MATRIX: 
+                if (DialogBoxParam(GetModuleHandle(NULL), L"IDD_MATRIX", wnd, matrixDlgProc,
+                        (LPARAM)&userPaintMatrix) == IDOK) {
+                    EditorState newState = g_state;
+                    glm::mat3 mat = glm::inverse(glm::mat3(userPaintMatrix));
+                    newState.surf = transformPaint(g_state.surf, g_state.selFaces, mat);
+                    pushUndo(std::move(newState));
+                }
+                break;
         }
     } catch (winged_error err) {
         showError(err);

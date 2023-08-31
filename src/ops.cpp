@@ -674,6 +674,17 @@ Surface assignPaint(Surface surf, const immer::set<face_id> &faces, immer::box<P
     return surf;
 }
 
+Surface transformPaint(Surface surf, const immer::set<face_id> &faces, const glm::mat3 &m) {
+    for (auto &f : faces) {
+        face_pair face = f.pair(surf);
+        Paint paint = face.second.paint;
+        paint.texTF = glm::mat3(paint.texTF) * m;
+        face.second.paint = paint;
+        insertAll(&surf.faces, {face});
+    }
+    return surf;
+}
+
 Surface duplicate(Surface surf, const immer::set<edge_id> &edges, 
         const immer::set<vert_id> &verts, const immer::set<face_id> &faces) {
     std::unordered_map<edge_id, edge_id> edgeMap;

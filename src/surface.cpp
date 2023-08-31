@@ -56,6 +56,7 @@ glm::mat4x2 faceTexMat(const Paint &paint, glm::vec3 normal) {
         texAxes[(axis + 2) % 3] = glm::vec2(0, 1); // v
     }
     glm::mat4x3 expand = texAxes;
+    expand[2][2] = 0;
     expand[3][2] = 1;
     return paint.texTF * expand;
 }

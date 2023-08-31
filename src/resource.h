@@ -53,6 +53,7 @@
 #define IDM_ADD_TEXTURE                     151
 #define IDM_SET_LIBRARY                     152
 #define IDM_RELOAD_ASSETS                   153
+#define IDM_PAINT_MATRIX                    154
 
 #define IDR_VERT_UNLIT                      100
 #define IDR_FRAG_SOLID                      101
@@ -63,7 +64,7 @@
     #ifndef APSTUDIO_READONLY_SYMBOLS
         #define _APS_NO_MFC                 1
         #define _APS_NEXT_RESOURCE_VALUE    104
-        #define _APS_NEXT_COMMAND_VALUE     154
+        #define _APS_NEXT_COMMAND_VALUE     155
         #define _APS_NEXT_CONTROL_VALUE     1000
         #define _APS_NEXT_SYMED_VALUE       300
     #endif
