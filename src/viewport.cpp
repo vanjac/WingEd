@@ -1159,8 +1159,7 @@ void ViewportWindow::drawMesh(const RenderMesh &mesh) {
     }
 
     if (view.showElem & PICK_FACE) {
-        if (view.mode != VIEW_ORTHO)
-            glUseProgram(programs[PROG_FACE].id);
+        glUseProgram(programs[PROG_FACE].id);
         glEnableVertexAttribArray(ATTR_NORMAL);
         glEnableVertexAttribArray(ATTR_TEXCOORD);
         for (auto &faceMesh : mesh.faceMeshes) {
@@ -1181,8 +1180,7 @@ void ViewportWindow::drawMesh(const RenderMesh &mesh) {
         glBindTexture(GL_TEXTURE_2D, 0);
         glDisableVertexAttribArray(ATTR_TEXCOORD);
         glDisableVertexAttribArray(ATTR_NORMAL);
-        if (view.mode != VIEW_ORTHO)
-            glUseProgram(programs[PROG_UNLIT].id);
+        glUseProgram(programs[PROG_UNLIT].id);
     }
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
