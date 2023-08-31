@@ -862,6 +862,10 @@ void ViewportWindow::onMouseMove(HWND, int x, int y, UINT keyFlags) {
     POINT curPos = {x, y};
     if (mouseMode == MOUSE_NONE) {
         updateHover(curPos);
+        if (!trackMouse) {
+            TrackMouseEvent(tempPtr(TRACKMOUSEEVENT{sizeof(TRACKMOUSEEVENT), TME_LEAVE, wnd}));
+            trackMouse = true;
+        }
     } else if (curPos != lastCurPos) {
         SIZE delta = {curPos.x - lastCurPos.x, curPos.y - lastCurPos.y};
         switch (mouseMode) {
@@ -899,6 +903,16 @@ void ViewportWindow::onMouseMove(HWND, int x, int y, UINT keyFlags) {
         } else {
             lastCurPos = curPos;
         }
+    }
+}
+
+void ViewportWindow::onMouseLeave(HWND) {
+    trackMouse = false;
+    if (mouseMode == MOUSE_NONE && g_hover.type != PICK_NONE) {
+        g_hover = {};
+        g_mainWindow.refreshAll();
+        if (TOOL_FLAGS[g_tool] & TOOLF_DRAW)
+            g_mainWindow.updateStatus();
     }
 }
 
@@ -1230,6 +1244,7 @@ LRESULT ViewportWindow::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         HANDLE_MSG(wnd, WM_RBUTTONUP, onButtonUp);
         HANDLE_MSG(wnd, WM_MBUTTONUP, onButtonUp);
         HANDLE_MSG(wnd, WM_MOUSEMOVE, onMouseMove);
+        case WM_MOUSELEAVE: onMouseLeave(wnd); return 0;
         HANDLE_MSG(wnd, WM_MOUSEWHEEL, onMouseWheel);
         HANDLE_MSG(wnd, WM_COMMAND, onCommand);
         HANDLE_MSG(wnd, WM_DROPFILES, onDropFiles);

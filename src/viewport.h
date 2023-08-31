@@ -64,6 +64,7 @@ private:
     glm::mat4 projMat, mvMat;
     glm::vec2 viewportDim;
 
+    bool trackMouse = false;
     POINT lastCurPos;
     glm::vec3 startPlanePos;
     float snapAccum;
@@ -95,6 +96,7 @@ private:
     void onMButtonDown(HWND, BOOL, int, int, UINT);
     void onButtonUp(HWND, int, int, UINT);
     void onMouseMove(HWND, int, int, UINT);
+    void onMouseLeave(HWND);
     void onMouseWheel(HWND, int, int, int, UINT);
     void onDropFiles(HWND, HDROP);
     void onSize(HWND, UINT, int, int);
