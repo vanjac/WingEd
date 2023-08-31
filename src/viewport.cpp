@@ -1148,7 +1148,7 @@ void ViewportWindow::drawMesh(const RenderMesh &mesh) {
             if (faceMesh.state == RenderFaceMesh::HOV)
                 setColor(hexColor(COLOR_FACE_HOVER));
             else if (faceMesh.state == RenderFaceMesh::SEL)
-                setColor(hexColor(COLOR_FACE_SEL));
+                setColor(hexColor(g_flashSel ? COLOR_FACE_FLASH : COLOR_FACE_SEL));
             else
                 setColor(glm::vec4(1));
             drawIndexRange(faceMesh.range, GL_TRIANGLES);
