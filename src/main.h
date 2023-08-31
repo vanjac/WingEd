@@ -70,7 +70,7 @@ private:
     std::unordered_set<std::unique_ptr<ViewportWindow>> extraViewports;
 
     void closeExtraViewports();
-    void clearAssetCache();
+    void resetModel();
     void saveAs();
 
     BOOL onCreate(HWND, LPCREATESTRUCT);

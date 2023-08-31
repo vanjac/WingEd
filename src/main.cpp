@@ -325,22 +325,22 @@ void MainWindow::closeExtraViewports() {
     extraViewports.clear();
 }
 
-void MainWindow::clearAssetCache() {
+void MainWindow::resetModel() {
+    undoStack = {};
+    redoStack = {};
+    resetToolState();
+
+    closeExtraViewports();
     mainViewport.clearTextureCache();
-    for (auto &viewport : extraViewports)
-        viewport->clearTextureCache();
+    mainViewport.updateProjMat();
 }
 
 void MainWindow::open(const TCHAR *path) {
     auto res = readFile(path, g_library.rootPath.c_str());
     validateSurface(std::get<0>(res).surf);
-    closeExtraViewports();
     std::tie(g_state, mainViewport.view, g_library) = std::move(res);
-    undoStack = {};
-    redoStack = {};
     memcpy(fileName, path, sizeof(fileName));
-    resetToolState();
-    clearAssetCache();
+    resetModel();
 }
 
 void MainWindow::saveAs() {
@@ -429,13 +429,11 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
             /* File */
             case IDM_NEW:
                 if (MessageBox(wnd, L"Are you sure?", L"New File", MB_YESNO) == IDYES) {
-                    closeExtraViewports();
                     g_state = {};
                     mainViewport.view = {};
-                    undoStack = {};
-                    redoStack = {};
+                    g_library = {};
                     fileName[0] = 0;
-                    resetToolState();
+                    resetModel();
                 }
                 break;
             case IDM_OPEN: {
@@ -483,7 +481,9 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                 break;
             }
             case IDM_RELOAD_ASSETS:
-                clearAssetCache();
+                mainViewport.clearTextureCache();
+                for (auto &viewport : extraViewports)
+                    viewport->clearTextureCache();
                 break;
             /* Tool */
             case IDM_TOOL_SELECT:
