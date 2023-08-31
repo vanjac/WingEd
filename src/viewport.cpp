@@ -903,7 +903,7 @@ void ViewportWindow::onMouseMove(HWND, int x, int y, UINT keyFlags) {
 }
 
 void ViewportWindow::onMouseWheel(HWND, int, int, int delta, UINT) {
-    view.zoom *= glm::pow(1.001f, (view.mode == VIEW_FLY) ? delta : -delta);
+    view.zoom *= glm::pow(1.0015f, (view.mode == VIEW_FLY) ? delta : -delta);
     refresh();
 }
 
