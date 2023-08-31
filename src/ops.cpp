@@ -9,9 +9,7 @@ namespace winged {
 
 #ifdef CHROMA_DEBUG
 uint32_t name(id_t id) {
-    if (id == id_t{})
-        return 0;
-    return (uint32_t)std::hash<GUID>{}(id);
+    return id.Data1;
 }
 #endif
 
@@ -829,7 +827,7 @@ void validateSurface(const Surface &surf) {
             }
         }
         CHECK_VALID(foundEdge, "Edge %08X can't be reached from vert %08X!",
-            name(pair), name(pair.second.face));
+            name(pair), name(pair.second.vert));
     }
     if (invalid) {
         LOG("---------");

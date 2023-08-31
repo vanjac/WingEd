@@ -12,9 +12,9 @@
 #pragma warning(disable: 4458)
 #include <gdiplus.h>
 
-namespace winged {
-
 namespace Gdi = Gdiplus;
+
+namespace winged {
 
 static ULONG_PTR gdiplusToken = 0;
 

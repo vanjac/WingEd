@@ -426,8 +426,10 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                 newFile[0] = 0;
                 const TCHAR filters[] = L"WingEd File (.wing)\0*.wing\0\0";
                 if (GetOpenFileName(tempPtr(makeOpenFileName(newFile, wnd, filters, L"wing")))) {
+                    auto res = readFile(newFile);
+                    validateSurface(std::get<0>(res).surf);
                     closeExtraViewports();
-                    std::tie(g_state, mainViewport.view) = readFile(newFile);
+                    std::tie(g_state, mainViewport.view) = res;
                     undoStack = {};
                     redoStack = {};
                     memcpy(fileName, newFile, sizeof(fileName));
