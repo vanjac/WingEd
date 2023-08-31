@@ -15,6 +15,7 @@ struct Library {
     std::unordered_map<id_t, std::wstring> idPaths;
     std::unordered_map<std::wstring, id_t> pathIds;
 
+    void clear();
     void addFile(id_t id, std::wstring path);
 };
 

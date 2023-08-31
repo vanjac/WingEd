@@ -431,7 +431,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                 if (MessageBox(wnd, L"Are you sure?", L"New File", MB_YESNO) == IDYES) {
                     g_state = {};
                     mainViewport.view = {};
-                    g_library = {};
+                    g_library.clear();
                     fileName[0] = 0;
                     resetModel();
                 }
