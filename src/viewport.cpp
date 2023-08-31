@@ -1175,9 +1175,10 @@ void ViewportWindow::drawMesh(const RenderMesh &mesh) {
                 setColor(glm::vec4(1));
             drawIndexRange(faceMesh.range, GL_TRIANGLES);
         }
-        glBindTexture(GL_TEXTURE_2D, 0);
+        glBindTexture(GL_TEXTURE_2D, defTexture);
         setColor(hexColor(COLOR_FACE_ERROR));
         drawIndexRange(mesh.ranges[ELEM_ERR_FACE], GL_TRIANGLES);
+        glBindTexture(GL_TEXTURE_2D, 0);
         glDisableVertexAttribArray(ATTR_TEXCOORD);
         glDisableVertexAttribArray(ATTR_NORMAL);
         if (view.mode != VIEW_ORTHO)
