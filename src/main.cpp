@@ -325,15 +325,22 @@ void MainWindow::closeExtraViewports() {
     extraViewports.clear();
 }
 
+void MainWindow::clearAssetCache() {
+    mainViewport.clearTextureCache();
+    for (auto &viewport : extraViewports)
+        viewport->clearTextureCache();
+}
+
 void MainWindow::open(const TCHAR *path) {
-    auto res = readFile(path);
+    auto res = readFile(path, g_library.rootPath.c_str());
     validateSurface(std::get<0>(res).surf);
     closeExtraViewports();
-    std::tie(g_state, mainViewport.view) = res;
+    std::tie(g_state, mainViewport.view, g_library) = std::move(res);
     undoStack = {};
     redoStack = {};
     memcpy(fileName, path, sizeof(fileName));
     resetToolState();
+    clearAssetCache();
 }
 
 void MainWindow::saveAs() {
@@ -475,6 +482,9 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                 }
                 break;
             }
+            case IDM_RELOAD_ASSETS:
+                clearAssetCache();
+                break;
             /* Tool */
             case IDM_TOOL_SELECT:
                 setTool(TOOL_SELECT);

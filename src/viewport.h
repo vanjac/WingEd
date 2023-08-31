@@ -54,6 +54,7 @@ public:
     void invalidateRenderMesh();
     void refresh();
     void refreshImmediate();
+    void clearTextureCache();
     glm::vec3 forwardAxis();
     bool onCommand(HWND, int, HWND, UINT);
 

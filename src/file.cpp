@@ -131,6 +131,7 @@ void writeFile(const wchar_t *file, const EditorState &state, const ViewState &v
             } else {
                 writeString(handle, found->second.c_str()); // absolute path
             }
+            write(handle, &id, sizeof(id));
         }
     }
     writeString(handle, L"");
@@ -157,7 +158,16 @@ static immer::set<T> readSet(HANDLE handle, const std::vector<std::pair<T, U>> &
     return set;
 }
 
-std::tuple<EditorState, ViewState> readFile(const wchar_t *file) {
+static void readString(HANDLE handle, wchar_t *str, size_t size) {
+    uint16_t len = readVal<uint16_t>(handle);
+    std::unique_ptr<char[]> buf(new char[len + 1]);
+    read(handle, buf.get(), len);
+    buf[len] = 0;
+    MultiByteToWideChar(CP_UTF8, 0, buf.get(), -1, str, (int)size);
+}
+
+std::tuple<EditorState, ViewState, Library> readFile(const wchar_t *file,
+        const wchar_t *libraryPath) {
     CHandle handle(CreateFile(file, GENERIC_READ, 0, NULL, OPEN_EXISTING,
         FILE_ATTRIBUTE_NORMAL, NULL));
     if (handle == INVALID_HANDLE_VALUE)
@@ -241,7 +251,29 @@ std::tuple<EditorState, ViewState> readFile(const wchar_t *file) {
 
     read(handle, &state.SAVE_DATA, sizeof(EditorState) - offsetof(EditorState, SAVE_DATA));
     ViewState view = readVal<ViewState>(handle);
-    return {state, view};
+
+    Library library;
+    library.rootPath = libraryPath;
+    wchar_t folder[MAX_PATH];
+    if (libraryPath[0] == 0) {
+        lstrcpy(folder, file);
+        PathRemoveFileSpec(folder);
+    }
+    while (1) {
+        wchar_t relative[MAX_PATH] = L"", combined[MAX_PATH] = L"";
+        readString(handle, relative, _countof(relative));
+        if (relative[0] == 0)
+            break;
+        if (libraryPath[0] == 0)
+            PathCombine(combined, folder, relative);
+        else
+            PathCombine(combined, libraryPath, relative);
+        id_t id = readVal<id_t>(handle);
+        if (combined[0])
+            library.addFile(id, combined);
+    }
+
+    return {state, view, library};
 }
 
 

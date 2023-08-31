@@ -345,6 +345,12 @@ void ViewportWindow::refreshImmediate() {
     RedrawWindow(wnd, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
 }
 
+void ViewportWindow::clearTextureCache() {
+    for (auto &pair : loadedTextures)
+        glDeleteTextures(1, &pair.second);
+    loadedTextures.clear();
+}
+
 void ViewportWindow::lockMouse(POINT clientPos, MouseMode mode) {
     if (mode != MOUSE_TOOL && (mouseMode == MOUSE_NONE || mouseMode == MOUSE_TOOL))
         ShowCursor(false);

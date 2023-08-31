@@ -10,7 +10,8 @@ namespace winged {
 
 void writeFile(const wchar_t *file, const EditorState &state, const ViewState &view,
     const Library &library);
-std::tuple<EditorState, ViewState> readFile(const wchar_t *file);
+std::tuple<EditorState, ViewState, Library> readFile(const wchar_t *file,
+    const wchar_t *libraryPath);
 
 void writeObj(const wchar_t *file, const Surface &surf);
 

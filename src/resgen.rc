@@ -36,7 +36,9 @@ WINGED MENUEX
         MENUITEM "Save &as...\tCtrl+Shift+S", IDM_SAVE_AS
         MENUITEM "&Export OBJ", IDM_EXPORT_OBJ
         MENUITEM "", 0, MFT_SEPARATOR
+        MENUITEM "Set &Library Path", IDM_SET_LIBRARY
         MENUITEM "Add &Texture", IDM_ADD_TEXTURE
+        MENUITEM "&Reload Assets", IDM_RELOAD_ASSETS
         MENUITEM "", 0, MFT_SEPARATOR | MFT_OWNERDRAW
     }
     POPUP "&Select", IDM_SEL_MENU
