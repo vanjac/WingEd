@@ -325,6 +325,17 @@ void MainWindow::closeExtraViewports() {
     extraViewports.clear();
 }
 
+void MainWindow::open(const TCHAR *path) {
+    auto res = readFile(path);
+    validateSurface(std::get<0>(res).surf);
+    closeExtraViewports();
+    std::tie(g_state, mainViewport.view) = res;
+    undoStack = {};
+    redoStack = {};
+    memcpy(fileName, path, sizeof(fileName));
+    resetToolState();
+}
+
 void MainWindow::saveAs() {
     TCHAR newFile[MAX_PATH] = L"";
     const TCHAR filters[] = L"WingEd File (.wing)\0*.wing\0All Files\0*.*\0\0";
@@ -423,16 +434,8 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
             case IDM_OPEN: {
                 TCHAR newFile[MAX_PATH] = L"";
                 const TCHAR filters[] = L"WingEd File (.wing)\0*.wing\0\0";
-                if (GetOpenFileName(tempPtr(makeOpenFileName(newFile, wnd, filters, L"wing")))) {
-                    auto res = readFile(newFile);
-                    validateSurface(std::get<0>(res).surf);
-                    closeExtraViewports();
-                    std::tie(g_state, mainViewport.view) = res;
-                    undoStack = {};
-                    redoStack = {};
-                    memcpy(fileName, newFile, sizeof(fileName));
-                    resetToolState();
-                }
+                if (GetOpenFileName(tempPtr(makeOpenFileName(newFile, wnd, filters, L"wing"))))
+                    open(newFile);
                 break;
             }
             case IDM_SAVE_AS:

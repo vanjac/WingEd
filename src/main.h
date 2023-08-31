@@ -55,6 +55,7 @@ public:
     void flashSel();
     void showError(winged_error err);
     bool removeViewport(ViewportWindow *viewport);
+    void open(const TCHAR *path);
 
 private:
     std::stack<EditorState> undoStack;

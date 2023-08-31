@@ -947,13 +947,17 @@ bool ViewportWindow::onCommand(HWND, int id, HWND, UINT) {
 }
 
 void ViewportWindow::onDropFiles(HWND, HDROP drop) {
-    TCHAR texFile[MAX_PATH];
-    if (DragQueryFile(drop, 0, texFile, _countof(texFile))) {
-        TCHAR *ext = PathFindExtension(texFile);
+    TCHAR path[MAX_PATH];
+    if (DragQueryFile(drop, 0, path, _countof(path))) {
+        TCHAR *ext = PathFindExtension(path);
         if (ext[0] == 0) { // folder
-            g_library.rootPath = texFile;
-        } else {
-            std::wstring texFileStr = texFile;
+            g_library.rootPath = path;
+        } else if (lstrcmpi(ext, L".wing") == 0) {
+            g_mainWindow.open(path);
+            g_mainWindow.updateStatus();
+            g_mainWindow.refreshAll();
+        } else { // assume image
+            std::wstring texFileStr = path;
             id_t texId = g_library.pathIds[texFileStr];
             if (texId == id_t{}) {
                 texId = genId();
