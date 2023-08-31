@@ -815,6 +815,12 @@ void ViewportWindow::onLButtonDown(HWND, BOOL, int x, int y, UINT keyFlags) {
             if (DragDetect(wnd, clientToScreen(wnd, {x, y}))) {
                 startToolAdjust({x, y});
                 g_hover = {};
+            } else if (GetKeyState(VK_MENU) < 0 && !g_state.selFaces.empty()
+                    && g_hoverFace.find(g_state.surf)) {
+                immer::box<Paint> paint = g_state.selFaces.begin()->in(g_state.surf).paint;
+                EditorState newState = g_state;
+                newState.surf = assignPaint(g_state.surf, {g_hoverFace}, paint);
+                g_mainWindow.pushUndo(std::move(newState));
             } else if (alreadySelected) {
                 if (!toggle)
                     g_state = clearSelection(std::move(g_state));
