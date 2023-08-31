@@ -1,4 +1,5 @@
 #include "viewport.h"
+#include <Shlwapi.h>
 #include <queue>
 #include <glad.h>
 #include <glad_wgl.h>
@@ -948,18 +949,23 @@ bool ViewportWindow::onCommand(HWND, int id, HWND, UINT) {
 void ViewportWindow::onDropFiles(HWND, HDROP drop) {
     TCHAR texFile[MAX_PATH];
     if (DragQueryFile(drop, 0, texFile, _countof(texFile))) {
-        std::wstring texFileStr = texFile;
-        id_t texId = g_library.pathIds[texFileStr];
-        if (texId == id_t{}) {
-            texId = genId();
-            g_library.addFile(texId, texFileStr);
-        }
+        TCHAR *ext = PathFindExtension(texFile);
+        if (ext[0] == 0) { // folder
+            g_library.rootPath = texFile;
+        } else {
+            std::wstring texFileStr = texFile;
+            id_t texId = g_library.pathIds[texFileStr];
+            if (texId == id_t{}) {
+                texId = genId();
+                g_library.addFile(texId, texFileStr);
+            }
 
-        EditorState newState = g_state;
-        newState.surf = assignPaint(g_state.surf, g_state.selFaces, Paint{texId});
-        g_mainWindow.pushUndo(std::move(newState));
-        g_mainWindow.updateStatus();
-        g_mainWindow.refreshAll();
+            EditorState newState = g_state;
+            newState.surf = assignPaint(g_state.surf, g_state.selFaces, Paint{texId});
+            g_mainWindow.pushUndo(std::move(newState));
+            g_mainWindow.updateStatus();
+            g_mainWindow.refreshAll();
+        }
     }
 }
 

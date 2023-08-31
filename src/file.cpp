@@ -51,7 +51,15 @@ static void writeSet(HANDLE handle, const immer::set<T> &set, const std::unorder
         write(handle, &map.at(v), sizeof(U));
 }
 
-void writeFile(const TCHAR *file, const EditorState &state, const ViewState &view) {
+static void writeString(HANDLE handle, const wchar_t *str) {
+    CW2A utf8(str, CP_UTF8);
+    uint16_t len = (uint16_t)lstrlenA(utf8);
+    write(handle, &len, 2);
+    write(handle, utf8.m_psz, len);
+}
+
+void writeFile(const wchar_t *file, const EditorState &state, const ViewState &view,
+        const Library &library) {
     CHandle handle(CreateFile(file, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
         FILE_ATTRIBUTE_NORMAL, NULL));
     if (handle == INVALID_HANDLE_VALUE)
@@ -69,12 +77,14 @@ void writeFile(const TCHAR *file, const EditorState &state, const ViewState &vie
 
     std::vector<uint32_t> facePaintIndices;
     std::vector<Paint> paints;
+    std::unordered_set<id_t> usedFiles;
     for (auto &face : state.surf.faces) {
         auto foundPaint = paintIndices.find(face.second.paint);
         if (foundPaint == paintIndices.end()) {
             paintIndices[face.second.paint] = (uint32_t)paints.size();
             facePaintIndices.push_back((uint32_t)paints.size());
             paints.push_back(face.second.paint);
+            usedFiles.insert(face.second.paint->material);
         } else {
             facePaintIndices.push_back(foundPaint->second);
         }
@@ -105,6 +115,25 @@ void writeFile(const TCHAR *file, const EditorState &state, const ViewState &vie
     writeSet(handle, state.selEdges, edgeIndices);
     write(handle, &state.SAVE_DATA, sizeof(EditorState) - offsetof(EditorState, SAVE_DATA));
     write(handle, &view, sizeof(view));
+
+    for (auto &id : usedFiles) {
+        auto found = library.idPaths.find(id);
+        if (found != library.idPaths.end()) {
+            wchar_t relative[MAX_PATH] = L"";
+            if (library.rootPath.empty()) {
+                PathRelativePathTo(relative, file, 0, found->second.c_str(), 0);
+            } else {
+                PathRelativePathTo(relative, library.rootPath.c_str(), FILE_ATTRIBUTE_DIRECTORY,
+                    found->second.c_str(), 0);
+            }
+            if (relative[0]) {
+                writeString(handle, relative);
+            } else {
+                writeString(handle, found->second.c_str()); // absolute path
+            }
+        }
+    }
+    writeString(handle, L"");
 }
 
 static void read(HANDLE handle, void *buf, DWORD size) {
@@ -128,7 +157,7 @@ static immer::set<T> readSet(HANDLE handle, const std::vector<std::pair<T, U>> &
     return set;
 }
 
-std::tuple<EditorState, ViewState> readFile(const TCHAR *file) {
+std::tuple<EditorState, ViewState> readFile(const wchar_t *file) {
     CHandle handle(CreateFile(file, GENERIC_READ, 0, NULL, OPEN_EXISTING,
         FILE_ATTRIBUTE_NORMAL, NULL));
     if (handle == INVALID_HANDLE_VALUE)
@@ -216,7 +245,7 @@ std::tuple<EditorState, ViewState> readFile(const TCHAR *file) {
 }
 
 
-void writeObj(const TCHAR *file, const Surface &surf) {
+void writeObj(const wchar_t *file, const Surface &surf) {
     CHandle handle(CreateFile(file, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
         FILE_ATTRIBUTE_NORMAL, NULL));
     if (handle == INVALID_HANDLE_VALUE)

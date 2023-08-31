@@ -326,11 +326,10 @@ void MainWindow::closeExtraViewports() {
 }
 
 void MainWindow::saveAs() {
-    TCHAR newFile[MAX_PATH];
-    newFile[0] = 0;
+    TCHAR newFile[MAX_PATH] = L"";
     const TCHAR filters[] = L"WingEd File (.wing)\0*.wing\0All Files\0*.*\0\0";
     if (GetSaveFileName(tempPtr(makeOpenFileName(newFile, wnd, filters, L"wing")))) {
-        writeFile(newFile, g_state, mainViewport.view);
+        writeFile(newFile, g_state, mainViewport.view, g_library);
         memcpy(fileName, newFile, sizeof(fileName));
     }
 }
@@ -422,8 +421,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                 }
                 break;
             case IDM_OPEN: {
-                TCHAR newFile[MAX_PATH];
-                newFile[0] = 0;
+                TCHAR newFile[MAX_PATH] = L"";
                 const TCHAR filters[] = L"WingEd File (.wing)\0*.wing\0\0";
                 if (GetOpenFileName(tempPtr(makeOpenFileName(newFile, wnd, filters, L"wing")))) {
                     auto res = readFile(newFile);
@@ -444,19 +442,17 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                 if (!fileName[0])
                     saveAs();
                 else
-                    writeFile(fileName, g_state, mainViewport.view);
+                    writeFile(fileName, g_state, mainViewport.view, g_library);
                 break;
             case IDM_EXPORT_OBJ: {
-                TCHAR objFile[MAX_PATH];
-                objFile[0] = 0;
+                TCHAR objFile[MAX_PATH] = L"";
                 const TCHAR filters[] = L"OBJ file (.obj)\0*.obj\0All Files\0*.*\0\0";
                 if (GetSaveFileName(tempPtr(makeOpenFileName(objFile, wnd, filters, L"obj"))))
                     writeObj(objFile, g_state.surf);
                 break;
             }
             case IDM_ADD_TEXTURE: {
-                TCHAR texFile[MAX_PATH];
-                texFile[0] = 0;
+                TCHAR texFile[MAX_PATH] = L"";
                 // https://learn.microsoft.com/en-us/windows/win32/gdiplus/-gdiplus-types-of-bitmaps-about
                 const TCHAR filters[] =
                     L"Supported Images (.png, .jpg, .jpeg, .bmp, .gif, .tif, .tiff)\0"
