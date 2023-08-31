@@ -10,6 +10,7 @@
 #include "ops.h"
 #include "image.h"
 #include "glutil.h"
+#include "stdutil.h"
 #include "resource.h"
 
 using namespace chroma;
@@ -1219,8 +1220,8 @@ void ViewportWindow::bindTexture(id_t texture) {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        if (g_library.idPaths.count(texture)) {
-            ImageData image = loadImage(g_library.idPaths[texture].c_str());
+        if (auto path = tryGet(g_library.idPaths, texture)) {
+            ImageData image = loadImage(path->c_str());
             if (image.data) {
                 texImageMipmaps(GL_TEXTURE_2D, GL_RGBA, image.width, image.height,
                     GL_BGRA, GL_UNSIGNED_BYTE, image.data.get());

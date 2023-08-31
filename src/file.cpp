@@ -3,6 +3,7 @@
 #include <unordered_set>
 #include "winchroma.h"
 #include <atlbase.h>
+#include "stdutil.h"
 
 using namespace chroma;
 
@@ -79,14 +80,13 @@ void writeFile(const wchar_t *file, const EditorState &state, const ViewState &v
     std::vector<Paint> paints;
     std::unordered_set<id_t> usedFiles;
     for (auto &face : state.surf.faces) {
-        auto foundPaint = paintIndices.find(face.second.paint);
-        if (foundPaint == paintIndices.end()) {
+        if (auto paintIndex = tryGet(paintIndices, *face.second.paint)) {
+            facePaintIndices.push_back(*paintIndex);
+        } else {
             paintIndices[face.second.paint] = (uint32_t)paints.size();
             facePaintIndices.push_back((uint32_t)paints.size());
             paints.push_back(face.second.paint);
             usedFiles.insert(face.second.paint->material);
-        } else {
-            facePaintIndices.push_back(foundPaint->second);
         }
         faceIndices[face.first] = (uint32_t)faceIndices.size();
     }
@@ -117,19 +117,18 @@ void writeFile(const wchar_t *file, const EditorState &state, const ViewState &v
     write(handle, &view, sizeof(view));
 
     for (auto &id : usedFiles) {
-        auto found = library.idPaths.find(id);
-        if (found != library.idPaths.end()) {
+        if (auto path = tryGet(library.idPaths, id)) {
             wchar_t relative[MAX_PATH] = L"";
             if (library.rootPath.empty()) {
-                PathRelativePathTo(relative, file, 0, found->second.c_str(), 0);
+                PathRelativePathTo(relative, file, 0, path->c_str(), 0);
             } else {
                 PathRelativePathTo(relative, library.rootPath.c_str(), FILE_ATTRIBUTE_DIRECTORY,
-                    found->second.c_str(), 0);
+                    path->c_str(), 0);
             }
             if (relative[0]) {
                 writeString(handle, relative);
             } else {
-                writeString(handle, found->second.c_str()); // absolute path
+                writeString(handle, path->c_str()); // absolute path
             }
             write(handle, &id, sizeof(id));
         }
@@ -229,11 +228,9 @@ std::tuple<EditorState, ViewState, Library> readFile(const wchar_t *file,
             edge_pair *edge = &edges[i];
             const edge_pair &next = (i == edges.size() - 1) ?
                 edges[faceEdgeStart] : edges[i + 1];
-            auto found = vertPairEdges.find({edge->second.vert, next.second.vert});
-            if (found != vertPairEdges.end()) {
-                uint32_t twinI = found->second;
-                edge->second.twin = edges[twinI].first;
-                edges[twinI].second.twin = edge->first;
+            if (auto twinI = tryGet(vertPairEdges, {edge->second.vert, next.second.vert})) {
+                edge->second.twin = edges[*twinI].first;
+                edges[*twinI].second.twin = edge->first;
             } else {
                 vertPairEdges[{next.second.vert, edge->second.vert}] = (uint32_t)i;
             }
