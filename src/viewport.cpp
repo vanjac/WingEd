@@ -1167,7 +1167,8 @@ void ViewportWindow::drawMesh(const RenderMesh &mesh) {
         drawIndexRange(mesh.ranges[ELEM_DRAW_LINE], GL_LINE_STRIP);
     }
 
-    if (view.showElem & PICK_EDGE) {
+    if ((view.showElem & PICK_EDGE)
+            && (g_state.selMode != SEL_SOLIDS || !(view.showElem & PICK_FACE))) {
         glLineWidth(WIDTH_EDGE);
         setColor(hexColor(COLOR_EDGE));
         drawIndexRange(mesh.ranges[ELEM_REG_EDGE], GL_LINES);
