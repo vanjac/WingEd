@@ -6,6 +6,7 @@
 
 #include "editor.h"
 #include <vector>
+#include <unordered_map>
 
 namespace winged {
 
@@ -41,7 +42,7 @@ struct RenderMesh {
 
 void initRenderMesh();
 void generateRenderMesh(RenderMesh *mesh, const EditorState &state);
-void tesselateFace(std::vector<index_t> &faceIsOut, const Surface &surf,
-    const Face &face, glm::vec3 normal);
+bool tesselateFace(std::vector<index_t> &faceIsOut, const Surface &surf, const Face &face,
+    glm::vec3 normal, const std::unordered_map<edge_id, index_t> *indexMap = nullptr);
 
 } // namespace

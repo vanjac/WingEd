@@ -1,6 +1,5 @@
 #include "rendermesh.h"
 #include <memory>
-#include <unordered_map>
 #include "winchroma.h" // required for GLU
 #include <gl/GLU.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -46,9 +45,8 @@ static void CALLBACK tessErrorCallback(GLenum error, void *data) {
     ((FaceTessState *)data)->error = error;
 }
 
-static void tesselateFace(std::vector<index_t> &faceIsOut, std::vector<index_t> &errorIsOut,
-        const Surface &surf, const Face &face, glm::vec3 normal,
-        const std::unordered_map<edge_id, index_t> &edgeIDIndices) {
+bool tesselateFace(std::vector<index_t> &faceIsOut, const Surface &surf, const Face &face,
+        glm::vec3 normal, const std::unordered_map<edge_id, index_t> *indexMap) {
     // https://www.glprogramming.com/red/chapter11.html
     size_t initialSize = faceIsOut.size();
     FaceTessState state;
@@ -56,43 +54,19 @@ static void tesselateFace(std::vector<index_t> &faceIsOut, std::vector<index_t> 
     gluTessNormal(g_tess, normal.x, normal.y, normal.z);
     gluTessBeginPolygon(g_tess, &state);
     gluTessBeginContour(g_tess);
-    for (auto &ep : FaceEdges(surf, face)) {
-        index_t vertI = edgeIDIndices.at(ep.first);
-        glm::dvec3 dPos = ep.second.vert.in(surf).pos;
-        gluTessVertex(g_tess, glm::value_ptr(dPos), (void *)vertI);
-    }
-    gluTessEndContour(g_tess);
-    gluTessEndPolygon(g_tess);
-
-    if (state.error) {
-        faceIsOut.erase(faceIsOut.begin() + initialSize, faceIsOut.end());
-
-        size_t errorStart = errorIsOut.size();
-        for (auto &ep : FaceEdges(surf, face)) {
-            size_t numIndices = errorIsOut.size();
-            if (numIndices - errorStart >= 3) {
-                errorIsOut.push_back(errorIsOut[errorStart]);
-                errorIsOut.push_back(errorIsOut[numIndices - 1]);
-            }
-            errorIsOut.push_back(edgeIDIndices.at(ep.first));
-        }
-    }
-}
-
-void tesselateFace(std::vector<index_t> &faceIsOut, const Surface &surf,
-        const Face &face, glm::vec3 normal) {
-    FaceTessState state;
-    state.indices = &faceIsOut;
-    gluTessNormal(g_tess, normal.x, normal.y, normal.z);
-    gluTessBeginPolygon(g_tess, &state);
-    gluTessBeginContour(g_tess);
     index_t vertI = 0;
     for (auto &ep : FaceEdges(surf, face)) {
+        if (indexMap)
+            vertI = indexMap->at(ep.first);
         glm::dvec3 dPos = ep.second.vert.in(surf).pos;
         gluTessVertex(g_tess, glm::value_ptr(dPos), (void *)vertI++);
     }
     gluTessEndContour(g_tess);
     gluTessEndPolygon(g_tess);
+
+    if (state.error)
+        faceIsOut.erase(faceIsOut.begin() + initialSize, faceIsOut.end());
+    return !state.error;
 }
 
 void initRenderMesh() {
@@ -115,14 +89,20 @@ void RenderMesh::clear() {
     faceMeshes.clear();
 }
 
-void insertFaceIndices(RenderMesh *mesh,
-        const std::unordered_map<id_t, std::vector<index_t>> &matIndices,
+void insertFaces(RenderMesh *mesh, std::vector<Face> &errFacesOut,
+        const std::unordered_map<edge_id, index_t> &edgeIDIndices,
+        const std::unordered_map<id_t, std::vector<face_pair>> &matFaces, const Surface &surf,
         RenderFaceMesh::State state) {
-    for (auto &pair : matIndices) {
-        IndexRange range = {mesh->indices.size(), pair.second.size()};
+    for (auto &pair : matFaces) {
+        IndexRange range = {mesh->indices.size(), 0};
+        for (auto &face : pair.second) {
+            glm::vec3 normal = mesh->normals[edgeIDIndices.at(face.second.edge)];
+            if (!tesselateFace(mesh->indices, surf, face.second, normal, &edgeIDIndices))
+                errFacesOut.push_back(face.second);
+        }
+        range.count = mesh->indices.size() - range.start;
         RenderFaceMesh faceMesh = {pair.first, range, state};
         mesh->faceMeshes.push_back(faceMesh);
-        mesh->indices.insert(mesh->indices.end(), pair.second.begin(), pair.second.end());
     }
 }
 
@@ -236,7 +216,7 @@ void generateRenderMesh(RenderMesh *mesh, const EditorState &state) {
         }
     }
 
-    std::vector<index_t> errIndices;
+    std::vector<Face> errFaces;
 
     face_id hovFace = {};
     if (g_hover.type && (g_hover.type == PICK_FACE || (TOOL_FLAGS[g_tool] & TOOLF_HOVFACE))) {
@@ -248,35 +228,43 @@ void generateRenderMesh(RenderMesh *mesh, const EditorState &state) {
                 faceMesh.range.start = mesh->indices.size();
                 faceMesh.state = RenderFaceMesh::HOV;
                 glm::vec3 normal = mesh->normals[edgeIDIndices[face->edge]];
-                tesselateFace(mesh->indices, errIndices, state.surf, *face, normal, edgeIDIndices);
+                if (!tesselateFace(mesh->indices, state.surf, *face, normal, &edgeIDIndices))
+                    errFaces.push_back(*face);
                 faceMesh.range.count = mesh->indices.size() - faceMesh.range.start;
                 mesh->faceMeshes.push_back(faceMesh);
             }
         }
     }
 
-    std::unordered_map<id_t, std::vector<index_t>> matIndices;
+    static std::unordered_map<id_t, std::vector<face_pair>> matFaces;
+    matFaces.clear();
 
     for (auto &pair : state.surf.faces) {
-        if (!state.selFaces.count(pair.first) && pair.first != hovFace) {
-            glm::vec3 normal = mesh->normals[edgeIDIndices[pair.second.edge]];
-            tesselateFace(matIndices[pair.second.paint->material], errIndices,
-                state.surf, pair.second, normal, edgeIDIndices);
-        }
+        if (!state.selFaces.count(pair.first) && pair.first != hovFace)
+            matFaces[pair.second.paint->material].push_back(pair);
     }
-    insertFaceIndices(mesh, matIndices, RenderFaceMesh::REG);
-    matIndices.clear();
+    insertFaces(mesh, errFaces, edgeIDIndices, matFaces, state.surf, RenderFaceMesh::REG);
+    matFaces.clear();
 
     for (auto &f : state.selFaces) {
-        const Face &face = f.in(state.surf);
-        glm::vec3 normal = mesh->normals[edgeIDIndices[face.edge]];
-        tesselateFace(matIndices[face.paint->material], errIndices,
-            state.surf, face, normal, edgeIDIndices);
+        face_pair pair = f.pair(state.surf);
+        matFaces[pair.second.paint->material].push_back(pair);
     }
-    insertFaceIndices(mesh, matIndices, RenderFaceMesh::SEL);
+    insertFaces(mesh, errFaces, edgeIDIndices, matFaces, state.surf, RenderFaceMesh::SEL);
 
-    mesh->ranges[ELEM_ERR_FACE] = {mesh->indices.size(), errIndices.size()};
-    mesh->indices.insert(mesh->indices.end(), errIndices.begin(), errIndices.end());
+    mesh->ranges[ELEM_ERR_FACE].start = mesh->indices.size();
+    for (auto &face : errFaces) {
+        size_t faceStart = mesh->indices.size();
+        for (auto &ep : FaceEdges(state.surf, face)) {
+            size_t numIndices = mesh->indices.size();
+            if (numIndices - faceStart >= 3) {
+                mesh->indices.push_back(mesh->indices[faceStart]);
+                mesh->indices.push_back(mesh->indices[numIndices - 1]);
+            }
+            mesh->indices.push_back(edgeIDIndices.at(ep.first));
+        }
+    }
+    mesh->ranges[ELEM_ERR_FACE].count = mesh->indices.size() - mesh->ranges[ELEM_ERR_FACE].start;
 }
 
 } // namespace
