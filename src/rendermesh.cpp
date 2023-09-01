@@ -115,7 +115,8 @@ void generateRenderMesh(RenderMesh *mesh, const EditorState &state) {
     index_t index = 0;
     for (auto &fp : state.surf.faces) {
         glm::vec3 normal = faceNormal(state.surf, fp.second);
-        glm::mat4x2 texMat = faceTexMat(fp.second.paint, normal);
+        // textures are flipped vertically
+        glm::mat4x2 texMat = glm::mat2x2(1, 0, 0, -1) * faceTexMat(fp.second.paint, normal);
         id_t mat = fp.second.paint->material;
         if (mat == id_t{})
             texMat = glm::mat2x2(0.25f) * texMat; // apply scaling to default texture
