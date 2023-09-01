@@ -46,7 +46,7 @@ static void CALLBACK tessErrorCallback(GLenum error, void *data) {
 }
 
 bool tesselateFace(std::vector<index_t> &faceIsOut, const Surface &surf, const Face &face,
-        glm::vec3 normal, const std::unordered_map<edge_id, index_t> *indexMap) {
+        glm::vec3 normal, index_t vertI) {
     // https://www.glprogramming.com/red/chapter11.html
     size_t initialSize = faceIsOut.size();
     FaceTessState state;
@@ -54,10 +54,7 @@ bool tesselateFace(std::vector<index_t> &faceIsOut, const Surface &surf, const F
     gluTessNormal(g_tess, normal.x, normal.y, normal.z);
     gluTessBeginPolygon(g_tess, &state);
     gluTessBeginContour(g_tess);
-    index_t vertI = 0;
     for (auto &ep : FaceEdges(surf, face)) {
-        if (indexMap)
-            vertI = indexMap->at(ep.first);
         glm::dvec3 dPos = ep.second.vert.in(surf).pos;
         gluTessVertex(g_tess, glm::value_ptr(dPos), (void *)vertI++);
     }
@@ -97,7 +94,8 @@ void insertFaces(RenderMesh *mesh, std::vector<Face> &errFacesOut,
         IndexRange range = {mesh->indices.size(), 0};
         for (auto &face : pair.second) {
             glm::vec3 normal = mesh->normals[edgeIDIndices.at(face.second.edge)];
-            if (!tesselateFace(mesh->indices, surf, face.second, normal, &edgeIDIndices))
+            index_t startI = edgeIDIndices.at(face.second.edge);
+            if (!tesselateFace(mesh->indices, surf, face.second, normal, startI))
                 errFacesOut.push_back(face.second);
         }
         range.count = mesh->indices.size() - range.start;
@@ -228,7 +226,8 @@ void generateRenderMesh(RenderMesh *mesh, const EditorState &state) {
                 faceMesh.range.start = mesh->indices.size();
                 faceMesh.state = RenderFaceMesh::HOV;
                 glm::vec3 normal = mesh->normals[edgeIDIndices[face->edge]];
-                if (!tesselateFace(mesh->indices, state.surf, *face, normal, &edgeIDIndices))
+                index_t startI = edgeIDIndices[face->edge];
+                if (!tesselateFace(mesh->indices, state.surf, *face, normal, startI))
                     errFaces.push_back(*face);
                 faceMesh.range.count = mesh->indices.size() - faceMesh.range.start;
                 mesh->faceMeshes.push_back(faceMesh);
