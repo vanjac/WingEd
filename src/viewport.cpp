@@ -832,6 +832,10 @@ void ViewportWindow::onLButtonDown(HWND, BOOL, int x, int y, UINT keyFlags) {
         }
     } catch (winged_error err) {
         g_mainWindow.showError(err);
+#ifndef CHROMA_DEBUG
+    } catch (std::exception e) {
+        g_mainWindow.showStdException(e);
+#endif
     }
     if (!mouseMode)
         updateHover({x, y});
@@ -1062,8 +1066,27 @@ void ViewportWindow::onPaint(HWND) {
 
     if (g_renderMeshDirty) {
         g_renderMeshDirty = false;
-        generateRenderMesh(&g_renderMesh, g_state);
+#ifndef CHROMA_DEBUG
+        try {
+#endif
+            generateRenderMesh(&g_renderMesh, g_state);
+#ifndef CHROMA_DEBUG
+        } catch (std::exception e) {
+            switch (MessageBoxA(NULL, e.what(), "Rendering Error",
+                    MB_ICONERROR | MB_ABORTRETRYIGNORE | MB_TASKMODAL)) {
+                case IDABORT:
+                    PostQuitMessage(0);
+                    break;
+                case IDRETRY:
+                    g_mainWindow.undo();
+                    g_mainWindow.updateStatus();
+                    g_mainWindow.refreshAll();
+                    break;
+            }
+        }
+#endif
     }
+
     drawMesh(g_renderMesh);
 
     // work plane grid

@@ -189,6 +189,15 @@ void MainWindow::pushUndo(EditorState newState) {
     g_state = cleanSelection(newState);
 }
 
+void MainWindow::undo() {
+    if (!undoStack.empty()) {
+        redoStack.push(g_state);
+        g_state = undoStack.top();
+        undoStack.pop();
+    }
+    resetToolState();
+}
+
 void MainWindow::updateStatus() {
     TCHAR buf[256];
 
@@ -306,6 +315,10 @@ void MainWindow::showError(winged_error err) {
         SetCursor(LoadCursor(NULL, IDC_NO));
         Sleep(300);
     }
+}
+
+void MainWindow::showStdException(std::exception e) {
+    MessageBoxA(wnd, e.what(), "Unexpected Error", MB_ICONERROR);
 }
 
 bool MainWindow::removeViewport(ViewportWindow *viewport) {
@@ -542,12 +555,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
             }
             /* Edit */
             case IDM_UNDO:
-                if (!undoStack.empty()) {
-                    redoStack.push(g_state);
-                    g_state = undoStack.top();
-                    undoStack.pop();
-                }
-                resetToolState();
+                undo();
                 break;
             case IDM_REDO:
                 if (!redoStack.empty()) {
@@ -659,6 +667,10 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
         }
     } catch (winged_error err) {
         showError(err);
+#ifndef CHROMA_DEBUG
+    } catch (std::exception e) {
+        showStdException(e);
+#endif
     }
     updateStatus();
     refreshAll();

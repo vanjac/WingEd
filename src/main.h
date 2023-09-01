@@ -48,12 +48,14 @@ public:
 
     void pushUndo();
     void pushUndo(EditorState newState);
+    void undo();
     void updateStatus();
     void invalidateRenderMesh();
     void refreshAll();
     void refreshAllImmediate();
     void flashSel();
     void showError(winged_error err);
+    void showStdException(std::exception e);
     bool removeViewport(ViewportWindow *viewport);
     void open(const TCHAR *path);
 
