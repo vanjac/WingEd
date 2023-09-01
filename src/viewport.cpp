@@ -48,7 +48,8 @@ const GLfloat
 #define COLOR_Z_AXIS        0xff##0000ff
 
 const float CAM_MOVE_SCALE = 600;
-const float NEAR_CLIP = 0.5f, FAR_CLIP = 500.0f;
+const float FOV = 60.0f, NEAR_CLIP = 0.5f, FAR_CLIP = 500.0f;
+const float FLY_FOV = 90.0f, FLY_NEAR_CLIP = 0.2f, FLY_FAR_CLIP = 200.0f;
 const int GRID_SIZE = 128;
 
 enum VertexAttribute {
@@ -375,9 +376,10 @@ void ViewportWindow::updateProjMat() {
     float aspect = viewportDim.x / viewportDim.y;
     if (view.mode == VIEW_ORTHO) {
         projMat = glm::ortho(-aspect, aspect, -1.0f, 1.0f, -FAR_CLIP / 2, FAR_CLIP / 2);
+    } else if (view.mode == VIEW_FLY) {
+        projMat = glm::perspective(glm::radians(FLY_FOV), aspect, FLY_NEAR_CLIP, FLY_FAR_CLIP);
     } else {
-        float fov = glm::radians((view.mode == VIEW_FLY) ? 90.0f : 60.0f);
-        projMat = glm::perspective(fov, aspect, NEAR_CLIP, FAR_CLIP);
+        projMat = glm::perspective(glm::radians(FOV), aspect, NEAR_CLIP, FAR_CLIP);
     }
 
     for (int i = 0; i < PROG_COUNT; i++) {
