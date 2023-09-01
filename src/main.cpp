@@ -151,7 +151,7 @@ INT_PTR CALLBACK matrixDlgProc(HWND dlg, UINT msg, WPARAM wParam, LPARAM lParam)
     switch (msg) {
         case WM_INITDIALOG: {
             SetWindowLongPtr(dlg, DWLP_USER, lParam);
-            glm::mat4 &mat = *(glm::mat4 *)lParam;
+            glm::mat3 &mat = *(glm::mat3 *)lParam;
             for (int i = 0; i < 9; i++) {
                 TCHAR buf[64];
                 _stprintf(buf, L"%g", mat[i % 3][i / 3]);
@@ -163,7 +163,7 @@ INT_PTR CALLBACK matrixDlgProc(HWND dlg, UINT msg, WPARAM wParam, LPARAM lParam)
             switch (LOWORD(wParam)) {
                 case IDOK:
                 case IDCANCEL: {
-                    glm::mat4 &mat = *(glm::mat4 *)GetWindowLongPtr(dlg, DWLP_USER);
+                    glm::mat3 &mat = *(glm::mat3 *)GetWindowLongPtr(dlg, DWLP_USER);
                     for (int i = 0; i < 9; i++) {
                         TCHAR buf[64];
                         GetDlgItemText(dlg, 1000 + i, buf, _countof(buf));
@@ -643,7 +643,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                     glm::vec3 center = vertsCenter(g_state.surf, verts);
                     EditorState newState = g_state;
                     newState.surf = transformVertices(g_state.surf, verts, glm::translate(
-                        glm::translate(glm::mat4(1), center) * userMatrix, -center));
+                        glm::translate(glm::mat4(1), center) * glm::mat4(userMatrix), -center));
                     pushUndo(std::move(newState));
                 }
                 break;
@@ -651,7 +651,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                 if (DialogBoxParam(GetModuleHandle(NULL), L"IDD_MATRIX", wnd, matrixDlgProc,
                         (LPARAM)&userPaintMatrix) == IDOK) {
                     EditorState newState = g_state;
-                    glm::mat3 mat = glm::inverse(glm::mat3(userPaintMatrix));
+                    glm::mat3 mat = glm::inverse(userPaintMatrix);
                     newState.surf = transformPaint(g_state.surf, g_state.selFaces, mat);
                     pushUndo(std::move(newState));
                 }

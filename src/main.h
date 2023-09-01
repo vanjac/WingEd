@@ -62,8 +62,8 @@ private:
     std::stack<EditorState> redoStack;
     TCHAR fileName[MAX_PATH] = {0};
 
-    glm::mat4 userMatrix = glm::mat4(1);
-    glm::mat4 userPaintMatrix = glm::mat4(1);
+    glm::mat3 userMatrix = glm::mat3(1);
+    glm::mat3 userPaintMatrix = glm::mat3(1);
 
     HWND toolbarWnd, statusWnd;
     ViewportWindow mainViewport;
