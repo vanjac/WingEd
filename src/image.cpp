@@ -44,11 +44,11 @@ ImageData loadImage(const wchar_t *path) {
     if (!checkStatus(bitmap.GetLastStatus()))
         return image;
     Gdi::Rect rect(0, 0, bitmap.GetWidth(), bitmap.GetHeight());
-    int stride = rect.Width * 4;
-    std::unique_ptr<uint8_t[]> buffer(new uint8_t[stride * rect.Height]);
-    Gdi::BitmapData data = {
-        (UINT)rect.Width, (UINT)rect.Height, stride, PixelFormat32bppARGB, buffer.get(), 0
-    };
+    int stride = -rect.Width * 4; // bottom-up order
+    int bufSize = rect.Width * rect.Height * 4;
+    std::unique_ptr<uint8_t[]> buffer(new uint8_t[bufSize]);
+    Gdi::BitmapData data = { (UINT)rect.Width, (UINT)rect.Height, stride, PixelFormat32bppARGB,
+        buffer.get() + bufSize + stride, 0 };
     if (!checkStatus(bitmap.LockBits(&rect, Gdi::ImageLockModeRead | Gdi::ImageLockModeUserInputBuf,
             PixelFormat32bppARGB, &data))) {
         return image;
