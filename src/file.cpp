@@ -1,6 +1,7 @@
 #include "file.h"
 #include <unordered_map>
 #include <unordered_set>
+#include <algorithm>
 #include "winchroma.h"
 #include <atlbase.h>
 #include "rendermesh.h"
@@ -291,61 +292,108 @@ struct ObjFaceVert {
     int v, vt;
 };
 
-void writeObj(const wchar_t *file, const Surface &surf) {
-    CHandle handle(CreateFile(file, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
-        FILE_ATTRIBUTE_NORMAL, NULL));
-    if (handle == INVALID_HANDLE_VALUE)
-        throw winged_error(L"Error saving file");
-    char buf[256];
+void writeObj(const wchar_t *file, const Surface &surf, const Library &library,
+        const wchar_t *mtlName, bool writeMtl) {
+    std::unordered_map<std::wstring, id_t> matNames;
 
-    std::unordered_map<vert_id, int> vertIndices;
-    int v = 1;
-    for (auto &vert : surf.verts) {
-        auto pos = vert.second.pos;
-        write(handle, buf, sprintf(buf, "v %f %f %f\n", pos.x, pos.y, pos.z));
-        vertIndices[vert.first] = v++;
+    {
+        CHandle handle(CreateFile(file, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+            FILE_ATTRIBUTE_NORMAL, NULL));
+        if (handle == INVALID_HANDLE_VALUE)
+            throw winged_error(L"Error saving OBJ file");
+        char buf[256];
+
+        if (mtlName && mtlName[0])
+            write(handle, buf, sprintf(buf, "mtllib %S\n\n", mtlName));
+
+        std::unordered_map<vert_id, int> vertIndices;
+        int v = 1;
+        for (auto &vert : surf.verts) {
+            auto pos = vert.second.pos;
+            write(handle, buf, sprintf(buf, "v %f %f %f\n", pos.x, pos.y, pos.z));
+            vertIndices[vert.first] = v++;
+        }
+
+        std::unordered_map<id_t, std::vector<Face>> matFaces;
+        for (auto &pair : surf.faces)
+            matFaces[pair.second.paint->material].push_back(pair.second);
+
+        std::unordered_map<glm::vec3, int> normalIndices;
+        std::unordered_map<glm::vec2, int> texCoordIndices;
+        std::vector<ObjFaceVert> faceVerts;
+        std::vector<index_t> faceIndices;
+        for (auto &pair : matFaces) {
+            std::wstring texFile;
+            if (auto path = tryGet(library.idPaths, pair.first)) {
+                texFile = PathFindFileName(path->c_str());
+                std::replace(texFile.begin(), texFile.end(), L' ', L'_');
+            } else {
+                texFile = L"default";
+            }
+            std::wstring matName = texFile;
+            int num = 1;
+            while (matName.empty() || matNames.count(matName))
+                matName = texFile + std::to_wstring(num++);
+            matNames[matName] = pair.first;
+            write(handle, buf, sprintf(buf, "\nusemtl %S", matName.c_str()));
+
+            for (auto &face : pair.second) {
+                glm::vec3 normal = faceNormal(surf, face);
+                int vn;
+                if (auto vnPtr = tryGet(normalIndices, normal)) {
+                    vn = *vnPtr;
+                } else {
+                    vn = (int)normalIndices.size() + 1;
+                    normalIndices[normal] = vn;
+                    write(handle, buf, sprintf(buf, "\nvn %f %f %f", normal.x, normal.y, normal.z));
+                }
+
+                glm::mat4x2 texMat = faceTexMat(face.paint, normal);
+                faceVerts.clear();
+                for (auto &edge : FaceEdges(surf, face)) {
+                    glm::vec2 texCoord = texMat * glm::vec4(edge.second.vert.in(surf).pos, 1);
+                    int vt;
+                    if (auto vtPtr = tryGet(texCoordIndices, texCoord)) {
+                        vt = *vtPtr;
+                    } else {
+                        vt = (int)texCoordIndices.size() + 1;
+                        texCoordIndices[texCoord] = vt;
+                        write(handle, buf, sprintf(buf, "\nvt %f %f", texCoord.x, texCoord.y));
+                    }
+                    faceVerts.push_back({vertIndices[edge.second.vert], vt});
+                }
+
+                faceIndices.clear();
+                tesselateFace(faceIndices, surf, face, normal);
+                for (size_t i = 0; i < faceIndices.size(); ) {
+                    write(handle, "\nf", 2);
+                    for (size_t j = 0; j < 3; j++, i++) {
+                        const ObjFaceVert &ofv = faceVerts[faceIndices[i]];
+                        write(handle, buf, sprintf(buf, " %d/%d/%d", ofv.v, ofv.vt, vn));
+                    }
+                }
+                vn++;
+            }
+        }
     }
 
-    std::unordered_map<glm::vec3, int> normalIndices;
-    std::unordered_map<glm::vec2, int> texCoordIndices;
-    std::vector<ObjFaceVert> faceVerts;
-    std::vector<index_t> faceIndices;
-    for (auto &face : surf.faces) {
-        glm::vec3 normal = faceNormal(surf, face.second);
-        int vn;
-        if (auto vnPtr = tryGet(normalIndices, normal)) {
-            vn = *vnPtr;
-        } else {
-            vn = (int)normalIndices.size() + 1;
-            normalIndices[normal] = vn;
-            write(handle, buf, sprintf(buf, "\nvn %f %f %f", normal.x, normal.y, normal.z));
-        }
+    if (writeMtl) {
+        wchar_t folder[MAX_PATH], mtlPath[MAX_PATH];
+        lstrcpy(folder, file);
+        PathRemoveFileSpec(folder);
+        PathCombine(mtlPath, folder, mtlName);
 
-        glm::mat4x2 texMat = faceTexMat(face.second.paint, normal);
-        faceVerts.clear();
-        for (auto &edge : FaceEdges(surf, face.second)) {
-            glm::vec2 texCoord = texMat * glm::vec4(edge.second.vert.in(surf).pos, 1);
-            int vt;
-            if (auto vtPtr = tryGet(texCoordIndices, texCoord)) {
-                vt = *vtPtr;
-            } else {
-                vt = (int)texCoordIndices.size() + 1;
-                texCoordIndices[texCoord] = vt;
-                write(handle, buf, sprintf(buf, "\nvt %f %f", texCoord.x, texCoord.y));
-            }
-            faceVerts.push_back({vertIndices[edge.second.vert], vt});
-        }
+        CHandle handle(CreateFile(mtlPath, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+            FILE_ATTRIBUTE_NORMAL, NULL));
+        if (handle == INVALID_HANDLE_VALUE)
+            throw winged_error(L"Error saving MTL file");
+        char buf[256];
 
-        faceIndices.clear();
-        tesselateFace(faceIndices, surf, face.second, normal);
-        for (size_t i = 0; i < faceIndices.size(); ) {
-            write(handle, "\nf", 2);
-            for (size_t j = 0; j < 3; j++, i++) {
-                const ObjFaceVert &ofv = faceVerts[faceIndices[i]];
-                write(handle, buf, sprintf(buf, " %d/%d/%d", ofv.v, ofv.vt, vn));
-            }
+        for (auto &pair : matNames) {
+            write(handle, buf, sprintf(buf, "newmtl %S\n", pair.first.c_str()));
+            if (auto texPath = tryGet(library.idPaths, pair.second))
+                write(handle, buf, sprintf(buf, "map_Kd %S\n", texPath->c_str()));
         }
-        vn++;
     }
 }
 

@@ -512,10 +512,15 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                 save();
                 break;
             case IDM_EXPORT_OBJ: {
-                TCHAR objFile[MAX_PATH] = L"";
+                TCHAR objFile[MAX_PATH] = L"", mtlFile[MAX_PATH] = L"";
                 const TCHAR filters[] = L"OBJ file (.obj)\0*.obj\0All Files\0*.*\0\0";
-                if (GetSaveFileName(tempPtr(makeOpenFileName(objFile, wnd, filters, L"obj"))))
-                    writeObj(objFile, g_state.surf);
+                auto saveFile = makeOpenFileName(objFile, wnd, filters, L"obj");
+                saveFile.lpstrFileTitle = mtlFile;
+                saveFile.nMaxFileTitle = _countof(mtlFile);
+                if (GetSaveFileName(&saveFile)) {
+                    lstrcpy(PathFindExtension(mtlFile), L".mtl");
+                    writeObj(objFile, g_state.surf, g_library, mtlFile, true);
+                }
                 break;
             }
             case IDM_ADD_TEXTURE: {

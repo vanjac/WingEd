@@ -13,6 +13,7 @@ void writeFile(const wchar_t *file, const EditorState &state, const ViewState &v
 std::tuple<EditorState, ViewState, Library> readFile(const wchar_t *file,
     const wchar_t *libraryPath);
 
-void writeObj(const wchar_t *file, const Surface &surf);
+void writeObj(const wchar_t *file, const Surface &surf, const Library &library,
+    const wchar_t *mtlName, bool writeMtl);
 
 } // namespace

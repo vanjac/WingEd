@@ -88,15 +88,15 @@ void RenderMesh::clear() {
 
 void insertFaces(RenderMesh *mesh, std::vector<Face> &errFacesOut,
         const std::unordered_map<edge_id, index_t> &edgeIDIndices,
-        const std::unordered_map<id_t, std::vector<face_pair>> &matFaces, const Surface &surf,
+        const std::unordered_map<id_t, std::vector<Face>> &matFaces, const Surface &surf,
         RenderFaceMesh::State state) {
     for (auto &pair : matFaces) {
         IndexRange range = {mesh->indices.size(), 0};
         for (auto &face : pair.second) {
-            glm::vec3 normal = mesh->normals[edgeIDIndices.at(face.second.edge)];
-            index_t startI = edgeIDIndices.at(face.second.edge);
-            if (!tesselateFace(mesh->indices, surf, face.second, normal, startI))
-                errFacesOut.push_back(face.second);
+            glm::vec3 normal = mesh->normals[edgeIDIndices.at(face.edge)];
+            index_t startI = edgeIDIndices.at(face.edge);
+            if (!tesselateFace(mesh->indices, surf, face, normal, startI))
+                errFacesOut.push_back(face);
         }
         range.count = mesh->indices.size() - range.start;
         RenderFaceMesh faceMesh = {pair.first, range, state};
@@ -235,19 +235,19 @@ void generateRenderMesh(RenderMesh *mesh, const EditorState &state) {
         }
     }
 
-    static std::unordered_map<id_t, std::vector<face_pair>> matFaces;
+    static std::unordered_map<id_t, std::vector<Face>> matFaces;
     matFaces.clear();
 
     for (auto &pair : state.surf.faces) {
         if (!state.selFaces.count(pair.first) && pair.first != hovFace)
-            matFaces[pair.second.paint->material].push_back(pair);
+            matFaces[pair.second.paint->material].push_back(pair.second);
     }
     insertFaces(mesh, errFaces, edgeIDIndices, matFaces, state.surf, RenderFaceMesh::REG);
     matFaces.clear();
 
     for (auto &f : state.selFaces) {
         face_pair pair = f.pair(state.surf);
-        matFaces[pair.second.paint->material].push_back(pair);
+        matFaces[pair.second.paint->material].push_back(pair.second);
     }
     insertFaces(mesh, errFaces, edgeIDIndices, matFaces, state.surf, RenderFaceMesh::SEL);
 
