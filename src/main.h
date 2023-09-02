@@ -58,10 +58,12 @@ public:
     void showStdException(std::exception e);
     bool removeViewport(ViewportWindow *viewport);
     void open(const TCHAR *path);
+    bool promptSaveChanges();
 
 private:
     std::stack<EditorState> undoStack;
     std::stack<EditorState> redoStack;
+    int unsavedCount = 0;
     TCHAR fileName[MAX_PATH] = {0};
 
     glm::mat3 userMatrix = glm::mat3(1);
@@ -73,7 +75,8 @@ private:
 
     void closeExtraViewports();
     void resetModel();
-    void saveAs();
+    bool save();
+    bool saveAs();
 
     BOOL onCreate(HWND, LPCREATESTRUCT);
     void onClose(HWND);

@@ -6,6 +6,7 @@
 #include "mathutil.h"
 #include "resource.h"
 #include <immer/set_transient.hpp>
+#include <Shlwapi.h>
 
 #pragma comment(lib, "Rpcrt4.lib")
 #pragma comment(lib, "Opengl32.lib")
@@ -181,6 +182,7 @@ INT_PTR CALLBACK matrixDlgProc(HWND dlg, UINT msg, WPARAM wParam, LPARAM lParam)
 void MainWindow::pushUndo() {
     undoStack.push(g_state);
     redoStack = {};
+    unsavedCount++;
 }
 
 void MainWindow::pushUndo(EditorState newState) {
@@ -194,6 +196,7 @@ void MainWindow::undo() {
         redoStack.push(g_state);
         g_state = undoStack.top();
         undoStack.pop();
+        unsavedCount--;
     }
     resetToolState();
 }
@@ -201,11 +204,22 @@ void MainWindow::undo() {
 void MainWindow::updateStatus() {
     TCHAR buf[256];
 
+    TCHAR *str = buf;
+    if (unsavedCount)
+        str += _stprintf(str, L"* ");
+    if (fileName[0] == 0) {
+        str += _stprintf(str, L"Untitled");
+    } else {
+        str += _stprintf(str, L"%s", PathFindFileName(fileName));
+    }
+    str += _stprintf(str, L" - %s", APP_NAME);
+    SendMessage(wnd, WM_SETTEXT, 0, (LRESULT)buf);
+
     _stprintf(buf, L"Grid:  %g", g_state.gridSize);
     SendMessage(statusWnd, SB_SETTEXT, STATUS_GRID, (LPARAM)buf);
 
     buf[0] = 0;
-    TCHAR *str = buf;
+    str = buf;
     if (!g_state.selVerts.empty())
         str += _stprintf(str, L"%zd vert ", g_state.selVerts.size());
     if (!g_state.selEdges.empty())
@@ -341,6 +355,7 @@ void MainWindow::closeExtraViewports() {
 void MainWindow::resetModel() {
     undoStack = {};
     redoStack = {};
+    unsavedCount = 0;
     resetToolState();
 
     closeExtraViewports();
@@ -356,13 +371,43 @@ void MainWindow::open(const TCHAR *path) {
     resetModel();
 }
 
-void MainWindow::saveAs() {
+bool MainWindow::saveAs() {
     TCHAR newFile[MAX_PATH] = L"";
     const TCHAR filters[] = L"WingEd File (.wing)\0*.wing\0All Files\0*.*\0\0";
     if (GetSaveFileName(tempPtr(makeOpenFileName(newFile, wnd, filters, L"wing")))) {
         writeFile(newFile, g_state, mainViewport.view, g_library);
         memcpy(fileName, newFile, sizeof(fileName));
+        unsavedCount = 0;
+        return true;
     }
+    return false;
+}
+
+bool MainWindow::save() {
+    if (!fileName[0]) {
+        return saveAs();
+    } else {
+        writeFile(fileName, g_state, mainViewport.view, g_library);
+        unsavedCount = 0;
+        return true;
+    }
+}
+
+bool MainWindow::promptSaveChanges() {
+    if (unsavedCount) {
+        TCHAR *name = (fileName[0] == 0) ? L"Untitled" : PathFindFileName(fileName);
+        TCHAR buf[256];
+        _stprintf(buf, L"Save changes to %s?", name);
+        switch (MessageBox(wnd, buf, APP_NAME, MB_YESNOCANCEL)) {
+            case IDYES:
+                return save();
+            case IDNO:
+                return true;
+            case IDCANCEL:
+                return false;
+        }
+    }
+    return true;
 }
 
 BOOL MainWindow::onCreate(HWND, LPCREATESTRUCT) {
@@ -409,9 +454,11 @@ BOOL MainWindow::onCreate(HWND, LPCREATESTRUCT) {
 }
 
 void MainWindow::onClose(HWND) {
-    closeExtraViewports();
-    mainViewport.destroy();
-    FORWARD_WM_CLOSE(wnd, DefWindowProc);
+    if (promptSaveChanges()) {
+        closeExtraViewports();
+        mainViewport.destroy();
+        FORWARD_WM_CLOSE(wnd, DefWindowProc);
+    }
 }
 
 void MainWindow::onNCDestroy(HWND) {
@@ -441,7 +488,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
         switch (id) {
             /* File */
             case IDM_NEW:
-                if (MessageBox(wnd, L"Are you sure?", L"New File", MB_YESNO) == IDYES) {
+                if (promptSaveChanges()) {
                     g_state = {};
                     mainViewport.view = {};
                     g_library.clear();
@@ -452,18 +499,17 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
             case IDM_OPEN: {
                 TCHAR newFile[MAX_PATH] = L"";
                 const TCHAR filters[] = L"WingEd File (.wing)\0*.wing\0\0";
-                if (GetOpenFileName(tempPtr(makeOpenFileName(newFile, wnd, filters, L"wing"))))
-                    open(newFile);
+                if (GetOpenFileName(tempPtr(makeOpenFileName(newFile, wnd, filters, L"wing")))) {
+                    if (promptSaveChanges())
+                        open(newFile);
+                }
                 break;
             }
             case IDM_SAVE_AS:
                 saveAs();
                 break;
             case IDM_SAVE:
-                if (!fileName[0])
-                    saveAs();
-                else
-                    writeFile(fileName, g_state, mainViewport.view, g_library);
+                save();
                 break;
             case IDM_EXPORT_OBJ: {
                 TCHAR objFile[MAX_PATH] = L"";
@@ -562,6 +608,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                     undoStack.push(g_state);
                     g_state = redoStack.top();
                     redoStack.pop();
+                    unsavedCount++;
                 }
                 resetToolState();
                 break;
