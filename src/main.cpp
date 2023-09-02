@@ -720,6 +720,12 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                     pushUndo(std::move(newState));
                 }
                 break;
+            case IDM_MARK_HOLE:
+                EditorState newState = g_state;
+                Paint paint = {Paint::HOLE_MATERIAL};
+                newState.surf = assignPaint(g_state.surf, g_state.selFaces, paint);
+                pushUndo(std::move(newState));
+                break;
         }
     } catch (winged_error err) {
         showError(err);
@@ -750,6 +756,7 @@ void MainWindow::onInitMenu(HWND, HMENU menu) {
     EnableMenuItem(menu, IDM_SNAP, hasSel ? MF_ENABLED : MF_GRAYED);
     EnableMenuItem(menu, IDM_TRANSFORM_MATRIX, hasSel ? MF_ENABLED : MF_GRAYED);
     EnableMenuItem(menu, IDM_PAINT_MATRIX, g_state.selFaces.empty() ? MF_GRAYED : MF_ENABLED);
+    EnableMenuItem(menu, IDM_MARK_HOLE, g_state.selFaces.empty() ? MF_GRAYED : MF_ENABLED);
     CheckMenuItem(menu, IDM_WIREFRAME, (mainViewport.view.showElem & PICK_FACE) ?
         MF_UNCHECKED : MF_CHECKED);
     EnableMenuItem(menu, IDM_FOCUS, hasSel ? MF_ENABLED : MF_GRAYED);

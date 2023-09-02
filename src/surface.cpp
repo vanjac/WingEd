@@ -19,6 +19,8 @@ const face_pair makeFacePair() { return {genId(), Face{}}; }
 const edge_pair makeEdgePair() { return {genId(), HEdge{}}; }
 
 
+const id_t Paint::HOLE_MATERIAL =
+    {0x233844da, 0x2edd, 0x4a59, {0xad, 0x49, 0x50, 0x9f, 0x15, 0x60, 0xe9, 0xaa}};
 const immer::box<Paint> Face::DEF_PAINT;
 
 

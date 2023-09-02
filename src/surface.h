@@ -79,6 +79,7 @@ struct Vertex {
 };
 
 struct Paint {
+    const static id_t HOLE_MATERIAL;
     id_t material = {};
     // note: glm uses backwards CxR naming for matrices
     glm::mat4x2 texAxes = glm::mat4x2(0.0f); // zero = auto align to axis

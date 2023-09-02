@@ -69,6 +69,8 @@ WINGED MENUEX
         MENUITEM "Snap &Vertices\tCtrl+G", IDM_SNAP
         MENUITEM "Transform &Matrix\tCtrl+M", IDM_TRANSFORM_MATRIX
         MENUITEM "&Paint Matrix\tCtrl+Shift+M", IDM_PAINT_MATRIX
+        MENUITEM "", 0, MFT_SEPARATOR
+        MENUITEM "Mark &Hole", IDM_MARK_HOLE
         MENUITEM "", 0, MFT_SEPARATOR | MFT_OWNERDRAW
     }
     POPUP "&Tool", IDM_TOOL_MENU

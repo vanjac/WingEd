@@ -315,8 +315,10 @@ void writeObj(const wchar_t *file, const Surface &surf, const Library &library,
         }
 
         std::unordered_map<id_t, std::vector<Face>> matFaces;
-        for (auto &pair : surf.faces)
-            matFaces[pair.second.paint->material].push_back(pair.second);
+        for (auto &pair : surf.faces) {
+            if (pair.second.paint->material != Paint::HOLE_MATERIAL)
+                matFaces[pair.second.paint->material].push_back(pair.second);
+        }
 
         std::unordered_map<glm::vec3, int> normalIndices;
         std::unordered_map<glm::vec2, int> texCoordIndices;

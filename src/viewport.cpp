@@ -677,13 +677,17 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
     GLuint vertFace = shaderFromResource(GL_VERTEX_SHADER, IDR_VERT_FACE);
     GLuint fragSolid = shaderFromResource(GL_FRAGMENT_SHADER, IDR_FRAG_SOLID);
     GLuint fragFace = shaderFromResource(GL_FRAGMENT_SHADER, IDR_FRAG_FACE);
+    GLuint fragHole = shaderFromResource(GL_FRAGMENT_SHADER, IDR_FRAG_HOLE);
 
     programs[PROG_UNLIT] = programFromShaders(vertUnlit, fragSolid);
     programs[PROG_FACE] = programFromShaders(vertFace, fragFace);
+    programs[PROG_HOLE] = programFromShaders(vertUnlit, fragHole);
 
     glDeleteShader(vertUnlit);
     glDeleteShader(vertFace);
     glDeleteShader(fragSolid);
+    glDeleteShader(fragFace);
+    glDeleteShader(fragHole);
 
     glGenTextures(1, &defTexture);
     glBindTexture(GL_TEXTURE_2D, defTexture);
@@ -1117,8 +1121,6 @@ void ViewportWindow::onPaint(HWND) {
         gridMat[2] = glm::vec4(0);
         gridMat[3] = glm::vec4(p.org, 1);
         gridMat = mvMat * gridMat;
-        glUniformMatrix4fv(programs[PROG_UNLIT].uniforms[UNIF_MODELVIEW_MATRIX], 1, FALSE,
-            glm::value_ptr(gridMat));
         glBindBuffer(GL_ARRAY_BUFFER, gridPoints);
         glVertexAttribPointer(ATTR_VERTEX, 3, GL_FLOAT, GL_FALSE, 0, 0);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -1126,7 +1128,11 @@ void ViewportWindow::onPaint(HWND) {
         glEnable(GL_LINE_SMOOTH);
         glLineWidth(WIDTH_GRID);
         setColor(hexColor(COLOR_GRID));
+        glUseProgram(programs[PROG_UNLIT].id);
+        glUniformMatrix4fv(programs[PROG_UNLIT].uniforms[UNIF_MODELVIEW_MATRIX], 1, FALSE,
+            glm::value_ptr(gridMat));
         glDrawArrays(GL_LINES, 0, (GRID_SIZE * 2 + 1) * 4);
+        glUseProgram(0);
         glDisable(GL_BLEND);
         glDisable(GL_LINE_SMOOTH);
         if (!workPlaneActive)
@@ -1203,20 +1209,27 @@ void ViewportWindow::drawMesh(const RenderMesh &mesh) {
     }
 
     if (view.showElem & PICK_FACE) {
-        glUseProgram(programs[PROG_FACE].id);
         glEnableVertexAttribArray(ATTR_NORMAL);
         glEnableVertexAttribArray(ATTR_TEXCOORD);
+        glUseProgram(programs[PROG_FACE].id);
         for (auto &faceMesh : mesh.faceMeshes) {
             // generate color from GUID
             id_t mat = faceMesh.material;
-            bindTexture(mat);
-            if (faceMesh.state == RenderFaceMesh::HOV)
-                setColor(hexColor(COLOR_FACE_HOVER));
-            else if (faceMesh.state == RenderFaceMesh::SEL)
-                setColor(hexColor(g_flashSel ? COLOR_FACE_FLASH : COLOR_FACE_SEL));
+            bool isHole = mat == Paint::HOLE_MATERIAL;
+            if (isHole)
+                glUseProgram(programs[PROG_HOLE].id);
             else
+                bindTexture(mat);
+            if (faceMesh.state == RenderFaceMesh::HOV) {
+                setColor(hexColor(COLOR_FACE_HOVER));
+            } else if (faceMesh.state == RenderFaceMesh::SEL) {
+                setColor(hexColor(g_flashSel ? COLOR_FACE_FLASH : COLOR_FACE_SEL));
+            } else {
                 setColor(glm::vec4(1));
+            }
             drawIndexRange(faceMesh.range, GL_TRIANGLES);
+            if (isHole)
+                glUseProgram(programs[PROG_FACE].id);
         }
         glBindTexture(GL_TEXTURE_2D, defTexture);
         setColor(hexColor(COLOR_FACE_ERROR));
@@ -1224,8 +1237,8 @@ void ViewportWindow::drawMesh(const RenderMesh &mesh) {
         glBindTexture(GL_TEXTURE_2D, 0);
         glDisableVertexAttribArray(ATTR_TEXCOORD);
         glDisableVertexAttribArray(ATTR_NORMAL);
-        glUseProgram(programs[PROG_UNLIT].id);
     }
+    glUseProgram(0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 

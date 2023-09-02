@@ -25,7 +25,7 @@ enum MouseMode {
 // OpenGL
 using buffer_t = unsigned int;
 enum ProgramIndex {
-    PROG_UNLIT, PROG_FACE,
+    PROG_UNLIT, PROG_FACE, PROG_HOLE,
     PROG_COUNT
 };
 enum UniformLocation {
