@@ -980,30 +980,31 @@ bool ViewportWindow::onCommand(HWND, int id, HWND, UINT) {
 }
 
 void ViewportWindow::onDropFiles(HWND, HDROP drop) {
-    TCHAR path[MAX_PATH];
-    if (DragQueryFile(drop, 0, path, _countof(path))) {
-        TCHAR *ext = PathFindExtension(path);
-        if (ext[0] == 0) { // folder
-            g_library.rootPath = path;
-        } else if (lstrcmpi(ext, L".wing") == 0) {
-            g_mainWindow.open(path);
-            g_mainWindow.updateStatus();
-            g_mainWindow.refreshAll();
-        } else { // assume image
-            std::wstring texFileStr = path;
-            id_t texId = g_library.pathIds[texFileStr];
-            if (texId == id_t{}) {
-                texId = genId();
-                g_library.addFile(texId, texFileStr);
+    try {
+        TCHAR path[MAX_PATH];
+        if (DragQueryFile(drop, 0, path, _countof(path))) {
+            TCHAR *ext = PathFindExtension(path);
+            if (ext[0] == 0) { // folder
+                g_library.rootPath = path;
+            } else if (lstrcmpi(ext, L".wing") == 0) {
+                g_mainWindow.open(path);
+            } else { // assume image
+                std::wstring texFileStr = path;
+                id_t texId = g_library.pathIds[texFileStr];
+                if (texId == id_t{}) {
+                    texId = genId();
+                    g_library.addFile(texId, texFileStr);
+                }
+                EditorState newState = g_state;
+                newState.surf = assignPaint(g_state.surf, g_state.selFaces, Paint{texId});
+                g_mainWindow.pushUndo(std::move(newState));
             }
-
-            EditorState newState = g_state;
-            newState.surf = assignPaint(g_state.surf, g_state.selFaces, Paint{texId});
-            g_mainWindow.pushUndo(std::move(newState));
-            g_mainWindow.updateStatus();
-            g_mainWindow.refreshAll();
         }
+    } catch (winged_error err) {
+        g_mainWindow.showError(err);
     }
+    g_mainWindow.updateStatus();
+    g_mainWindow.refreshAll();
 }
 
 void ViewportWindow::onSize(HWND, UINT, int cx, int cy) {
