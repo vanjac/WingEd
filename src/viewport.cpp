@@ -1026,6 +1026,31 @@ static void setColor(glm::vec4 color) {
 }
 
 void ViewportWindow::onPaint(HWND) {
+    if (g_renderMeshDirty) {
+        g_renderMeshDirty = false;
+#ifndef CHROMA_DEBUG
+        try {
+#endif
+            generateRenderMesh(&g_renderMesh, g_state);
+#ifndef CHROMA_DEBUG
+        } catch (std::exception e) {
+            g_renderMesh.clear();
+            switch (MessageBoxA(NULL, e.what(), "Rendering Error",
+                    MB_ICONERROR | MB_ABORTRETRYIGNORE | MB_TASKMODAL)) {
+                case IDABORT:
+                    SendMessage(g_mainWindow.wnd, WM_CLOSE, 0, 0);
+                    break;
+                case IDRETRY:
+                    g_mainWindow.undo();
+                    g_mainWindow.updateStatus();
+                    g_mainWindow.refreshAll();
+                    break;
+            }
+            return;
+        }
+#endif
+    }
+
     PAINTSTRUCT ps;
     BeginPaint(wnd, &ps);
     CHECKERR(wglMakeCurrent(ps.hdc, context));
@@ -1063,29 +1088,6 @@ void ViewportWindow::onPaint(HWND) {
     glDrawArrays(GL_LINES, 2, 2);
     setColor(hexColor(COLOR_Z_AXIS));
     glDrawArrays(GL_LINES, 4, 2);
-
-    if (g_renderMeshDirty) {
-        g_renderMeshDirty = false;
-#ifndef CHROMA_DEBUG
-        try {
-#endif
-            generateRenderMesh(&g_renderMesh, g_state);
-#ifndef CHROMA_DEBUG
-        } catch (std::exception e) {
-            switch (MessageBoxA(NULL, e.what(), "Rendering Error",
-                    MB_ICONERROR | MB_ABORTRETRYIGNORE | MB_TASKMODAL)) {
-                case IDABORT:
-                    PostQuitMessage(0);
-                    break;
-                case IDRETRY:
-                    g_mainWindow.undo();
-                    g_mainWindow.updateStatus();
-                    g_mainWindow.refreshAll();
-                    break;
-            }
-        }
-#endif
-    }
 
     drawMesh(g_renderMesh);
 
