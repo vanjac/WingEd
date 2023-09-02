@@ -391,8 +391,13 @@ void writeObj(const wchar_t *file, const Surface &surf, const Library &library,
 
         for (auto &pair : matNames) {
             write(handle, buf, sprintf(buf, "newmtl %S\n", pair.first.c_str()));
-            if (auto texPath = tryGet(library.idPaths, pair.second))
-                write(handle, buf, sprintf(buf, "map_Kd %S\n", texPath->c_str()));
+            if (auto texPath = tryGet(library.idPaths, pair.second)) {
+                wchar_t relative[MAX_PATH] = L"";
+                PathRelativePathTo(relative, folder, FILE_ATTRIBUTE_DIRECTORY, texPath->c_str(), 0);
+                for (wchar_t *c = relative; *c; c++)
+                    if (*c == L'\\') *c = L'/';
+                write(handle, buf, sprintf(buf, "map_Kd %S\n", relative));
+            }
         }
     }
 }
