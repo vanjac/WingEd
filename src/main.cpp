@@ -207,10 +207,10 @@ void MainWindow::updateStatus() {
     TCHAR *str = buf;
     if (unsavedCount)
         str += _stprintf(str, L"* ");
-    if (fileName[0] == 0) {
+    if (filePath[0] == 0) {
         str += _stprintf(str, L"Untitled");
     } else {
-        str += _stprintf(str, L"%s", PathFindFileName(fileName));
+        str += _stprintf(str, L"%s", PathFindFileName(filePath));
     }
     str += _stprintf(str, L" - %s", APP_NAME);
     SendMessage(wnd, WM_SETTEXT, 0, (LRESULT)buf);
@@ -356,6 +356,7 @@ void MainWindow::resetModel() {
     undoStack = {};
     redoStack = {};
     unsavedCount = 0;
+    objFilePath[0] = 0;
     resetToolState();
 
     closeExtraViewports();
@@ -367,16 +368,14 @@ void MainWindow::open(const TCHAR *path) {
     auto res = readFile(path, g_library.rootPath.c_str());
     validateSurface(std::get<0>(res).surf);
     std::tie(g_state, mainViewport.view, g_library) = std::move(res);
-    memcpy(fileName, path, sizeof(fileName));
+    memcpy(filePath, path, sizeof(filePath));
     resetModel();
 }
 
 bool MainWindow::saveAs() {
-    TCHAR newFile[MAX_PATH] = L"";
     const TCHAR filters[] = L"WingEd File (.wing)\0*.wing\0All Files\0*.*\0\0";
-    if (GetSaveFileName(tempPtr(makeOpenFileName(newFile, wnd, filters, L"wing")))) {
-        writeFile(newFile, g_state, mainViewport.view, g_library);
-        memcpy(fileName, newFile, sizeof(fileName));
+    if (GetSaveFileName(tempPtr(makeOpenFileName(filePath, wnd, filters, L"wing")))) {
+        writeFile(filePath, g_state, mainViewport.view, g_library);
         unsavedCount = 0;
         return true;
     }
@@ -384,10 +383,10 @@ bool MainWindow::saveAs() {
 }
 
 bool MainWindow::save() {
-    if (!fileName[0]) {
+    if (!filePath[0]) {
         return saveAs();
     } else {
-        writeFile(fileName, g_state, mainViewport.view, g_library);
+        writeFile(filePath, g_state, mainViewport.view, g_library);
         unsavedCount = 0;
         return true;
     }
@@ -395,7 +394,7 @@ bool MainWindow::save() {
 
 bool MainWindow::promptSaveChanges() {
     if (unsavedCount) {
-        TCHAR *name = (fileName[0] == 0) ? L"Untitled" : PathFindFileName(fileName);
+        TCHAR *name = (filePath[0] == 0) ? L"Untitled" : PathFindFileName(filePath);
         TCHAR buf[256];
         _stprintf(buf, L"Save changes to %s?", name);
         switch (MessageBox(wnd, buf, APP_NAME, MB_YESNOCANCEL)) {
@@ -492,7 +491,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                     g_state = {};
                     mainViewport.view = {};
                     g_library.clear();
-                    fileName[0] = 0;
+                    filePath[0] = 0;
                     resetModel();
                 }
                 break;
@@ -512,14 +511,19 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                 save();
                 break;
             case IDM_EXPORT_OBJ: {
-                TCHAR objFile[MAX_PATH] = L"", mtlFile[MAX_PATH] = L"";
+                if (!objFilePath[0] && filePath[0]) {
+                    lstrcpy(objFilePath, filePath);
+                    lstrcpy(PathFindExtension(objFilePath), L".obj");
+                }
+                TCHAR mtlFile[MAX_PATH] = L"";
                 const TCHAR filters[] = L"OBJ file (.obj)\0*.obj\0All Files\0*.*\0\0";
-                auto saveFile = makeOpenFileName(objFile, wnd, filters, L"obj");
+                auto saveFile = makeOpenFileName(objFilePath, wnd, filters, L"obj");
                 saveFile.lpstrFileTitle = mtlFile;
                 saveFile.nMaxFileTitle = _countof(mtlFile);
+                saveFile.lpstrTitle = L"Export OBJ";
                 if (GetSaveFileName(&saveFile)) {
                     lstrcpy(PathFindExtension(mtlFile), L".mtl");
-                    writeObj(objFile, g_state.surf, g_library, mtlFile, true);
+                    writeObj(objFilePath, g_state.surf, g_library, mtlFile, true);
                 }
                 break;
             }

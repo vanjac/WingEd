@@ -64,7 +64,7 @@ private:
     std::stack<EditorState> undoStack;
     std::stack<EditorState> redoStack;
     int unsavedCount = 0;
-    TCHAR fileName[MAX_PATH] = {0};
+    TCHAR filePath[MAX_PATH] = L"", objFilePath[MAX_PATH] = L"";
 
     glm::mat3 userMatrix = glm::mat3(1);
     glm::mat3 userPaintMatrix = glm::mat3(1);
