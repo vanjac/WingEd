@@ -16,6 +16,14 @@ WingEd makes use of [persistent data structures](https://en.wikipedia.org/wiki/P
 
 Selecting any tool or hovering over any menu item will show help text in the status bar. All keyboard shortcuts can be found in the menus.
 
+### View
+
+Drag with the right mouse button to orbit the camera. Drag with the middle button to pan. Scroll to zoom in/out, or hold Shift and middle-drag to move the camera forward/back.
+
+The View menu includes toggles for Wireframe mode, orthographic views, and first-person perspective.
+
+You can also create multiple viewports, allowing you to view the model from multiple angles simultaneously.
+
 ### Selection
 
 There are two selection modes: **Elements**, for selecting vertices, edges, and faces, and **Solids** for selecting closed solid surfaces.
@@ -96,9 +104,3 @@ Align all vertices to the grid.
 #### Transform Matrix
 
 This opens a dialog for you to enter a 3x3 affine matrix for more complex transformations. Objects are transformed around the median point.
-
-### View
-
-The View menu includes toggles for Wireframe mode, orthographic views, and first-person perspective.
-
-You can also create multiple viewports, allowing you to view the model from multiple angles simultaneously.
