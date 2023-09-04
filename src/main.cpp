@@ -70,6 +70,10 @@ static void setTool(Tool tool) {
     if ((TOOL_FLAGS[tool] & TOOLF_DRAW) && (TOOL_FLAGS[tool] & TOOLF_HOVFACE))
         if (auto face = g_hoverFace.find(g_state.surf))
             g_state.workPlane = facePlane(g_state.surf, *face);
+    POINT pt = cursorPos();
+    HWND overWnd = WindowFromPoint(pt);
+    if (GetWindowThreadProcessId(overWnd, nullptr) == GetCurrentThreadId())
+        setCursorHitTest(overWnd, pt);
 }
 
 static std::vector<edge_id> sortEdgeLoop(const Surface &surf, immer::set<edge_id> edges) {
@@ -326,8 +330,9 @@ void MainWindow::showError(winged_error err) {
         MessageBox(wnd, err.message, APP_NAME, MB_ICONERROR);
     } else {
         MessageBeep(MB_OK);
-        SetCursor(LoadCursor(NULL, IDC_NO));
+        HCURSOR prevCursor = SetCursor(LoadCursor(NULL, IDC_NO));
         Sleep(300);
+        SetCursor(prevCursor);
     }
 }
 
