@@ -52,12 +52,6 @@ size_t numDrawPoints() {
     }
 }
 
-static void setSelMode(SelectMode mode) {
-    g_state.selMode = mode;
-    if (!(TOOL_FLAGS[g_tool] & (1 << mode)))
-        g_tool = TOOL_SELECT;
-}
-
 static void resetToolState() {
     g_drawVerts.clear();
 }
@@ -326,6 +320,22 @@ void MainWindow::showStdException(std::exception e) {
     MessageBoxA(wnd, e.what(), "Unexpected Error", MB_ICONERROR);
 }
 
+void MainWindow::updateHover() {
+    POINT pt = cursorPos();
+    if (hoveredViewport && WindowFromPoint(pt) == hoveredViewport->wnd) {
+        hoveredViewport->updateHover(screenToClient(hoveredViewport->wnd, pt));
+        setCursorHitTest(hoveredViewport->wnd, pt);
+    }
+}
+
+void MainWindow::setSelMode(SelectMode mode) {
+    g_state.selMode = mode;
+    if (!(TOOL_FLAGS[g_tool] & (1 << mode)))
+        setTool(TOOL_SELECT);
+    else
+        updateHover();
+}
+
 void MainWindow::setTool(Tool tool) {
     g_tool = tool;
     resetToolState();
@@ -334,11 +344,7 @@ void MainWindow::setTool(Tool tool) {
     if ((TOOL_FLAGS[tool] & TOOLF_DRAW) && (TOOL_FLAGS[tool] & TOOLF_HOVFACE))
         if (auto face = g_hoverFace.find(g_state.surf))
             g_state.workPlane = facePlane(g_state.surf, *face);
-    POINT pt = cursorPos();
-    if (hoveredViewport && WindowFromPoint(pt) == hoveredViewport->wnd) {
-        hoveredViewport->updateHover(screenToClient(hoveredViewport->wnd, pt));
-        setCursorHitTest(hoveredViewport->wnd, pt);
-    }
+    updateHover();
 }
 
 bool MainWindow::removeViewport(ViewportWindow *viewport) {

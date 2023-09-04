@@ -73,6 +73,8 @@ private:
     ViewportWindow mainViewport;
     std::unordered_set<std::unique_ptr<ViewportWindow>> extraViewports;
 
+    void updateHover();
+    void setSelMode(SelectMode mode);
     void setTool(Tool tool);
     void closeExtraViewports();
     void resetModel();
