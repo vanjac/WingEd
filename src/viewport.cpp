@@ -427,10 +427,12 @@ void ViewportWindow::updateHover(POINT pos) {
             }
         }
     } else {
-        PickType type = (g_state.selMode == SEL_ELEMENTS) ? PICK_ELEMENT : PICK_FACE;
+        PickType type;
+        if (g_state.selMode != SEL_ELEMENTS || (g_tool == TOOL_KNIFE && GetKeyState(VK_MENU) < 0))
+            type = PICK_FACE;
+        else
+            type = PICK_ELEMENT;
         type &= view.showElem;
-        if (g_tool == TOOL_KNIFE && GetKeyState(VK_MENU) < 0)
-            type &= ~PICK_VERT;
         result = pickElement(g_state.surf, type, normCur, viewportDim, project,
             (g_tool == TOOL_KNIFE) ? grid : 0, result);
     }

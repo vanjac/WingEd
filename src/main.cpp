@@ -280,7 +280,7 @@ void MainWindow::updateStatus() {
                     helpText = L"Click: Add point   Bksp: Delete point";
                 break;
             case TOOL_KNIFE:
-                helpText = L"Click: Add vertex   Bksp: Delete vertex   Alt: Ignore vertices";
+                helpText = L"Click: Add vertex   Bksp: Delete vertex   Alt: Ignore vertices/edges";
                 break;
             case TOOL_JOIN:
                 if (hasSelection(g_state))
