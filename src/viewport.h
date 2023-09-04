@@ -56,6 +56,7 @@ public:
     void refreshImmediate();
     void clearTextureCache();
     void updateProjMat();
+    void updateHover(POINT pos);
     glm::vec3 forwardAxis();
     bool onCommand(HWND, int, HWND, UINT);
 
@@ -79,7 +80,6 @@ private:
 
     void lockMouse(POINT clientPos, MouseMode mode);
     void setViewMode(ViewMode mode);
-    void updateHover(POINT pos);
     void startToolAdjust(POINT pos);
     void toolAdjust(POINT pos, SIZE delta, UINT keyFlags);
     void drawMesh(const RenderMesh &mesh);

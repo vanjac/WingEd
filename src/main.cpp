@@ -62,20 +62,6 @@ static void resetToolState() {
     g_drawVerts.clear();
 }
 
-static void setTool(Tool tool) {
-    g_tool = tool;
-    resetToolState();
-    if (!(TOOL_FLAGS[tool] & (1 << g_state.selMode)))
-        g_state.selMode = SEL_ELEMENTS; // TODO
-    if ((TOOL_FLAGS[tool] & TOOLF_DRAW) && (TOOL_FLAGS[tool] & TOOLF_HOVFACE))
-        if (auto face = g_hoverFace.find(g_state.surf))
-            g_state.workPlane = facePlane(g_state.surf, *face);
-    POINT pt = cursorPos();
-    HWND overWnd = WindowFromPoint(pt);
-    if (GetWindowThreadProcessId(overWnd, nullptr) == GetCurrentThreadId())
-        setCursorHitTest(overWnd, pt);
-}
-
 static std::vector<edge_id> sortEdgeLoop(const Surface &surf, immer::set<edge_id> edges) {
     std::vector<edge_id> loop;
     auto edgesTrans = edges.transient();
@@ -340,9 +326,26 @@ void MainWindow::showStdException(std::exception e) {
     MessageBoxA(wnd, e.what(), "Unexpected Error", MB_ICONERROR);
 }
 
+void MainWindow::setTool(Tool tool) {
+    g_tool = tool;
+    resetToolState();
+    if (!(TOOL_FLAGS[tool] & (1 << g_state.selMode)))
+        g_state.selMode = SEL_ELEMENTS; // TODO
+    if ((TOOL_FLAGS[tool] & TOOLF_DRAW) && (TOOL_FLAGS[tool] & TOOLF_HOVFACE))
+        if (auto face = g_hoverFace.find(g_state.surf))
+            g_state.workPlane = facePlane(g_state.surf, *face);
+    POINT pt = cursorPos();
+    if (hoveredViewport && WindowFromPoint(pt) == hoveredViewport->wnd) {
+        hoveredViewport->updateHover(screenToClient(hoveredViewport->wnd, pt));
+        setCursorHitTest(hoveredViewport->wnd, pt);
+    }
+}
+
 bool MainWindow::removeViewport(ViewportWindow *viewport) {
     if (activeViewport == viewport)
         activeViewport = &mainViewport;
+    if (hoveredViewport == viewport)
+        hoveredViewport = NULL;
     // hack https://stackoverflow.com/a/60220391/11525734
     std::unique_ptr<ViewportWindow> stalePtr(viewport);
     auto ret = extraViewports.erase(stalePtr);

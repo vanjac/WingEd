@@ -44,7 +44,7 @@ class MainWindow : public chroma::WindowImpl {
     const TCHAR * className() const override { return APP_NAME; }
 
 public:
-    ViewportWindow *activeViewport;
+    ViewportWindow *activeViewport, *hoveredViewport;
 
     void pushUndo();
     void pushUndo(EditorState newState);
@@ -73,6 +73,7 @@ private:
     ViewportWindow mainViewport;
     std::unordered_set<std::unique_ptr<ViewportWindow>> extraViewports;
 
+    void setTool(Tool tool);
     void closeExtraViewports();
     void resetModel();
     bool save();

@@ -872,13 +872,14 @@ void ViewportWindow::onButtonUp(HWND, int, int, UINT) {
 }
 
 void ViewportWindow::onMouseMove(HWND, int x, int y, UINT keyFlags) {
+    g_mainWindow.hoveredViewport = this;
+    if (!trackMouse) {
+        TrackMouseEvent(tempPtr(TRACKMOUSEEVENT{sizeof(TRACKMOUSEEVENT), TME_LEAVE, wnd}));
+        trackMouse = true;
+    }
     POINT curPos = {x, y};
     if (mouseMode == MOUSE_NONE) {
         updateHover(curPos);
-        if (!trackMouse) {
-            TrackMouseEvent(tempPtr(TRACKMOUSEEVENT{sizeof(TRACKMOUSEEVENT), TME_LEAVE, wnd}));
-            trackMouse = true;
-        }
     } else if (curPos != lastCurPos) {
         SIZE delta = {curPos.x - lastCurPos.x, curPos.y - lastCurPos.y};
         switch (mouseMode) {
@@ -921,6 +922,8 @@ void ViewportWindow::onMouseMove(HWND, int x, int y, UINT keyFlags) {
 
 void ViewportWindow::onMouseLeave(HWND) {
     trackMouse = false;
+    if (g_mainWindow.hoveredViewport == this)
+        g_mainWindow.hoveredViewport = NULL;
     if (mouseMode == MOUSE_NONE && g_hover.type != PICK_NONE) {
         g_hover = {};
         g_mainWindow.refreshAll();
