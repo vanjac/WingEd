@@ -1009,6 +1009,7 @@ void ViewportWindow::onDropFiles(HWND, HDROP drop) {
                 g_mainWindow.pushUndo(std::move(newState));
             }
         }
+        DragFinish(drop);
     } catch (winged_error err) {
         g_mainWindow.showError(err);
     }
