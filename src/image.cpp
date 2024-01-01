@@ -48,7 +48,7 @@ ImageData loadImage(const wchar_t *path) {
     let stride = -rect.Width * 4; // bottom-up order
     let bufSize = rect.Width * rect.Height * 4;
     std::unique_ptr<uint8_t[]> buffer(new uint8_t[bufSize]);
-    Gdi::BitmapData data = { (UINT)rect.Width, (UINT)rect.Height, stride, PixelFormat32bppARGB,
+    Gdi::BitmapData data = { UINT(rect.Width), UINT(rect.Height), stride, PixelFormat32bppARGB,
         buffer.get() + bufSize + stride, 0 };
     if (!checkStatus(bitmap.LockBits(&rect, Gdi::ImageLockModeRead | Gdi::ImageLockModeUserInputBuf,
             PixelFormat32bppARGB, &data))) {

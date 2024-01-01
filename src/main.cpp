@@ -153,7 +153,7 @@ INT_PTR CALLBACK matrixDlgProc(HWND dlg, UINT msg, WPARAM wParam, LPARAM lParam)
                     for (int i = 0; i < 9; i++) {
                         TCHAR buf[64];
                         GetDlgItemText(dlg, 1000 + i, buf, _countof(buf));
-                        mat[i % 3][i / 3] = (float)_ttof(buf);
+                        mat[i % 3][i / 3] = float(_ttof(buf));
                     }
                     EndDialog(dlg, LOWORD(wParam));
                     return true;
@@ -198,10 +198,10 @@ void MainWindow::updateStatus() {
         str += _stprintf(str, L"%s", PathFindFileName(filePath));
     }
     str += _stprintf(str, L" - %s", APP_NAME);
-    SendMessage(wnd, WM_SETTEXT, 0, (LRESULT)buf);
+    SendMessage(wnd, WM_SETTEXT, 0, LRESULT(buf));
 
     _stprintf(buf, L"Grid:  %g", g_state.gridSize);
-    SendMessage(statusWnd, SB_SETTEXT, STATUS_GRID, (LPARAM)buf);
+    SendMessage(statusWnd, SB_SETTEXT, STATUS_GRID, LPARAM(buf));
 
     buf[0] = 0;
     str = buf;
@@ -211,7 +211,7 @@ void MainWindow::updateStatus() {
         str += _stprintf(str, L"%zd edge ", g_state.selEdges.size());
     if (!g_state.selFaces.empty())
         str += _stprintf(str, L"%zd face", g_state.selFaces.size());
-    SendMessage(statusWnd, SB_SETTEXT, STATUS_SELECT, (LPARAM)buf);
+    SendMessage(statusWnd, SB_SETTEXT, STATUS_SELECT, LPARAM(buf));
 
     if (g_tool == TOOL_SELECT && activeViewport->mouseMode == MOUSE_TOOL) {
         let moved = activeViewport->moved;
@@ -232,7 +232,7 @@ void MainWindow::updateStatus() {
     } else {
         buf[0] = 0;
     }
-    SendMessage(statusWnd, SB_SETTEXT, STATUS_DIMEN, (LPARAM)buf);
+    SendMessage(statusWnd, SB_SETTEXT, STATUS_DIMEN, LPARAM(buf));
 
     const TCHAR *helpText = L"";
     if (activeViewport->mouseMode == MOUSE_CAM_ROTATE) {
@@ -271,7 +271,7 @@ void MainWindow::updateStatus() {
                 break;
         }
     }
-    SendMessage(statusWnd, SB_SETTEXT, STATUS_HELP, (LPARAM)helpText);
+    SendMessage(statusWnd, SB_SETTEXT, STATUS_HELP, LPARAM(helpText));
 
     let menu = GetMenu(wnd);
     onInitMenu(wnd, menu);
@@ -449,7 +449,7 @@ BOOL MainWindow::onCreate(HWND, LPCREATESTRUCT) {
     let toolbarBmp = LoadBitmap(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_TOOLBAR));
     toolbarWnd = CreateToolbarEx(wnd,
         WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | CCS_TOP | TBSTYLE_TOOLTIPS,
-        1, NUM_TOOLBAR_IMAGES, NULL, (UINT)(size_t)toolbarBmp, buttons, _countof(buttons),
+        1, NUM_TOOLBAR_IMAGES, NULL, UINT(size_t(toolbarBmp)), buttons, _countof(buttons),
         0, 0, 24, 24, sizeof(TBBUTTON));
 
     statusWnd = CreateStatusWindow(
@@ -461,7 +461,7 @@ BOOL MainWindow::onCreate(HWND, LPCREATESTRUCT) {
     x += 150; parts[STATUS_SELECT] = x;
     x += 150; parts[STATUS_DIMEN] = x;
     parts[NUM_STATUS_PARTS - 1] = -1;
-    SendMessage(statusWnd, SB_SETPARTS, NUM_STATUS_PARTS, (LPARAM)parts);
+    SendMessage(statusWnd, SB_SETPARTS, NUM_STATUS_PARTS, LPARAM(parts));
     updateStatus();
 
     return true;
@@ -717,7 +717,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
             }
             case IDM_TRANSFORM_MATRIX:
                 if (DialogBoxParam(GetModuleHandle(NULL), L"IDD_MATRIX", wnd, matrixDlgProc,
-                        (LPARAM)&userMatrix) == IDOK) {
+                        LPARAM(&userMatrix)) == IDOK) {
                     let verts = selAttachedVerts(g_state);
                     let center = vertsCenter(g_state.surf, verts);
                     EditorState newState = g_state;
@@ -728,7 +728,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                 break;
             case IDM_PAINT_MATRIX: 
                 if (DialogBoxParam(GetModuleHandle(NULL), L"IDD_MATRIX", wnd, matrixDlgProc,
-                        (LPARAM)&userPaintMatrix) == IDOK) {
+                        LPARAM(&userPaintMatrix)) == IDOK) {
                     EditorState newState = g_state;
                     let mat = glm::inverse(userPaintMatrix);
                     newState.surf = transformPaint(g_state.surf, g_state.selFaces, mat);
@@ -847,7 +847,7 @@ int APIENTRY _tWinMain(HINSTANCE instance, HINSTANCE, LPTSTR, int showCmd) {
         DispatchMessage(&msg);
     }
     uninitImage();
-    return (int)msg.wParam;
+    return int(msg.wParam);
 }
 
 CHROMA_MAIN

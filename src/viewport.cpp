@@ -294,7 +294,7 @@ static EditorState knifeToDrawVert(EditorState state, int loopI) {
     for (size_t i = 0; i < g_drawVerts.size() + 1; i++) {
         let pair = newEdge.pair(state.surf);
         state.selEdges = std::move(state.selEdges).insert(primaryEdge(pair));
-        if ((int)i == loopI + 1)
+        if (int(i) == loopI + 1)
             state.selVerts = immer::set<vert_id>{}.insert(pair.second.vert);
         newEdge = pair.second.next;
     }
@@ -373,7 +373,7 @@ void ViewportWindow::setViewMode(ViewMode mode) {
 void ViewportWindow::updateProjMat() {
     let dc = GetDC(wnd);
     CHECKERR(wglMakeCurrent(dc, context));
-    glViewport(0, 0, (GLsizei)viewportDim.x, (GLsizei)viewportDim.y);
+    glViewport(0, 0, GLsizei(viewportDim.x), GLsizei(viewportDim.y));
     let aspect = viewportDim.x / viewportDim.y;
     if (view.mode == VIEW_ORTHO) {
         projMat = glm::ortho(-aspect, aspect, -1.0f, 1.0f, -FAR_CLIP / 2, FAR_CLIP / 2);
@@ -499,11 +499,11 @@ void ViewportWindow::toolAdjust(POINT pos, SIZE delta, UINT keyFlags) {
             let ortho = bool(keyFlags & MK_CONTROL);
             glm::vec3 amount;
             if (ortho) {
-                float push = (float)delta.cy * view.zoom / CAM_MOVE_SCALE;
+                float push = float(delta.cy) * view.zoom / CAM_MOVE_SCALE;
                 if (g_state.gridOn) {
                     let snap = g_state.gridSize / absNorm[normAxis];
                     snapAccum += push / snap;
-                    let steps = (int)glm::floor(snapAccum);
+                    let steps = int(glm::floor(snapAccum));
                     snapAccum -= steps;
                     push = steps * snap;
                 }
@@ -698,7 +698,7 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    let defHBmp = (HBITMAP)LoadImage(GetModuleHandle(NULL),
+    let defHBmp = LoadImage(GetModuleHandle(NULL),
         MAKEINTRESOURCE(IDB_DEFAULT_TEXTURE), IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION);
     BITMAP defBmp;
     GetObject(defHBmp, sizeof(defBmp), (void *)&defBmp);
@@ -784,7 +784,7 @@ void ViewportWindow::onLButtonDown(HWND, BOOL, int x, int y, UINT keyFlags) {
                     g_mainWindow.pushUndo(knifeToVert(g_state, g_hover.vert));
                     break;
                 case PICK_DRAWVERT:
-                    g_mainWindow.pushUndo(knifeToDrawVert(g_state, (int)g_hover.val));
+                    g_mainWindow.pushUndo(knifeToDrawVert(g_state, int(g_hover.val)));
                     break;
                 case PICK_FACE:
                     if (!g_state.selVerts.size() == 1)
@@ -889,8 +889,8 @@ void ViewportWindow::onMouseMove(HWND, int x, int y, UINT keyFlags) {
                 g_mainWindow.refreshAll();
                 break;
             case MOUSE_CAM_ROTATE:
-                view.rotX += glm::radians((float)delta.cy) * 0.5f;
-                view.rotY += glm::radians((float)delta.cx) * 0.5f;
+                view.rotX += glm::radians(float(delta.cy)) * 0.5f;
+                view.rotY += glm::radians(float(delta.cx)) * 0.5f;
                 refresh();
                 SetWindowText(wnd, APP_NAME);
                 break;
@@ -1250,7 +1250,7 @@ void ViewportWindow::drawMesh(const RenderMesh &mesh) {
 }
 
 void ViewportWindow::drawIndexRange(const IndexRange &range, GLenum mode) {
-    glDrawElements(mode, (GLsizei)range.count, GL_UNSIGNED_SHORT,
+    glDrawElements(mode, GLsizei(range.count), GL_UNSIGNED_SHORT,
         (void *)(range.start * sizeof(GLushort)));
 }
 

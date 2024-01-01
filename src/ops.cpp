@@ -310,7 +310,7 @@ Surface splitFace(Surface surf, edge_id e1, edge_id e2,
     // │edge1     prev2│
     // │               │
     // ╰    newFace    ╰
-    let numPoints = (int)points.size();
+    let numPoints = int(points.size());
     if (loopIndex >= 0 && loopIndex >= numPoints - 2) throw winged_error();
     std::vector<edge_pair> newEdges1 = makeEdgePairs(numPoints + 1);
     std::vector<edge_pair> newEdges2 = makeEdgePairs(numPoints + 1);

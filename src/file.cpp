@@ -110,8 +110,8 @@ void writeFile(const wchar_t *file, const EditorState &state, const ViewState &v
     write(handle, tempPtr(state.surf.verts.size()), 4);
     write(handle, tempPtr(state.surf.edges.size()), 4);
 
-    write(handle, paints.data(), (DWORD)(paints.size() * sizeof(Paint)));
-    write(handle, facePaintIndices.data(), (DWORD)(facePaintIndices.size() * sizeof(uint32_t)));
+    write(handle, paints.data(), DWORD(paints.size() * sizeof(Paint)));
+    write(handle, facePaintIndices.data(), DWORD(facePaintIndices.size() * sizeof(uint32_t)));
 
     for (let &vert : state.surf.verts) {
         write(handle, &vert.second.pos, sizeof(vert.second.pos));
@@ -177,7 +177,7 @@ static void readString(HANDLE handle, wchar_t *str, size_t size) {
     std::unique_ptr<char[]> buf(new char[len + 1]);
     read(handle, buf.get(), len);
     buf[len] = 0;
-    MultiByteToWideChar(CP_UTF8, 0, buf.get(), -1, str, (int)size);
+    MultiByteToWideChar(CP_UTF8, 0, buf.get(), -1, str, int(size));
 }
 
 std::tuple<EditorState, ViewState, Library> readFile(const wchar_t *file,
@@ -345,7 +345,7 @@ void writeObj(const wchar_t *file, const Surface &surf, const Library &library,
                 if (let vnPtr = tryGet(normalIndices, normal)) {
                     vn = *vnPtr;
                 } else {
-                    vn = (int)normalIndices.size() + 1;
+                    vn = int(normalIndices.size()) + 1;
                     normalIndices[normal] = vn;
                     write(handle, buf, sprintf(buf, "\nvn %f %f %f", normal.x, normal.y, normal.z));
                 }
@@ -358,7 +358,7 @@ void writeObj(const wchar_t *file, const Surface &surf, const Library &library,
                     if (let vtPtr = tryGet(texCoordIndices, texCoord)) {
                         vt = *vtPtr;
                     } else {
-                        vt = (int)texCoordIndices.size() + 1;
+                        vt = int(texCoordIndices.size()) + 1;
                         texCoordIndices[texCoord] = vt;
                         write(handle, buf, sprintf(buf, "\nvt %f %f", texCoord.x, texCoord.y));
                     }

@@ -25,7 +25,7 @@ static void CALLBACK tessBeginCallback(GLenum mode, void *data) {
 
 static void CALLBACK tessVertexCallback(void *vertex, void *data) {
     let state = (FaceTessState *)data;
-    let index = (index_t)(size_t)vertex;
+    let index = index_t(size_t(vertex));
     let numIndices = state->indices->size();
     if (state->mode == GL_TRIANGLE_STRIP && numIndices - state->startI >= 3) {
         if ((numIndices - state->startI) % 6 == 0) {
@@ -148,14 +148,14 @@ void generateRenderMesh(RenderMesh *mesh, const EditorState &state) {
 
         if (TOOL_FLAGS[g_tool] & TOOLF_DRAW) {
             if (g_hover.type == PICK_DRAWVERT) {
-                mesh->indices.push_back((index_t)(drawVertsStartI + g_hover.val));
+                mesh->indices.push_back(index_t(drawVertsStartI + g_hover.val));
                 mesh->ranges[ELEM_REG_VERT].count++;
             }
 
             mesh->ranges[ELEM_DRAW_POINT].start = mesh->indices.size();
             for (size_t i = 0; i < g_drawVerts.size(); i++) {
                 if (g_hover.type != PICK_DRAWVERT || g_hover.val != i) {
-                    mesh->indices.push_back((index_t)(drawVertsStartI + i));
+                    mesh->indices.push_back(index_t(drawVertsStartI + i));
                     mesh->ranges[ELEM_DRAW_POINT].count++;
                 }
             }
@@ -183,7 +183,7 @@ void generateRenderMesh(RenderMesh *mesh, const EditorState &state) {
                 mesh->ranges[ELEM_DRAW_LINE].count++;
             }
             for (size_t i = 0; i < g_drawVerts.size(); i++) {
-                mesh->indices.push_back((index_t)(drawVertsStartI + i));
+                mesh->indices.push_back(index_t(drawVertsStartI + i));
                 mesh->ranges[ELEM_DRAW_LINE].count++;
             }
             if (g_hover.type) {
