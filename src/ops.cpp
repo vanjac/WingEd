@@ -135,7 +135,7 @@ Surface splitEdge(Surface surf, edge_id e, glm::vec3 pos) {
 }
 
 // helper for joinVerts
-static std::pair<Surface, bool> joinFaceEdges(Surface surf, edge_pair prev, edge_pair edge) {
+static tuple<Surface, bool> joinFaceEdges(Surface surf, edge_pair prev, edge_pair edge) {
     // AFTER:    X prevVert
     //           ╮
     //           │prev    face
@@ -186,12 +186,12 @@ static Surface joinVertsSharedEdge(Surface surf, edge_pair edge, edge_pair next)
     eraseAll(&surf.edges, {edge.first, twin.first});
 
     bool collapsedFace;
-    std::tie(surf, collapsedFace) = joinFaceEdges(std::move(surf), prev, next);
+    tie(surf, collapsedFace) = joinFaceEdges(std::move(surf), prev, next);
     if (collapsedFace)
         eraseAll(&surf.faces, {edge.second.face});
     edge_pair twinPrev = twin.second.prev.pair(surf);
     edge_pair twinNext = twin.second.next.pair(surf);
-    std::tie(surf, collapsedFace) = joinFaceEdges(std::move(surf), twinPrev, twinNext);
+    tie(surf, collapsedFace) = joinFaceEdges(std::move(surf), twinPrev, twinNext);
     if (collapsedFace)
         eraseAll(&surf.faces, {twin.second.face});
     return surf;
@@ -239,10 +239,10 @@ Surface joinVerts(Surface surf, edge_id e1, edge_id e2) {
         edge_pair prev1 = edge1.second.prev.pair(surf);
         edge_pair prev2 = edge2.second.prev.pair(surf);
         bool collapsedFace1, collapsedFace2;
-        std::tie(surf, collapsedFace1) = joinFaceEdges(std::move(surf), prev2, edge1);
+        tie(surf, collapsedFace1) = joinFaceEdges(std::move(surf), prev2, edge1);
         prev1 = prev1.first.pair(surf);
         edge2 = edge2.first.pair(surf);
-        std::tie(surf, collapsedFace2) = joinFaceEdges(std::move(surf), prev1, edge2);
+        tie(surf, collapsedFace2) = joinFaceEdges(std::move(surf), prev1, edge2);
         if (collapsedFace1 && collapsedFace2) {
             eraseAll(&surf.faces, {edge1.second.face});
         } else if (!collapsedFace1 && !collapsedFace2) {
@@ -272,7 +272,7 @@ Surface joinEdges(Surface surf, edge_id e1, edge_id e2) {
     return surf;
 }
 
-std::pair<Surface, edge_id> splitFace(Surface surf, edge_id e1, edge_id e2,
+tuple<Surface, edge_id> splitFace(Surface surf, edge_id e1, edge_id e2,
         const std::vector<glm::vec3> &points, int loopIndex) {
     // BEFORE:
     // ╮               ╮
@@ -414,7 +414,7 @@ Surface mergeFaces(Surface surf, edge_id e) {
                 twinVert.second.edge = next.first;
                 insertAll(&surf.verts, {twinVert});
                 bool collapsedFace;
-                std::tie(surf, collapsedFace) = joinFaceEdges(std::move(surf), twinPrev, next);
+                tie(surf, collapsedFace) = joinFaceEdges(std::move(surf), twinPrev, next);
                 if (collapsedFace)
                     eraseAll(&surf.faces, {keepFace.first});
                 break;
@@ -606,7 +606,7 @@ Surface joinEdgeLoops(Surface surf, edge_id e1, edge_id e2) {
     return surf;
 }
 
-std::pair<Surface, face_id> makePolygonPlane(Surface surf, const std::vector<glm::vec3> &points) {
+tuple<Surface, face_id> makePolygonPlane(Surface surf, const std::vector<glm::vec3> &points) {
     let size = points.size();
     if (size < 3)
         throw winged_error();
