@@ -1,6 +1,7 @@
 #include "surface.h"
 #include <glm/geometric.hpp>
 #include "mathutil.h"
+#include "macros.h"
 
 namespace winged {
 
@@ -34,9 +35,9 @@ edge_id primaryEdge(const edge_pair &pair) {
 
 glm::vec3 faceNormalNonUnit(const Surface &surf, const Face &face) {
     glm::vec3 normal = {};
-    for (auto &pair : FaceEdges(surf, face)) {
-        glm::vec3 v1 = pair.second.vert.in(surf).pos;
-        glm::vec3 v2 = pair.second.next.in(surf).vert.in(surf).pos;
+    for (let pair : FaceEdges(surf, face)) {
+        let v1 = pair.second.vert.in(surf).pos;
+        let v2 = pair.second.next.in(surf).vert.in(surf).pos;
         normal += accumPolyNormal(v1, v2);
     }
     return normal;
@@ -53,7 +54,7 @@ Plane facePlane(const Surface &surf, const Face &face) {
 glm::mat4x2 faceTexMat(const Paint &paint, glm::vec3 normal) {
     glm::mat4x2 texAxes = paint.texAxes;
     if (texAxes == glm::mat4x2{}) {
-        int axis = maxAxis(glm::abs(normal));
+        let axis = maxAxis(glm::abs(normal));
         texAxes[(axis == 0) ? 2 : 0] = glm::vec2(((normal[axis] < 0) ^ (axis == 2)) ? 1 : -1, 0);
         texAxes[(axis == 1) ? 2 : 1] = glm::vec2(0, 1);
     }

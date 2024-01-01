@@ -6,6 +6,7 @@
 #include <atlbase.h>
 #include "rendermesh.h"
 #include "stdutil.h"
+#include "macros.h"
 
 using namespace chroma;
 
@@ -62,13 +63,13 @@ static void write(HANDLE handle, const void *buf, DWORD size) {
 template<typename T, typename U>
 static void writeSet(HANDLE handle, const immer::set<T> &set, const std::unordered_map<T, U> &map) {
     write(handle, tempPtr(set.size()), 4);
-    for (auto &v : set)
+    for (let &v : set)
         write(handle, &map.at(v), sizeof(U));
 }
 
 static void writeString(HANDLE handle, const wchar_t *str) {
     CW2A utf8(str, CP_UTF8);
-    uint16_t len = (uint16_t)lstrlenA(utf8);
+    let len = (uint16_t)lstrlenA(utf8);
     write(handle, &len, 2);
     write(handle, utf8.m_psz, len);
 }
@@ -93,8 +94,8 @@ void writeFile(const wchar_t *file, const EditorState &state, const ViewState &v
     std::vector<uint32_t> facePaintIndices;
     std::vector<Paint> paints;
     std::unordered_set<id_t> usedFiles;
-    for (auto &face : state.surf.faces) {
-        if (auto paintIndex = tryGet(paintIndices, *face.second.paint)) {
+    for (let &face : state.surf.faces) {
+        if (let paintIndex = tryGet(paintIndices, *face.second.paint)) {
             facePaintIndices.push_back(*paintIndex);
         } else {
             paintIndices[face.second.paint] = (uint32_t)paints.size();
@@ -112,12 +113,12 @@ void writeFile(const wchar_t *file, const EditorState &state, const ViewState &v
     write(handle, paints.data(), (DWORD)(paints.size() * sizeof(Paint)));
     write(handle, facePaintIndices.data(), (DWORD)(facePaintIndices.size() * sizeof(uint32_t)));
 
-    for (auto &vert : state.surf.verts) {
+    for (let &vert : state.surf.verts) {
         write(handle, &vert.second.pos, sizeof(vert.second.pos));
         vertIndices[vert.first] = (uint32_t)vertIndices.size();
     }
-    for (auto &face : state.surf.faces) {
-        for (auto &edge : FaceEdges(state.surf, face.second)) {
+    for (let &face : state.surf.faces) {
+        for (let edge : FaceEdges(state.surf, face.second)) {
             write(handle, &vertIndices[edge.second.vert], 4);
             edgeIndices[edge.first] = (uint32_t)edgeIndices.size();
         }
@@ -130,8 +131,8 @@ void writeFile(const wchar_t *file, const EditorState &state, const ViewState &v
     write(handle, &state.SAVE_DATA, sizeof(EditorState) - offsetof(EditorState, SAVE_DATA));
     write(handle, &view, sizeof(view));
 
-    for (auto &id : usedFiles) {
-        if (auto path = tryGet(library.idPaths, id)) {
+    for (let &id : usedFiles) {
+        if (let path = tryGet(library.idPaths, id)) {
             wchar_t relative[MAX_PATH] = L"";
             if (library.rootPath.empty()) {
                 PathRelativePathTo(relative, file, 0, path->c_str(), 0);
@@ -165,14 +166,14 @@ static T readVal(HANDLE handle, DWORD size = sizeof(T)) {
 template<typename T, typename U>
 static immer::set<T> readSet(HANDLE handle, const std::vector<std::pair<T, U>> &vec) {
     immer::set<T> set;
-    uint32_t size = readVal<uint32_t>(handle);
+    let size = readVal<uint32_t>(handle);
     for (uint32_t i = 0; i < size; i++)
         set = std::move(set).insert(vec[readVal<uint32_t>(handle)].first);
     return set;
 }
 
 static void readString(HANDLE handle, wchar_t *str, size_t size) {
-    uint16_t len = readVal<uint16_t>(handle);
+    let len = readVal<uint16_t>(handle);
     std::unique_ptr<char[]> buf(new char[len + 1]);
     read(handle, buf.get(), len);
     buf[len] = 0;
@@ -187,15 +188,15 @@ std::tuple<EditorState, ViewState, Library> readFile(const wchar_t *file,
         throw winged_error(L"Error opening file");
     if (readVal<uint32_t>(handle) != 'WING')
         throw winged_error(L"Unrecognized file format");
-    auto version = readVal<uint32_t>(handle);
+    let version = readVal<uint32_t>(handle);
     if (version != 2)
         throw winged_error(L"Unrecognized file version");
     EditorState state;
 
-    uint32_t numPaints = readVal<uint32_t>(handle);
-    uint32_t numFaces = readVal<uint32_t>(handle);
-    uint32_t numVerts = readVal<uint32_t>(handle);
-    uint32_t numEdges = readVal<uint32_t>(handle);
+    let numPaints = readVal<uint32_t>(handle);
+    let numFaces = readVal<uint32_t>(handle);
+    let numVerts = readVal<uint32_t>(handle);
+    let numEdges = readVal<uint32_t>(handle);
     std::vector<immer::box<Paint>> paints;
     std::vector<face_pair> faces;
     std::vector<vert_pair> verts;
@@ -220,7 +221,7 @@ std::tuple<EditorState, ViewState, Library> readFile(const wchar_t *file,
     std::unordered_map<std::pair<vert_id, vert_id>, uint32_t> vertPairEdges;
     vertPairEdges.reserve(numEdges);
     for (uint32_t f = 0; f < numFaces; f++) {
-        size_t faceEdgeStart = edges.size();
+        let faceEdgeStart = edges.size();
         uint32_t v;
         while ((v = readVal<uint32_t>(handle)) != (uint32_t)-1) {
             edge_pair edge = {genId(), {}};
@@ -239,10 +240,9 @@ std::tuple<EditorState, ViewState, Library> readFile(const wchar_t *file,
         edges.back().second.next = edges[faceEdgeStart].first;
 
         for (size_t i = faceEdgeStart; i < edges.size(); i++) {
-            edge_pair *edge = &edges[i];
-            const edge_pair &next = (i == edges.size() - 1) ?
-                edges[faceEdgeStart] : edges[i + 1];
-            if (auto twinI = tryGet(vertPairEdges, {edge->second.vert, next.second.vert})) {
+            let edge = &edges[i];
+            let &next = (i == edges.size() - 1) ? edges[faceEdgeStart] : edges[i + 1];
+            if (let twinI = tryGet(vertPairEdges, {edge->second.vert, next.second.vert})) {
                 edge->second.twin = edges[*twinI].first;
                 edges[*twinI].second.twin = edge->first;
             } else {
@@ -250,18 +250,18 @@ std::tuple<EditorState, ViewState, Library> readFile(const wchar_t *file,
             }
         }
     }
-    for (auto &pair : faces)
+    for (let &pair : faces)
         state.surf.faces = std::move(state.surf.faces).insert(pair);
-    for (auto &pair : verts)
+    for (let &pair : verts)
         state.surf.verts = std::move(state.surf.verts).insert(pair);
-    for (auto &pair : edges)
+    for (let &pair : edges)
         state.surf.edges = std::move(state.surf.edges).insert(pair);
     state.selFaces = readSet<face_id>(handle, faces);
     state.selVerts = readSet<vert_id>(handle, verts);
     state.selEdges = readSet<edge_id>(handle, edges);
 
     read(handle, &state.SAVE_DATA, sizeof(EditorState) - offsetof(EditorState, SAVE_DATA));
-    ViewState view = readVal<ViewState>(handle);
+    let view = readVal<ViewState>(handle);
 
     Library library;
     library.rootPath = libraryPath;
@@ -279,7 +279,7 @@ std::tuple<EditorState, ViewState, Library> readFile(const wchar_t *file,
             PathCombine(combined, folder, relative);
         else
             PathCombine(combined, libraryPath, relative);
-        id_t id = readVal<id_t>(handle);
+        let id = readVal<id_t>(handle);
         if (combined[0])
             library.addFile(id, combined);
     }
@@ -308,14 +308,14 @@ void writeObj(const wchar_t *file, const Surface &surf, const Library &library,
 
         std::unordered_map<vert_id, int> vertIndices;
         int v = 1;
-        for (auto &vert : surf.verts) {
-            auto pos = vert.second.pos;
+        for (let &vert : surf.verts) {
+            let pos = vert.second.pos;
             write(handle, buf, sprintf(buf, "v %f %f %f\n", pos.x, pos.y, pos.z));
             vertIndices[vert.first] = v++;
         }
 
         std::unordered_map<id_t, std::vector<Face>> matFaces;
-        for (auto &pair : surf.faces) {
+        for (let &pair : surf.faces) {
             if (pair.second.paint->material != Paint::HOLE_MATERIAL)
                 matFaces[pair.second.paint->material].push_back(pair.second);
         }
@@ -324,9 +324,9 @@ void writeObj(const wchar_t *file, const Surface &surf, const Library &library,
         std::unordered_map<glm::vec2, int> texCoordIndices;
         std::vector<ObjFaceVert> faceVerts;
         std::vector<index_t> faceIndices;
-        for (auto &pair : matFaces) {
+        for (let &pair : matFaces) {
             std::wstring texFile;
-            if (auto path = tryGet(library.idPaths, pair.first)) {
+            if (let path = tryGet(library.idPaths, pair.first)) {
                 texFile = PathFindFileName(path->c_str());
                 std::replace(texFile.begin(), texFile.end(), L' ', L'_');
             } else {
@@ -339,10 +339,10 @@ void writeObj(const wchar_t *file, const Surface &surf, const Library &library,
             matNames[matName] = pair.first;
             write(handle, buf, sprintf(buf, "\nusemtl %S", matName.c_str()));
 
-            for (auto &face : pair.second) {
-                glm::vec3 normal = faceNormal(surf, face);
+            for (let &face : pair.second) {
+                let normal = faceNormal(surf, face);
                 int vn;
-                if (auto vnPtr = tryGet(normalIndices, normal)) {
+                if (let vnPtr = tryGet(normalIndices, normal)) {
                     vn = *vnPtr;
                 } else {
                     vn = (int)normalIndices.size() + 1;
@@ -352,10 +352,10 @@ void writeObj(const wchar_t *file, const Surface &surf, const Library &library,
 
                 glm::mat4x2 texMat = faceTexMat(face.paint, normal);
                 faceVerts.clear();
-                for (auto &edge : FaceEdges(surf, face)) {
-                    glm::vec2 texCoord = texMat * glm::vec4(edge.second.vert.in(surf).pos, 1);
+                for (let edge : FaceEdges(surf, face)) {
+                    let texCoord = texMat * glm::vec4(edge.second.vert.in(surf).pos, 1);
                     int vt;
-                    if (auto vtPtr = tryGet(texCoordIndices, texCoord)) {
+                    if (let vtPtr = tryGet(texCoordIndices, texCoord)) {
                         vt = *vtPtr;
                     } else {
                         vt = (int)texCoordIndices.size() + 1;
@@ -370,7 +370,7 @@ void writeObj(const wchar_t *file, const Surface &surf, const Library &library,
                 for (size_t i = 0; i < faceIndices.size(); ) {
                     write(handle, "\nf", 2);
                     for (size_t j = 0; j < 3; j++, i++) {
-                        const ObjFaceVert &ofv = faceVerts[faceIndices[i]];
+                        let &ofv = faceVerts[faceIndices[i]];
                         write(handle, buf, sprintf(buf, " %d/%d/%d", ofv.v, ofv.vt, vn));
                     }
                 }
@@ -391,9 +391,9 @@ void writeObj(const wchar_t *file, const Surface &surf, const Library &library,
             throw winged_error(L"Error saving MTL file");
         char buf[256];
 
-        for (auto &pair : matNames) {
+        for (let &pair : matNames) {
             write(handle, buf, sprintf(buf, "newmtl %S\n", pair.first.c_str()));
-            if (auto texPath = tryGet(library.idPaths, pair.second)) {
+            if (let texPath = tryGet(library.idPaths, pair.second)) {
                 wchar_t relative[MAX_PATH] = L"";
                 PathRelativePathTo(relative, folder, FILE_ATTRIBUTE_DIRECTORY, texPath->c_str(), 0);
                 for (wchar_t *c = relative; *c; c++)

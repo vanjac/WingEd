@@ -4,6 +4,7 @@
 #include <gl/GLU.h>
 #include <glm/gtc/type_ptr.hpp>
 #include "main.h"
+#include "macros.h"
 
 namespace winged {
 
@@ -17,15 +18,15 @@ struct FaceTessState {
 static GLUtesselator *g_tess;
 
 static void CALLBACK tessBeginCallback(GLenum mode, void *data) {
-    auto state = (FaceTessState *)data;
+    let state = (FaceTessState *)data;
     state->mode = mode;
     state->startI = state->indices->size();
 }
 
 static void CALLBACK tessVertexCallback(void *vertex, void *data) {
-    auto state = (FaceTessState *)data;
-    index_t index = (index_t)(size_t)vertex;
-    size_t numIndices = state->indices->size();
+    let state = (FaceTessState *)data;
+    let index = (index_t)(size_t)vertex;
+    let numIndices = state->indices->size();
     if (state->mode == GL_TRIANGLE_STRIP && numIndices - state->startI >= 3) {
         if ((numIndices - state->startI) % 6 == 0) {
             state->indices->push_back((*state->indices)[numIndices - 3]);
@@ -48,13 +49,13 @@ static void CALLBACK tessErrorCallback(GLenum error, void *data) {
 bool tesselateFace(std::vector<index_t> &faceIsOut, const Surface &surf, const Face &face,
         glm::vec3 normal, index_t vertI) {
     // https://www.glprogramming.com/red/chapter11.html
-    size_t initialSize = faceIsOut.size();
+    let initialSize = faceIsOut.size();
     FaceTessState state;
     state.indices = &faceIsOut;
     gluTessNormal(g_tess, normal.x, normal.y, normal.z);
     gluTessBeginPolygon(g_tess, &state);
     gluTessBeginContour(g_tess);
-    for (auto &ep : FaceEdges(surf, face)) {
+    for (let ep : FaceEdges(surf, face)) {
         glm::dvec3 dPos = ep.second.vert.in(surf).pos;
         gluTessVertex(g_tess, glm::value_ptr(dPos), (void *)vertI++);
     }
@@ -90,16 +91,16 @@ void insertFaces(RenderMesh *mesh, std::vector<Face> &errFacesOut,
         const std::unordered_map<edge_id, index_t> &edgeIDIndices,
         const std::unordered_map<id_t, std::vector<Face>> &matFaces, const Surface &surf,
         RenderFaceMesh::State state) {
-    for (auto &pair : matFaces) {
+    for (let &pair : matFaces) {
         IndexRange range = {mesh->indices.size(), 0};
-        for (auto &face : pair.second) {
-            glm::vec3 normal = mesh->normals[edgeIDIndices.at(face.edge)];
-            index_t startI = edgeIDIndices.at(face.edge);
+        for (let &face : pair.second) {
+            let normal = mesh->normals[edgeIDIndices.at(face.edge)];
+            let startI = edgeIDIndices.at(face.edge);
             if (!tesselateFace(mesh->indices, surf, face, normal, startI))
                 errFacesOut.push_back(face);
         }
         range.count = mesh->indices.size() - range.start;
-        RenderFaceMesh faceMesh = {pair.first, range, state};
+        let faceMesh = RenderFaceMesh{pair.first, range, state};
         mesh->faceMeshes.push_back(faceMesh);
     }
 }
@@ -113,14 +114,14 @@ void generateRenderMesh(RenderMesh *mesh, const EditorState &state) {
     edgeIDIndices.reserve(state.surf.edges.size());
 
     index_t index = 0;
-    for (auto &fp : state.surf.faces) {
-        glm::vec3 normal = faceNormal(state.surf, fp.second);
+    for (let &fp : state.surf.faces) {
+        let normal = faceNormal(state.surf, fp.second);
         glm::mat4x2 texMat = faceTexMat(fp.second.paint, normal);
-        id_t mat = fp.second.paint->material;
+        let mat = fp.second.paint->material;
         if (mat == id_t{})
             texMat = glm::mat2x2(0.25f) * texMat; // apply scaling to default texture
-        for (auto &ep : FaceEdges(state.surf, fp.second)) {
-            glm::vec3 v = ep.second.vert.in(state.surf).pos;
+        for (let ep : FaceEdges(state.surf, fp.second)) {
+            let v = ep.second.vert.in(state.surf).pos;
             mesh->vertices.push_back(v);
             mesh->normals.push_back(normal);
             mesh->texCoords.push_back(texMat * glm::vec4(v, 1));
@@ -128,17 +129,17 @@ void generateRenderMesh(RenderMesh *mesh, const EditorState &state) {
         }
     }
     // no normals / texCoords!
-    const index_t drawVertsStartI = index;
-    for (auto &vec : g_drawVerts) {
+    let drawVertsStartI = index;
+    for (let &vec : g_drawVerts) {
         mesh->vertices.push_back(vec);
         index++;
     }
-    const index_t hoverI = index;
+    let hoverI = index;
     mesh->vertices.push_back(g_hover.point);
 
     if (state.selMode == SEL_ELEMENTS) {
         mesh->ranges[ELEM_REG_VERT].start = mesh->indices.size();
-        for (auto &pair : state.surf.verts) {
+        for (let &pair : state.surf.verts) {
             if (!state.selVerts.count(pair.first)) {
                 mesh->indices.push_back(edgeIDIndices[pair.second.edge]);
                 mesh->ranges[ELEM_REG_VERT].count++;
@@ -165,7 +166,7 @@ void generateRenderMesh(RenderMesh *mesh, const EditorState &state) {
         }
 
         mesh->ranges[ELEM_SEL_VERT].start = mesh->indices.size();
-        for (auto &v : state.selVerts) {
+        for (let &v : state.selVerts) {
             mesh->indices.push_back(edgeIDIndices[v.in(state.surf).edge]);
             mesh->ranges[ELEM_SEL_VERT].count++;
         }
@@ -192,13 +193,13 @@ void generateRenderMesh(RenderMesh *mesh, const EditorState &state) {
         }
 
         mesh->ranges[ELEM_SEL_EDGE].start = mesh->indices.size();
-        for (auto e : state.selEdges) {
+        for (let &e : state.selEdges) {
             mesh->indices.push_back(edgeIDIndices[e]);
             mesh->indices.push_back(edgeIDIndices[e.in(state.surf).twin]);
             mesh->ranges[ELEM_SEL_EDGE].count += 2;
         }
 
-        if (auto hoverEdge = g_hover.edge.find(state.surf)) {
+        if (let hoverEdge = g_hover.edge.find(state.surf)) {
             mesh->ranges[ELEM_HOV_EDGE] = {mesh->indices.size(), 2};
             mesh->indices.push_back(edgeIDIndices[g_hover.edge]);
             mesh->indices.push_back(edgeIDIndices[hoverEdge->twin]);
@@ -206,7 +207,7 @@ void generateRenderMesh(RenderMesh *mesh, const EditorState &state) {
     }
 
     mesh->ranges[ELEM_REG_EDGE].start = mesh->indices.size();
-    for (auto &pair : state.surf.edges) {
+    for (let &pair : state.surf.edges) {
         if (isPrimary(pair)) {
             mesh->indices.push_back(edgeIDIndices[pair.first]);
             mesh->indices.push_back(edgeIDIndices[pair.second.twin]);
@@ -218,15 +219,15 @@ void generateRenderMesh(RenderMesh *mesh, const EditorState &state) {
 
     face_id hovFace = {};
     if (g_hover.type && (g_hover.type == PICK_FACE || (TOOL_FLAGS[g_tool] & TOOLF_HOVFACE))) {
-        if (auto face = g_hoverFace.find(state.surf)) {
+        if (let face = g_hoverFace.find(state.surf)) {
             hovFace = g_hoverFace;
             if (!state.selFaces.count(hovFace)) {
                 RenderFaceMesh faceMesh;
                 faceMesh.material = face->paint->material;
                 faceMesh.range.start = mesh->indices.size();
                 faceMesh.state = RenderFaceMesh::HOV;
-                glm::vec3 normal = mesh->normals[edgeIDIndices[face->edge]];
-                index_t startI = edgeIDIndices[face->edge];
+                let normal = mesh->normals[edgeIDIndices[face->edge]];
+                let startI = edgeIDIndices[face->edge];
                 if (!tesselateFace(mesh->indices, state.surf, *face, normal, startI))
                     errFaces.push_back(*face);
                 faceMesh.range.count = mesh->indices.size() - faceMesh.range.start;
@@ -238,24 +239,24 @@ void generateRenderMesh(RenderMesh *mesh, const EditorState &state) {
     static std::unordered_map<id_t, std::vector<Face>> matFaces;
     matFaces.clear();
 
-    for (auto &pair : state.surf.faces) {
+    for (let &pair : state.surf.faces) {
         if (!state.selFaces.count(pair.first) && pair.first != hovFace)
             matFaces[pair.second.paint->material].push_back(pair.second);
     }
     insertFaces(mesh, errFaces, edgeIDIndices, matFaces, state.surf, RenderFaceMesh::REG);
     matFaces.clear();
 
-    for (auto &f : state.selFaces) {
-        face_pair pair = f.pair(state.surf);
-        matFaces[pair.second.paint->material].push_back(pair.second);
+    for (let &f : state.selFaces) {
+        let &face = f.in(state.surf);
+        matFaces[face.paint->material].push_back(face);
     }
     insertFaces(mesh, errFaces, edgeIDIndices, matFaces, state.surf, RenderFaceMesh::SEL);
 
     mesh->ranges[ELEM_ERR_FACE].start = mesh->indices.size();
-    for (auto &face : errFaces) {
-        size_t faceStart = mesh->indices.size();
-        for (auto &ep : FaceEdges(state.surf, face)) {
-            size_t numIndices = mesh->indices.size();
+    for (let &face : errFaces) {
+        let faceStart = mesh->indices.size();
+        for (let ep : FaceEdges(state.surf, face)) {
+            let numIndices = mesh->indices.size();
             if (numIndices - faceStart >= 3) {
                 mesh->indices.push_back(mesh->indices[faceStart]);
                 mesh->indices.push_back(mesh->indices[numIndices - 1]);

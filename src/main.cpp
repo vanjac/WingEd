@@ -7,6 +7,7 @@
 #include "resource.h"
 #include <immer/set_transient.hpp>
 #include <Shlwapi.h>
+#include "macros.h"
 
 #pragma comment(lib, "Rpcrt4.lib")
 #pragma comment(lib, "Opengl32.lib")
@@ -63,10 +64,10 @@ static std::vector<edge_id> sortEdgeLoop(const Surface &surf, immer::set<edge_id
     loop.push_back(*edges.begin());
     edgesTrans.erase(loop[0]);
     while (loop.size() != edges.size()) {
-        vert_id nextVert = loop.back().in(surf).next.in(surf).vert;
+        let nextVert = loop.back().in(surf).next.in(surf).vert;
         edge_id foundEdge = {};
-        for (auto &e : edgesTrans) {
-            HEdge edge = e.in(surf);
+        for (let &e : edgesTrans) {
+            let &edge = e.in(surf);
             if (edge.vert == nextVert && edge.twin != loop.back()) {
                 foundEdge = e;
                 break;
@@ -90,18 +91,18 @@ static EditorState erase(EditorState state) {
     if (state.selMode == SEL_ELEMENTS) {
         // edges first, then vertices
         bool anyDeleted = false;
-        for (auto &e : state.selEdges) {
+        for (let &e : state.selEdges) {
             if (e.find(newState.surf)) { // could have been deleted previously
                 newState.surf = mergeFaces(std::move(newState.surf), e);
                 anyDeleted = true;
             }
         }
-        for (auto &v : state.selVerts) {
-            if (auto vert = v.find(newState.surf)) {
+        for (let &v : state.selVerts) {
+            if (let vert = v.find(newState.surf)) {
                 // make sure vert has only two edges
-                const HEdge &edge = vert->edge.in(newState.surf);
-                const HEdge &twin = edge.twin.in(newState.surf);
-                const HEdge &twinNext = twin.next.in(newState.surf);
+                let &edge = vert->edge.in(newState.surf);
+                let &twin = edge.twin.in(newState.surf);
+                let &twinNext = twin.next.in(newState.surf);
                 if (twinNext.twin.in(newState.surf).next == vert->edge) {
                     newState.surf = joinVerts(std::move(newState.surf), edge.prev, vert->edge);
                     anyDeleted = true;
@@ -111,11 +112,11 @@ static EditorState erase(EditorState state) {
         if (!anyDeleted)
             throw winged_error();
     } else if (state.selMode == SEL_SOLIDS) {
-        for (auto &v : state.selVerts)
+        for (let &v : state.selVerts)
             newState.surf.verts = std::move(newState.surf.verts).erase(v);
-        for (auto &f : state.selFaces)
+        for (let &f : state.selFaces)
             newState.surf.faces = std::move(newState.surf.faces).erase(f);
-        for (auto &e : state.selEdges)
+        for (let &e : state.selEdges)
             newState.surf.edges = std::move(newState.surf.edges).erase(e)
                 .erase(e.in(state.surf).twin);
     } else {
@@ -136,7 +137,7 @@ INT_PTR CALLBACK matrixDlgProc(HWND dlg, UINT msg, WPARAM wParam, LPARAM lParam)
     switch (msg) {
         case WM_INITDIALOG: {
             SetWindowLongPtr(dlg, DWLP_USER, lParam);
-            glm::mat3 &mat = *(glm::mat3 *)lParam;
+            let &mat = *(glm::mat3 *)lParam;
             for (int i = 0; i < 9; i++) {
                 TCHAR buf[64];
                 _stprintf(buf, L"%g", mat[i % 3][i / 3]);
@@ -213,20 +214,20 @@ void MainWindow::updateStatus() {
     SendMessage(statusWnd, SB_SETTEXT, STATUS_SELECT, (LPARAM)buf);
 
     if (g_tool == TOOL_SELECT && activeViewport->mouseMode == MOUSE_TOOL) {
-        auto moved = activeViewport->moved;
+        let moved = activeViewport->moved;
         _stprintf(buf, L"Move  %.3g, %.3g, %.3g", VEC3_ARGS(moved));
     } else if (numDrawPoints() > 0 && g_hover.type) {
-        glm::vec3 lastPos = g_drawVerts.empty()
+        let lastPos = g_drawVerts.empty()
             ? g_state.selVerts.begin()->in(g_state.surf).pos
             : g_drawVerts.back();
         _stprintf(buf, L"Len:  %g", glm::distance(lastPos, g_hover.point));
     } else if (g_state.selEdges.size() == 1) {
-        HEdge edge = g_state.selEdges.begin()->in(g_state.surf);
-        glm::vec3 v1 = edge.vert.in(g_state.surf).pos;
-        glm::vec3 v2 = edge.twin.in(g_state.surf).vert.in(g_state.surf).pos;
+        let &edge = g_state.selEdges.begin()->in(g_state.surf);
+        let v1 = edge.vert.in(g_state.surf).pos;
+        let v2 = edge.twin.in(g_state.surf).vert.in(g_state.surf).pos;
         _stprintf(buf, L"Len:  %g", glm::distance(v1, v2));
     } else if (g_state.selVerts.size() == 1) {
-        glm::vec3 pos = g_state.selVerts.begin()->in(g_state.surf).pos;
+        let pos = g_state.selVerts.begin()->in(g_state.surf).pos;
         _stprintf(buf, L"Pos:  %.3g, %.3g, %.3g", VEC3_ARGS(pos));
     } else {
         buf[0] = 0;
@@ -272,7 +273,7 @@ void MainWindow::updateStatus() {
     }
     SendMessage(statusWnd, SB_SETTEXT, STATUS_HELP, (LPARAM)helpText);
 
-    HMENU menu = GetMenu(wnd);
+    let menu = GetMenu(wnd);
     onInitMenu(wnd, menu);
     updateToolbarStates(toolbarWnd, menu);
 }
@@ -281,7 +282,7 @@ void MainWindow::refreshAll() {
     g_renderMeshDirty = true;
     mainViewport.invalidateRenderMesh();
     mainViewport.refresh();
-    for (auto &viewport : extraViewports) {
+    for (let &viewport : extraViewports) {
         viewport->invalidateRenderMesh();
         viewport->refresh();
     }
@@ -291,7 +292,7 @@ void MainWindow::refreshAllImmediate() {
     g_renderMeshDirty = true;
     mainViewport.invalidateRenderMesh();
     mainViewport.refreshImmediate();
-    for (auto &viewport : extraViewports) {
+    for (let &viewport : extraViewports) {
         viewport->invalidateRenderMesh();
         viewport->refreshImmediate();
     }
@@ -310,7 +311,7 @@ void MainWindow::showError(winged_error err) {
         MessageBox(wnd, err.message, APP_NAME, MB_ICONERROR);
     } else {
         MessageBeep(MB_OK);
-        HCURSOR prevCursor = SetCursor(LoadCursor(NULL, IDC_NO));
+        let prevCursor = SetCursor(LoadCursor(NULL, IDC_NO));
         Sleep(300);
         SetCursor(prevCursor);
     }
@@ -321,7 +322,7 @@ void MainWindow::showStdException(std::exception e) {
 }
 
 void MainWindow::updateHover() {
-    POINT pt = cursorPos();
+    let pt = cursorPos();
     if (hoveredViewport && WindowFromPoint(pt) == hoveredViewport->wnd) {
         hoveredViewport->updateHover(screenToClient(hoveredViewport->wnd, pt));
         setCursorHitTest(hoveredViewport->wnd, pt);
@@ -342,7 +343,7 @@ void MainWindow::setTool(Tool tool) {
     if (!(TOOL_FLAGS[tool] & (1 << g_state.selMode)))
         g_state.selMode = SEL_ELEMENTS; // TODO
     if ((TOOL_FLAGS[tool] & TOOLF_DRAW) && (TOOL_FLAGS[tool] & TOOLF_HOVFACE))
-        if (auto face = g_hoverFace.find(g_state.surf))
+        if (let face = g_hoverFace.find(g_state.surf))
             g_state.workPlane = facePlane(g_state.surf, *face);
     updateHover();
 }
@@ -354,14 +355,14 @@ bool MainWindow::removeViewport(ViewportWindow *viewport) {
         hoveredViewport = NULL;
     // hack https://stackoverflow.com/a/60220391/11525734
     std::unique_ptr<ViewportWindow> stalePtr(viewport);
-    auto ret = extraViewports.erase(stalePtr);
+    let ret = extraViewports.erase(stalePtr);
     stalePtr.release();
     return ret;
 }
 
 void MainWindow::closeExtraViewports() {
     activeViewport = &mainViewport;
-    for (auto &viewport : extraViewports)
+    for (let &viewport : extraViewports)
         viewport->destroy();
     extraViewports.clear();
 }
@@ -387,7 +388,7 @@ void MainWindow::open(const TCHAR *path) {
 }
 
 bool MainWindow::saveAs() {
-    const TCHAR filters[] = L"WingEd File (.wing)\0*.wing\0All Files\0*.*\0\0";
+    let filters = L"WingEd File (.wing)\0*.wing\0All Files\0*.*\0\0";
     if (GetSaveFileName(tempPtr(makeOpenFileName(filePath, wnd, filters, L"wing")))) {
         writeFile(filePath, g_state, mainViewport.view, g_library);
         unsavedCount = 0;
@@ -408,7 +409,7 @@ bool MainWindow::save() {
 
 bool MainWindow::promptSaveChanges() {
     if (unsavedCount) {
-        TCHAR *name = (filePath[0] == 0) ? L"Untitled" : PathFindFileName(filePath);
+        let name = (filePath[0] == 0) ? L"Untitled" : PathFindFileName(filePath);
         TCHAR buf[256];
         _stprintf(buf, L"Save changes to %s?", name);
         switch (MessageBox(wnd, buf, APP_NAME, MB_YESNOCANCEL)) {
@@ -445,7 +446,7 @@ BOOL MainWindow::onCreate(HWND, LPCREATESTRUCT) {
         {TIMG_FLIP,         IDM_FLIP_NORMALS,   TBSTATE_ENABLED, BTNS_BUTTON},
         {TIMG_SNAP,         IDM_SNAP,           TBSTATE_ENABLED, BTNS_BUTTON},
     };
-    HBITMAP toolbarBmp = LoadBitmap(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_TOOLBAR));
+    let toolbarBmp = LoadBitmap(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_TOOLBAR));
     toolbarWnd = CreateToolbarEx(wnd,
         WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | CCS_TOP | TBSTYLE_TOOLTIPS,
         1, NUM_TOOLBAR_IMAGES, NULL, (UINT)(size_t)toolbarBmp, buttons, _countof(buttons),
@@ -485,8 +486,8 @@ void MainWindow::onActivate(HWND, UINT state, HWND, BOOL minimized) {
 
 void MainWindow::onSize(HWND, UINT, int cx, int cy) {
     SendMessage(toolbarWnd, TB_AUTOSIZE, 0, 0);
-    int toolbarHeight = rectHeight(windowRect(toolbarWnd));
-    int statusHeight = rectHeight(windowRect(statusWnd));
+    let toolbarHeight = rectHeight(windowRect(toolbarWnd));
+    let statusHeight = rectHeight(windowRect(statusWnd));
     MoveWindow(statusWnd, 0, cy - statusHeight, cx, statusHeight, true);
     MoveWindow(mainViewport.wnd, 0, toolbarHeight, cx, cy - toolbarHeight - statusHeight, true);
 }
@@ -511,7 +512,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                 break;
             case IDM_OPEN: {
                 TCHAR newFile[MAX_PATH] = L"";
-                const TCHAR filters[] = L"WingEd File (.wing)\0*.wing\0\0";
+                let filters = L"WingEd File (.wing)\0*.wing\0\0";
                 if (GetOpenFileName(tempPtr(makeOpenFileName(newFile, wnd, filters, L"wing")))) {
                     if (promptSaveChanges())
                         open(newFile);
@@ -530,7 +531,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                     lstrcpy(PathFindExtension(objFilePath), L".obj");
                 }
                 TCHAR mtlFile[MAX_PATH] = L"";
-                const TCHAR filters[] = L"OBJ file (.obj)\0*.obj\0All Files\0*.*\0\0";
+                let filters = L"OBJ file (.obj)\0*.obj\0All Files\0*.*\0\0";
                 auto saveFile = makeOpenFileName(objFilePath, wnd, filters, L"obj");
                 saveFile.lpstrFileTitle = mtlFile;
                 saveFile.nMaxFileTitle = _countof(mtlFile);
@@ -544,12 +545,12 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
             case IDM_ADD_TEXTURE: {
                 TCHAR texFile[MAX_PATH] = L"";
                 // https://learn.microsoft.com/en-us/windows/win32/gdiplus/-gdiplus-types-of-bitmaps-about
-                const TCHAR filters[] =
+                let filters =
                     L"Supported Images (.png, .jpg, .jpeg, .bmp, .gif, .tif, .tiff)\0"
                     "*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.tif;*.tiff\0"
                     "All Files\0*.*\0\0";
                 if (GetOpenFileName(tempPtr(makeOpenFileName(texFile, wnd, filters)))) {
-                    std::wstring texFileStr = texFile;
+                    let texFileStr = std::wstring(texFile);
                     id_t texId = g_library.pathIds[texFileStr];
                     if (texId == id_t{}) {
                         texId = genId();
@@ -564,7 +565,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
             }
             case IDM_RELOAD_ASSETS:
                 mainViewport.clearTextureCache();
-                for (auto &viewport : extraViewports)
+                for (let &viewport : extraViewports)
                     viewport->clearTextureCache();
                 break;
             /* Tool */
@@ -614,7 +615,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
 #endif
             /* View */
             case IDM_NEW_VIEWPORT: {
-                auto &newViewport = *extraViewports.emplace(new ViewportWindow).first;
+                let &newViewport = *extraViewports.emplace(new ViewportWindow).first;
                 newViewport->view = activeViewport->view;
                 RECT rect = defaultWindowRect(clientSize(activeViewport->wnd),
                     false, WS_OVERLAPPEDWINDOW, WS_EX_TOOLWINDOW);
@@ -657,18 +658,18 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                 EditorState newState = g_state;
                 newState.selVerts = {};
                 newState.selEdges = {};
-                for (auto f : g_state.selFaces) {
+                for (let &f : g_state.selFaces) {
                     immer::set_transient<edge_id> extEdges;
-                    for (auto e : g_state.selEdges) {
-                        HEdge edge = e.in(newState.surf);
+                    for (let &e : g_state.selEdges) {
+                        let &edge = e.in(newState.surf);
                         if (edge.face == f)
                             extEdges.insert(e);
                         else if (edge.twin.in(newState.surf).face == f)
                             extEdges.insert(edge.twin);
                     }
                     newState.surf = extrudeFace(newState.surf, f, extEdges.persistent());
-                    for (auto e : extEdges) {
-                        auto primary = primaryEdge(e.pair(newState.surf));
+                    for (let &e : extEdges) {
+                        let primary = primaryEdge(e.pair(newState.surf));
                         newState.selEdges = std::move(newState.selEdges).insert(primary);
                     }
                 }
@@ -677,12 +678,12 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                 break;
             }
             case IDM_SPLIT_LOOP: {
-                auto loop = sortEdgeLoop(g_state.surf, g_state.selEdges);
+                let loop = sortEdgeLoop(g_state.surf, g_state.selEdges);
                 EditorState newState = g_state;
                 newState.surf = splitEdgeLoop(g_state.surf, loop);
                 newState.selVerts = {};
                 newState.selEdges = {};
-                for (auto &e : loop) {
+                for (let &e : loop) {
                     edge_id primary = primaryEdge(e.pair(newState.surf));
                     newState.selEdges = std::move(newState.selEdges).insert(primary);
                 }
@@ -717,8 +718,8 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
             case IDM_TRANSFORM_MATRIX:
                 if (DialogBoxParam(GetModuleHandle(NULL), L"IDD_MATRIX", wnd, matrixDlgProc,
                         (LPARAM)&userMatrix) == IDOK) {
-                    auto verts = selAttachedVerts(g_state);
-                    glm::vec3 center = vertsCenter(g_state.surf, verts);
+                    let verts = selAttachedVerts(g_state);
+                    let center = vertsCenter(g_state.surf, verts);
                     EditorState newState = g_state;
                     newState.surf = transformVertices(g_state.surf, verts, glm::translate(
                         glm::translate(glm::mat4(1), center) * glm::mat4(userMatrix), -center));
@@ -729,14 +730,14 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                 if (DialogBoxParam(GetModuleHandle(NULL), L"IDD_MATRIX", wnd, matrixDlgProc,
                         (LPARAM)&userPaintMatrix) == IDOK) {
                     EditorState newState = g_state;
-                    glm::mat3 mat = glm::inverse(userPaintMatrix);
+                    let mat = glm::inverse(userPaintMatrix);
                     newState.surf = transformPaint(g_state.surf, g_state.selFaces, mat);
                     pushUndo(std::move(newState));
                 }
                 break;
             case IDM_MARK_HOLE:
                 EditorState newState = g_state;
-                Paint paint = {Paint::HOLE_MATERIAL};
+                let paint = Paint{Paint::HOLE_MATERIAL};
                 newState.surf = assignPaint(g_state.surf, g_state.selFaces, paint);
                 pushUndo(std::move(newState));
                 break;
@@ -753,9 +754,9 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
 }
 
 void MainWindow::onInitMenu(HWND, HMENU menu) {
-    bool hasSel = hasSelection(g_state);
-    bool selElem = g_state.selMode == SEL_ELEMENTS;
-    bool selSolid = g_state.selMode == SEL_SOLIDS;
+    let hasSel = hasSelection(g_state);
+    let selElem = (g_state.selMode == SEL_ELEMENTS);
+    let selSolid = (g_state.selMode == SEL_SOLIDS);
     EnableMenuItem(menu, IDM_CLEAR_SELECT, (hasSel || numDrawPoints() > 0) ?
         MF_ENABLED : MF_GRAYED);
     EnableMenuItem(menu, IDM_UNDO, undoStack.empty() ? MF_GRAYED : MF_ENABLED);
@@ -832,11 +833,11 @@ int APIENTRY _tWinMain(HINSTANCE instance, HINSTANCE, LPTSTR, int showCmd) {
     WNDCLASSEX mainClass = makeClass(APP_NAME, windowImplProc);
     mainClass.lpszMenuName = APP_NAME;
     RegisterClassEx(&mainClass);
-    HWND wnd = g_mainWindow.create(APP_NAME, defaultWindowRect({640, 480}, true));
+    let wnd = g_mainWindow.create(APP_NAME, defaultWindowRect({640, 480}, true));
     if (!wnd) return -1;
     ShowWindow(wnd, showCmd);
-    HACCEL mainAccel = LoadAccelerators(instance, L"Accel");
-    HACCEL viewAccel = LoadAccelerators(instance, L"ViewAccel");
+    let mainAccel = LoadAccelerators(instance, L"Accel");
+    let viewAccel = LoadAccelerators(instance, L"ViewAccel");
     MSG msg;
     while (GetMessage(&msg, NULL, 0, 0)) {
         if (TranslateAccelerator(wnd, mainAccel, &msg)

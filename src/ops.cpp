@@ -4,6 +4,7 @@
 #ifdef CHROMA_DEBUG
 #include "winchroma.h"
 #endif
+#include "macros.h"
 
 namespace winged {
 
@@ -16,13 +17,13 @@ uint32_t name(id_t id) {
 
 template<typename K, typename V>
 static void insertAll(immer::map<K, V> *map, std::initializer_list<std::pair<K, V>> pairs) {
-    for (auto &p : pairs)
+    for (let &p : pairs)
         *map = std::move(*map).insert(p);
 }
 
 template<typename K, typename V>
 static void eraseAll(immer::map<K, V> *map, std::initializer_list<K> keys) {
-    for (auto &k : keys)
+    for (let &k : keys)
         *map = std::move(*map).erase(k);
 }
 
@@ -309,7 +310,7 @@ Surface splitFace(Surface surf, edge_id e1, edge_id e2,
     // │edge1     prev2│
     // │               │
     // ╰    newFace    ╰
-    int numPoints = (int)points.size();
+    let numPoints = (int)points.size();
     if (loopIndex >= 0 && loopIndex >= numPoints - 2) throw winged_error();
     std::vector<edge_pair> newEdges1 = makeEdgePairs(numPoints + 1);
     std::vector<edge_pair> newEdges2 = makeEdgePairs(numPoints + 1);
@@ -443,12 +444,12 @@ Surface extrudeFace(Surface surf, face_id f, const immer::set<edge_id> &extEdges
     face_pair face = f.pair(surf);
     std::vector<edge_pair> topEdges, baseTwins;
     std::vector<vert_pair> baseVerts;
-    for (auto topEdge : FaceEdges(surf, face.second)) {
+    for (let topEdge : FaceEdges(surf, face.second)) {
         topEdges.push_back(topEdge);
         baseTwins.push_back(topEdge.second.twin.pair(surf));
         baseVerts.push_back(topEdge.second.vert.pair(surf));
     }
-    size_t size = topEdges.size();
+    let size = topEdges.size();
     std::vector<edge_pair> baseEdges = makeEdgePairs(size);
     std::vector<edge_pair> topTwins = makeEdgePairs(size);
     std::vector<edge_pair> joinEdges = makeEdgePairs(size);
@@ -465,8 +466,8 @@ Surface extrudeFace(Surface surf, face_id f, const immer::set<edge_id> &extEdges
     // baseVert     baseTwin
 
     for (size_t i = 0, j = size - 1; i < size; j = i++) {
-        bool extrudeEdgeI = extEdges.empty() || extEdges.count(topEdges[i].first);
-        bool extrudeEdgeJ = extEdges.empty() || extEdges.count(topEdges[j].first);
+        let extrudeEdgeI = extEdges.empty() || extEdges.count(topEdges[i].first);
+        let extrudeEdgeJ = extEdges.empty() || extEdges.count(topEdges[j].first);
         if (!extrudeEdgeI && !extrudeEdgeJ)
             continue;
 
@@ -513,7 +514,7 @@ Surface extrudeFace(Surface surf, face_id f, const immer::set<edge_id> &extEdges
     for (size_t i = 0, j = size - 1; i < size; j = i++) {
         insertAll(&surf.edges, {topEdges[i], baseTwins[i]});
         insertAll(&surf.verts, {baseVerts[i]});
-        bool extrudeEdgeI = extEdges.empty() || extEdges.count(topEdges[i].first);
+        let extrudeEdgeI = extEdges.empty() || extEdges.count(topEdges[i].first);
         if (extrudeEdgeI) {
             insertAll(&surf.edges, {baseEdges[i], topTwins[i]});
             insertAll(&surf.faces, {sideFaces[i]});
@@ -527,7 +528,7 @@ Surface extrudeFace(Surface surf, face_id f, const immer::set<edge_id> &extEdges
 }
 
 Surface splitEdgeLoop(Surface surf, const std::vector<edge_id> &loop) {
-    size_t size = loop.size();
+    let size = loop.size();
     std::vector<edge_pair> newEdges1 = makeEdgePairs(size);
     std::vector<edge_pair> newEdges2 = makeEdgePairs(size);
     std::vector<vert_pair> newVerts = makeVertPairs(size);
@@ -609,7 +610,7 @@ Surface joinEdgeLoops(Surface surf, edge_id e1, edge_id e2) {
 }
 
 Surface makePolygonPlane(Surface surf, const std::vector<glm::vec3> &points, face_id *newFace) {
-    size_t size = points.size();
+    let size = points.size();
     if (size < 3)
         throw winged_error();
     std::vector<edge_pair> edges1 = makeEdgePairs(size);
@@ -648,7 +649,7 @@ Surface makePolygonPlane(Surface surf, const std::vector<glm::vec3> &points, fac
 }
 
 Surface transformVertices(Surface surf, const immer::set<vert_id> &verts, const glm::mat4 &m) {
-    for (auto &v : verts) {
+    for (let &v : verts) {
         vert_pair vert = v.pair(surf);
         vert.second.pos = m * glm::vec4(vert.second.pos, 1);
         insertAll(&surf.verts, {vert});
@@ -657,7 +658,7 @@ Surface transformVertices(Surface surf, const immer::set<vert_id> &verts, const 
 }
 
 Surface snapVertices(Surface surf, const immer::set<vert_id> &verts, float grid) {
-    for (auto &v : verts) {
+    for (let &v : verts) {
         vert_pair vert = v.pair(surf);
         vert.second.pos = glm::roundEven(vert.second.pos / grid) * grid;
         insertAll(&surf.verts, {vert});
@@ -666,7 +667,7 @@ Surface snapVertices(Surface surf, const immer::set<vert_id> &verts, float grid)
 }
 
 Surface assignPaint(Surface surf, const immer::set<face_id> &faces, immer::box<Paint> paint) {
-    for (auto &f : faces) {
+    for (let &f : faces) {
         face_pair face = f.pair(surf);
         face.second.paint = paint;
         insertAll(&surf.faces, {face});
@@ -675,7 +676,7 @@ Surface assignPaint(Surface surf, const immer::set<face_id> &faces, immer::box<P
 }
 
 Surface transformPaint(Surface surf, const immer::set<face_id> &faces, const glm::mat3 &m) {
-    for (auto &f : faces) {
+    for (let &f : faces) {
         face_pair face = f.pair(surf);
         Paint paint = face.second.paint;
         paint.texTF = glm::mat3(paint.texTF) * m;
@@ -690,16 +691,16 @@ Surface duplicate(Surface surf, const immer::set<edge_id> &edges,
     std::unordered_map<edge_id, edge_id> edgeMap;
     std::unordered_map<vert_id, vert_id> vertMap;
     std::unordered_map<face_id, face_id> faceMap;
-    for (auto e : edges) {
+    for (let &e : edges) {
         edgeMap[e] = genId();
         edgeMap[e.in(surf).twin] = genId();
     }
-    for (auto v : verts)
+    for (let &v : verts)
         vertMap[v] = genId();
-    for (auto f : faces)
+    for (let &f : faces)
         faceMap[f] = genId();
 
-    for (auto pair : edgeMap) {
+    for (let &pair : edgeMap) {
         edge_pair edge = {pair.second, pair.first.in(surf)};
         edge.second.twin = edgeMap[edge.second.twin];
         edge.second.next = edgeMap[edge.second.next];
@@ -708,12 +709,12 @@ Surface duplicate(Surface surf, const immer::set<edge_id> &edges,
         edge.second.face = faceMap[edge.second.face];
         insertAll(&surf.edges, {edge});
     }
-    for (auto pair : vertMap) {
+    for (let &pair : vertMap) {
         vert_pair vert = {pair.second, pair.first.in(surf)};
         vert.second.edge = edgeMap[vert.second.edge];
         insertAll(&surf.verts, {vert});
     }
-    for (auto pair : faceMap) {
+    for (let &pair : faceMap) {
         face_pair face = {pair.second, pair.first.in(surf)};
         face.second.edge = edgeMap[face.second.edge];
         insertAll(&surf.faces, {face});
@@ -737,7 +738,7 @@ Surface flipAllNormals(Surface surf) {
 
 Surface flipNormals(Surface surf,
         const immer::set<edge_id> &edges, const immer::set<vert_id> &verts) {
-    for (auto e : edges) {
+    for (let &e : edges) {
         edge_pair edge = e.pair(surf);
         edge_pair twin = edge.second.twin.pair(surf);
         std::swap(edge.second.prev, edge.second.next);
@@ -745,7 +746,7 @@ Surface flipNormals(Surface surf,
         std::swap(edge.second.vert, twin.second.vert);
         insertAll(&surf.edges, {edge, twin});
     }
-    for (auto v : verts) {
+    for (let &v : verts) {
         vert_pair vert = v.pair(surf);
         vert.second.edge = vert.second.edge.in(surf).twin;
         insertAll(&surf.verts, {vert});
@@ -758,7 +759,7 @@ Surface flipNormals(Surface surf,
 void validateSurface(const Surface &) {}
 #else
 void validateSurface(const Surface &surf) {
-    auto tooMany = winged_error(L"Too many geometry errors (see log)");
+    let tooMany = winged_error(L"Too many geometry errors (see log)");
     #define CHECK_VALID(cond, message, ...)     \
         if (!(cond)) {                          \
             LOG(message, __VA_ARGS__);          \
@@ -766,15 +767,15 @@ void validateSurface(const Surface &surf) {
         }
 
     int invalid = 0;
-    for (auto &pair : surf.verts) {
+    for (let &pair : surf.verts) {
         CHECK_VALID(pair.second.edge.find(surf), "Vert %08X has invalid edge ID %08X!",
             name(pair), name(pair.second.edge));
     }
-    for (auto &pair : surf.faces) {
+    for (let &pair : surf.faces) {
         CHECK_VALID(pair.second.edge.find(surf), "Face %08X has invalid edge ID %08X!",
             name(pair), name(pair.second.edge));
     }
-    for (auto &pair : surf.edges) {
+    for (let &pair : surf.edges) {
         CHECK_VALID(pair.second.twin.find(surf), "Edge %08X has invalid twin ID %08X!",
             name(pair), name(pair.second.twin));
         CHECK_VALID(pair.second.next.find(surf), "Edge %08X has invalid next ID %08X!",
@@ -791,21 +792,21 @@ void validateSurface(const Surface &surf) {
         throw winged_error(L"Invalid element IDs (see log)"); // can't do any more checks
     }
 
-    for (auto &pair : surf.verts) {
-        for (auto &vertEdge : VertEdges(surf, pair.second)) {
+    for (let &pair : surf.verts) {
+        for (let vertEdge : VertEdges(surf, pair.second)) {
             CHECK_VALID(vertEdge.second.vert == pair.first,
                 "Edge %08X attached to vert %08X references a different vert %08X!",
                 name(vertEdge), name(pair), name(vertEdge.second.vert));
         }
     }
-    for (auto &pair : surf.faces) {
-        for (auto &faceEdge : FaceEdges(surf, pair.second)) {
+    for (let &pair : surf.faces) {
+        for (let faceEdge : FaceEdges(surf, pair.second)) {
             CHECK_VALID(faceEdge.second.face == pair.first,
                 "Edge %08X attached to face %08X references a different face %08X!",
                 name(faceEdge), name(pair), name(faceEdge.second.face));
         }
     }
-    for (auto &pair : surf.edges) {
+    for (let &pair : surf.edges) {
         CHECK_VALID(pair.second.twin != pair.first, "Edge %08X twin is itself!", name(pair));
         CHECK_VALID(pair.second.next != pair.first, "Edge %08X next is itself!", name(pair));
         CHECK_VALID(pair.second.prev != pair.first, "Edge %08X prev is itself!", name(pair));
@@ -822,7 +823,7 @@ void validateSurface(const Surface &surf) {
         CHECK_VALID(pair.second.next != pair.second.prev,
             "Edge %08X forms a two-sided face!", name(pair));
         bool foundEdge = false;
-        for (auto &faceEdge : FaceEdges(surf, pair.second.face.in(surf))) {
+        for (let faceEdge : FaceEdges(surf, pair.second.face.in(surf))) {
             if (faceEdge.first == pair.first) {
                 foundEdge = true;
                 break;
@@ -831,7 +832,7 @@ void validateSurface(const Surface &surf) {
         CHECK_VALID(foundEdge, "Edge %08X can't be reached from face %08X!",
             name(pair), name(pair.second.face));
         foundEdge = false;
-        for (auto &vertEdge : VertEdges(surf, pair.second.vert.in(surf))) {
+        for (let vertEdge : VertEdges(surf, pair.second.vert.in(surf))) {
             if (vertEdge.first == pair.first) {
                 foundEdge = true;
                 break;
