@@ -263,7 +263,8 @@ static EditorState knifeToVert(EditorState state, vert_id vert) {
         }
 
         edge_id newEdge;
-        state.surf = splitFace(std::move(state.surf), e1.first, e2.first, g_drawVerts, &newEdge);
+        std::tie(state.surf, newEdge) = splitFace(std::move(state.surf),
+            e1.first, e2.first, g_drawVerts);
         for (size_t i = 0; i < g_drawVerts.size() + 1; i++) {
             let pair = newEdge.pair(state.surf);
             state.selEdges = std::move(state.selEdges).insert(primaryEdge(pair));
@@ -290,7 +291,8 @@ static EditorState knifeToDrawVert(EditorState state, int loopI) {
 
     let e = edgeOnHoverFace(state.surf, *state.selVerts.begin());
     edge_id newEdge;
-    state.surf = splitFace(std::move(state.surf), e.first, e.first, g_drawVerts, &newEdge, loopI);
+    std::tie(state.surf, newEdge) = splitFace(std::move(state.surf),
+        e.first, e.first, g_drawVerts, loopI);
     for (size_t i = 0; i < g_drawVerts.size() + 1; i++) {
         let pair = newEdge.pair(state.surf);
         state.selEdges = std::move(state.selEdges).insert(primaryEdge(pair));
@@ -801,7 +803,7 @@ void ViewportWindow::onLButtonDown(HWND, BOOL, int x, int y, UINT keyFlags) {
             } else if (g_hover.type == PICK_DRAWVERT && g_hover.val == 0) {
                 EditorState newState = clearSelection(g_state);
                 face_id newFace;
-                newState.surf = makePolygonPlane(g_state.surf, g_drawVerts, &newFace);
+                std::tie(newState.surf, newFace) = makePolygonPlane(g_state.surf, g_drawVerts);
                 newState.selFaces = std::move(newState.selFaces).insert(newFace);
                 g_mainWindow.pushUndo(std::move(newState));
                 g_drawVerts.clear();
