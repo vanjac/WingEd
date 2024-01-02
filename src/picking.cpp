@@ -34,34 +34,31 @@ Ray viewPosToRay(glm::vec2 normPos, const glm::mat4 &project) {
 glm::vec3 snapPlanePoint(glm::vec3 point, const Plane &plane, float grid) {
     if (grid == 0)
         return point;
-    point = glm::round(point / grid) * grid;
+    glm::vec3 snapped = glm::round(point / grid) * grid;
     let axis = maxAxis(glm::abs(plane.norm));
-    point[axis] = plane.org[axis] + solvePlane(point - plane.org, plane.norm, axis);
-    return point;
+    snapped[axis] = plane.org[axis] + solvePlane(snapped - plane.org, plane.norm, axis);
+    return snapped;
 }
 
-bool pickVert(glm::vec3 vertPos, glm::vec2 normCur, glm::vec2 windowDim, const glm::mat4 &project,
-        float *depth) {
+std::optional<float> pickVert(glm::vec3 vertPos,
+        glm::vec2 normCur, glm::vec2 windowDim, const glm::mat4 &project) {
     let normPointDist = PICK_POINT_SIZE / windowDim;
     glm::vec3 normVert = projectPoint(vertPos, project);
     normVert.z += VERT_Z_OFFSET;
     if (glm::all(glm::lessThanEqual(glm::abs(glm::vec2(normVert) - normCur), normPointDist))
             && glm::abs(normVert.z) <= 1) {
-        if (depth) *depth = normVert.z;
-        return true;
+        return normVert.z;
     }
-    return false;
+    return std::nullopt;
 }
 
 PickResult pickElement(const Surface &surf, PickType types, glm::vec2 normCur,
         glm::vec2 windowDim, const glm::mat4 &project, float grid, PickResult result) {
     if (types & PICK_VERT) {
         for (let &vert : surf.verts) {
-            float depth;
-            if (pickVert(vert.second.pos, normCur, windowDim, project, &depth)
-                    && depth < result.depth) {
-                result = PickResult(PICK_VERT, vert.first, vert.second.pos, depth);
-            }
+            let pickDepth = pickVert(vert.second.pos, normCur, windowDim, project);
+            if (pickDepth && *pickDepth < result.depth)
+                result = PickResult(PICK_VERT, vert.first, vert.second.pos, *pickDepth);
         }
         if (types == PICK_VERT)
             return result; // skip extra matrix calculations
@@ -116,9 +113,10 @@ PickResult pickElement(const Surface &surf, PickType types, glm::vec2 normCur,
                 continue;
             glm::vec3 last = face.second.edge.in(surf).prev.in(surf).vert.in(surf).pos;
             let plane = Plane{last, normal}; // not normalized. should be fine
-            glm::vec3 pt;
-            if (!intersectRayPlane(ray, plane, &pt))
+            let intersect = intersectRayPlane(ray, plane);
+            if (!intersect)
                 continue;
+            let pt = *intersect;
 
             let axis = maxAxis(glm::abs(normal));
             let a = (axis + 1) % 3, b = (axis + 2) % 3;
@@ -137,9 +135,9 @@ PickResult pickElement(const Surface &surf, PickType types, glm::vec2 normCur,
                 let normPoint = projectPoint(pt, project);
                 if (normPoint.z < result.depth) {
                     // DON'T update normPoint (preserve depth)
-                    pt = snapPlanePoint(pt, plane, grid);
+                    let snapped = snapPlanePoint(pt, plane, grid);
                     // TODO: constrain to edge/vertex if outside face boundary!
-                    result = PickResult(PICK_FACE, face.first, pt, normPoint.z);
+                    result = PickResult(PICK_FACE, face.first, snapped, normPoint.z);
                 }
             }
         }

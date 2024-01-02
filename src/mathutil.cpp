@@ -18,16 +18,16 @@ glm::vec3 accumPolyNormal(glm::vec3 v1, glm::vec3 v2) {
     return glm::vec3(diff.y * sum.z, diff.z * sum.x, diff.x * sum.y);
 }
 
-bool intersectRayPlane(const Ray &ray, const Plane &plane, glm::vec3 *point) {
+std::optional<glm::vec3> intersectRayPlane(const Ray &ray, const Plane &plane) {
     float t;
     if (glm::intersectRayPlane(ray.org, ray.dir, plane.org, plane.norm, t)) {
-        *point = ray.org + t * ray.dir;
+        glm::vec3 point = ray.org + t * ray.dir;
         // fix precision issues, make sure point lies exactly on plane
         let axis = maxAxis(glm::abs(plane.norm));
-        (*point)[axis] = plane.org[axis] + solvePlane(*point - plane.org, plane.norm, axis);
-        return true;
+        point[axis] = plane.org[axis] + solvePlane(point - plane.org, plane.norm, axis);
+        return point;
     }
-    return false;
+    return std::nullopt;
 }
 
 float solvePlane(glm::vec3 vec, glm::vec3 norm, int axis) {

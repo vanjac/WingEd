@@ -5,7 +5,7 @@ if "%VSCMD_ARG_TGT_ARCH%"=="x64" (
 )
 cd build
 rc /fo resource.res ..\src\resource.rc
-cl /nologo /std:c++14 /MP /W4 /EHsc /experimental:external /external:W1 /Fe: winged.exe^
+cl /nologo /std:c++17 /MP /W4 /EHsc /experimental:external /external:W1 /Fe: winged.exe^
     /GL /O2^
     /I ..\src /I ..\lib\winchroma^
     /external:I ..\lib\glm /external:I ..\lib\immer /external:I ..\lib\glad^
