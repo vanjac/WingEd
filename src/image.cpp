@@ -17,7 +17,7 @@ namespace Gdi = Gdiplus;
 
 namespace winged {
 
-static ULONG_PTR gdiplusToken = 0;
+static ULONG_PTR g_gdiplusToken = 0;
 
 bool checkStatus(Gdi::Status status) {
     if (status != Gdi::Status::Ok) {
@@ -32,11 +32,11 @@ bool checkStatus(Gdi::Status status) {
 void initImage() {
     Gdi::GdiplusStartupInput input;
     Gdi::GdiplusStartupOutput output;
-    checkStatus(Gdi::GdiplusStartup(&gdiplusToken, &input, &output));
+    checkStatus(Gdi::GdiplusStartup(&g_gdiplusToken, &input, &output));
 }
 
 void uninitImage() {
-    Gdi::GdiplusShutdown(gdiplusToken);
+    Gdi::GdiplusShutdown(g_gdiplusToken);
 }
 
 ImageData loadImage(const wchar_t *path) {
