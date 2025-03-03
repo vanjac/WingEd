@@ -1,7 +1,7 @@
 #include "rendermesh.h"
 #include <memory>
 #include "winchroma.h" // required for GLU
-#include <gl/GLU.h>
+#include <GL/glu.h>
 #include <glm/gtc/type_ptr.hpp>
 #include "main.h"
 #include "macros.h"

@@ -6,7 +6,7 @@
 #include "mathutil.h"
 #include "resource.h"
 #include <immer/set_transient.hpp>
-#include <Shlwapi.h>
+#include <shlwapi.h>
 #include "macros.h"
 
 #pragma comment(lib, "Rpcrt4.lib")
@@ -153,7 +153,7 @@ INT_PTR CALLBACK matrixDlgProc(HWND dlg, UINT msg, WPARAM wParam, LPARAM lParam)
                     for (int i = 0; i < 9; i++) {
                         TCHAR buf[64];
                         GetDlgItemText(dlg, 1000 + i, buf, _countof(buf));
-                        mat[i % 3][i / 3] = float(_ttof(buf));
+                        mat[i % 3][i / 3] = float(_tstof(buf));
                     }
                     EndDialog(dlg, LOWORD(wParam));
                     return true;
@@ -726,7 +726,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                     pushUndo(std::move(newState));
                 }
                 break;
-            case IDM_PAINT_MATRIX: 
+            case IDM_PAINT_MATRIX:
                 if (DialogBoxParam(GetModuleHandle(NULL), L"IDD_MATRIX", wnd, matrixDlgProc,
                         LPARAM(&userPaintMatrix)) == IDOK) {
                     EditorState newState = g_state;

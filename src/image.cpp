@@ -2,6 +2,7 @@
 
 #include "winchroma.h"
 #include <objidl.h>
+#ifndef __MINGW32__
 // GDI+ requires min/max
 #ifndef max
 #define max(a,b) (((a) > (b)) ? (a) : (b))
@@ -9,6 +10,7 @@
 #ifndef min
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 #endif
+#endif // __MINGW32__
 #pragma warning(disable: 4458)
 #include <gdiplus.h>
 #include "macros.h"

@@ -3,7 +3,7 @@
 #include <unordered_set>
 #include <algorithm>
 #include "winchroma.h"
-#include <atlbase.h>
+#include <shlwapi.h>
 #include "rendermesh.h"
 #include "stdutil.h"
 #include "macros.h"
@@ -51,6 +51,21 @@ struct std::hash<winged::Paint> {
 
 namespace winged {
 
+// Based on ATL
+class CHandle {
+private:
+    HANDLE _handle;
+public:
+    CHandle(HANDLE handle) : _handle(handle) {}
+    ~CHandle() {
+        CloseHandle(_handle);
+    }
+    CHandle(CHandle& other) = delete;
+    CHandle& operator=(CHandle& other) = delete;
+
+    operator HANDLE() { return _handle; }
+};
+
 static bool operator==(const Paint &a, const Paint &b) {
     return a.material == b.material && a.texAxes == b.texAxes && a.texTF == b.texTF;
 }
@@ -68,10 +83,14 @@ static void writeSet(HANDLE handle, const immer::set<T> &set, const std::unorder
 }
 
 static void writeString(HANDLE handle, const wchar_t *str) {
-    CW2A utf8(str, CP_UTF8);
-    let len = (uint16_t)lstrlenA(utf8);
-    write(handle, &len, 2);
-    write(handle, utf8.m_psz, len);
+    let bufSize = WideCharToMultiByte(CP_UTF8, 0, str, -1, NULL, 0, NULL, NULL);
+    if (bufSize > 0) {
+        std::vector<char> utf8(bufSize);
+        let len = (uint16_t)WideCharToMultiByte(CP_UTF8, 0, str, -1,
+                                                utf8.data(), utf8.size(), NULL, NULL);
+        write(handle, &len, 2);
+        write(handle, utf8.data(), len);
+    }
 }
 
 void writeFile(const wchar_t *file, const EditorState &state, const ViewState &view,
