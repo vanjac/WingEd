@@ -1,6 +1,6 @@
 #include "glutil.h"
 #include "winchroma.h" // required for GLU
-#include <gl/GLU.h>
+#include <GL/glu.h>
 
 namespace winged {
 

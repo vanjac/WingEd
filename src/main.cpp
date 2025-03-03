@@ -6,8 +6,7 @@
 #include "mathutil.h"
 #include "resource.h"
 #include <immer/set_transient.hpp>
-#include <Shlwapi.h>
-#include "macros.h"
+#include <shlwapi.h>
 
 #pragma comment(lib, "Rpcrt4.lib")
 #pragma comment(lib, "Opengl32.lib")
@@ -64,10 +63,10 @@ static std::vector<edge_id> sortEdgeLoop(const Surface &surf, immer::set<edge_id
     loop.push_back(*edges.begin());
     edgesTrans.erase(loop[0]);
     while (loop.size() != edges.size()) {
-        let nextVert = loop.back().in(surf).next.in(surf).vert;
+        auto nextVert = loop.back().in(surf).next.in(surf).vert;
         edge_id foundEdge = {};
-        for (let &e : edgesTrans) {
-            let &edge = e.in(surf);
+        for (const auto &e : edgesTrans) {
+            const auto &edge = e.in(surf);
             if (edge.vert == nextVert && edge.twin != loop.back()) {
                 foundEdge = e;
                 break;
@@ -91,18 +90,18 @@ static EditorState erase(EditorState state) {
     if (state.selMode == SEL_ELEMENTS) {
         // edges first, then vertices
         bool anyDeleted = false;
-        for (let &e : state.selEdges) {
+        for (const auto &e : state.selEdges) {
             if (e.find(newState.surf)) { // could have been deleted previously
                 newState.surf = mergeFaces(std::move(newState.surf), e);
                 anyDeleted = true;
             }
         }
-        for (let &v : state.selVerts) {
-            if (let vert = v.find(newState.surf)) {
+        for (const auto &v : state.selVerts) {
+            if (auto vert = v.find(newState.surf)) {
                 // make sure vert has only two edges
-                let &edge = vert->edge.in(newState.surf);
-                let &twin = edge.twin.in(newState.surf);
-                let &twinNext = twin.next.in(newState.surf);
+                const auto &edge = vert->edge.in(newState.surf);
+                const auto &twin = edge.twin.in(newState.surf);
+                const auto &twinNext = twin.next.in(newState.surf);
                 if (twinNext.twin.in(newState.surf).next == vert->edge) {
                     newState.surf = joinVerts(std::move(newState.surf), edge.prev, vert->edge);
                     anyDeleted = true;
@@ -112,11 +111,11 @@ static EditorState erase(EditorState state) {
         if (!anyDeleted)
             throw winged_error();
     } else if (state.selMode == SEL_SOLIDS) {
-        for (let &v : state.selVerts)
+        for (const auto &v : state.selVerts)
             newState.surf.verts = std::move(newState.surf.verts).erase(v);
-        for (let &f : state.selFaces)
+        for (const auto &f : state.selFaces)
             newState.surf.faces = std::move(newState.surf.faces).erase(f);
-        for (let &e : state.selEdges)
+        for (const auto &e : state.selEdges)
             newState.surf.edges = std::move(newState.surf.edges).erase(e)
                 .erase(e.in(state.surf).twin);
     } else {
@@ -137,7 +136,7 @@ INT_PTR CALLBACK matrixDlgProc(HWND dlg, UINT msg, WPARAM wParam, LPARAM lParam)
     switch (msg) {
         case WM_INITDIALOG: {
             SetWindowLongPtr(dlg, DWLP_USER, lParam);
-            let &mat = *(glm::mat3 *)lParam;
+            const auto &mat = *reinterpret_cast<glm::mat3 *>(lParam);
             for (int i = 0; i < 9; i++) {
                 TCHAR buf[64];
                 _stprintf(buf, L"%g", mat[i % 3][i / 3]);
@@ -149,11 +148,12 @@ INT_PTR CALLBACK matrixDlgProc(HWND dlg, UINT msg, WPARAM wParam, LPARAM lParam)
             switch (LOWORD(wParam)) {
                 case IDOK:
                 case IDCANCEL: {
-                    glm::mat3 &mat = *(glm::mat3 *)GetWindowLongPtr(dlg, DWLP_USER);
+                    glm::mat3 &mat = *reinterpret_cast<glm::mat3 *>(
+                        GetWindowLongPtr(dlg, DWLP_USER));
                     for (int i = 0; i < 9; i++) {
                         TCHAR buf[64];
                         GetDlgItemText(dlg, 1000 + i, buf, _countof(buf));
-                        mat[i % 3][i / 3] = float(_ttof(buf));
+                        mat[i % 3][i / 3] = float(_tstof(buf));
                     }
                     EndDialog(dlg, LOWORD(wParam));
                     return true;
@@ -214,20 +214,20 @@ void MainWindow::updateStatus() {
     SendMessage(statusWnd, SB_SETTEXT, STATUS_SELECT, LPARAM(buf));
 
     if (g_tool == TOOL_SELECT && activeViewport->mouseMode == MOUSE_TOOL) {
-        let moved = activeViewport->moved;
+        auto moved = activeViewport->moved;
         _stprintf(buf, L"Move  %.3g, %.3g, %.3g", VEC3_ARGS(moved));
     } else if (numDrawPoints() > 0 && g_hover.type) {
-        let lastPos = g_drawVerts.empty()
+        auto lastPos = g_drawVerts.empty()
             ? g_state.selVerts.begin()->in(g_state.surf).pos
             : g_drawVerts.back();
         _stprintf(buf, L"Len:  %g", glm::distance(lastPos, g_hover.point));
     } else if (g_state.selEdges.size() == 1) {
-        let &edge = g_state.selEdges.begin()->in(g_state.surf);
-        let v1 = edge.vert.in(g_state.surf).pos;
-        let v2 = edge.twin.in(g_state.surf).vert.in(g_state.surf).pos;
+        const auto &edge = g_state.selEdges.begin()->in(g_state.surf);
+        auto v1 = edge.vert.in(g_state.surf).pos;
+        auto v2 = edge.twin.in(g_state.surf).vert.in(g_state.surf).pos;
         _stprintf(buf, L"Len:  %g", glm::distance(v1, v2));
     } else if (g_state.selVerts.size() == 1) {
-        let pos = g_state.selVerts.begin()->in(g_state.surf).pos;
+        auto pos = g_state.selVerts.begin()->in(g_state.surf).pos;
         _stprintf(buf, L"Pos:  %.3g, %.3g, %.3g", VEC3_ARGS(pos));
     } else {
         buf[0] = 0;
@@ -269,11 +269,13 @@ void MainWindow::updateStatus() {
                 else
                     helpText = L"Click: Select";
                 break;
+            default:
+                break;
         }
     }
     SendMessage(statusWnd, SB_SETTEXT, STATUS_HELP, LPARAM(helpText));
 
-    let menu = GetMenu(wnd);
+    auto menu = GetMenu(wnd);
     onInitMenu(wnd, menu);
     updateToolbarStates(toolbarWnd, menu);
 }
@@ -282,7 +284,7 @@ void MainWindow::refreshAll() {
     g_renderMeshDirty = true;
     mainViewport.invalidateRenderMesh();
     mainViewport.refresh();
-    for (let &viewport : extraViewports) {
+    for (const auto &viewport : extraViewports) {
         viewport->invalidateRenderMesh();
         viewport->refresh();
     }
@@ -292,7 +294,7 @@ void MainWindow::refreshAllImmediate() {
     g_renderMeshDirty = true;
     mainViewport.invalidateRenderMesh();
     mainViewport.refreshImmediate();
-    for (let &viewport : extraViewports) {
+    for (const auto &viewport : extraViewports) {
         viewport->invalidateRenderMesh();
         viewport->refreshImmediate();
     }
@@ -311,7 +313,7 @@ void MainWindow::showError(winged_error err) {
         MessageBox(wnd, err.message, APP_NAME, MB_ICONERROR);
     } else {
         MessageBeep(MB_OK);
-        let prevCursor = SetCursor(LoadCursor(NULL, IDC_NO));
+        auto prevCursor = SetCursor(LoadCursor(NULL, IDC_NO));
         Sleep(300);
         SetCursor(prevCursor);
     }
@@ -322,7 +324,7 @@ void MainWindow::showStdException(std::exception e) {
 }
 
 void MainWindow::updateHover() {
-    let pt = cursorPos();
+    auto pt = cursorPos();
     if (hoveredViewport && WindowFromPoint(pt) == hoveredViewport->wnd) {
         hoveredViewport->updateHover(screenToClient(hoveredViewport->wnd, pt));
         setCursorHitTest(hoveredViewport->wnd, pt);
@@ -343,7 +345,7 @@ void MainWindow::setTool(Tool tool) {
     if (!(TOOL_FLAGS[tool] & (1 << g_state.selMode)))
         g_state.selMode = SEL_ELEMENTS; // TODO
     if ((TOOL_FLAGS[tool] & TOOLF_DRAW) && (TOOL_FLAGS[tool] & TOOLF_HOVFACE))
-        if (let face = g_hoverFace.find(g_state.surf))
+        if (auto face = g_hoverFace.find(g_state.surf))
             g_state.workPlane = facePlane(g_state.surf, *face);
     updateHover();
 }
@@ -355,14 +357,14 @@ bool MainWindow::removeViewport(ViewportWindow *viewport) {
         hoveredViewport = NULL;
     // hack https://stackoverflow.com/a/60220391/11525734
     std::unique_ptr<ViewportWindow> stalePtr(viewport);
-    let ret = extraViewports.erase(stalePtr);
+    auto ret = extraViewports.erase(stalePtr);
     stalePtr.release();
     return ret;
 }
 
 void MainWindow::closeExtraViewports() {
     activeViewport = &mainViewport;
-    for (let &viewport : extraViewports)
+    for (const auto &viewport : extraViewports)
         viewport->destroy();
     extraViewports.clear();
 }
@@ -388,7 +390,7 @@ void MainWindow::open(const TCHAR *path) {
 }
 
 bool MainWindow::saveAs() {
-    let filters = L"WingEd File (.wing)\0*.wing\0All Files\0*.*\0\0";
+    auto filters = L"WingEd File (.wing)\0*.wing\0All Files\0*.*\0\0";
     if (GetSaveFileName(tempPtr(makeOpenFileName(filePath, wnd, filters, L"wing")))) {
         writeFile(filePath, g_state, mainViewport.view, g_library);
         unsavedCount = 0;
@@ -409,7 +411,7 @@ bool MainWindow::save() {
 
 bool MainWindow::promptSaveChanges() {
     if (unsavedCount) {
-        let name = (filePath[0] == 0) ? L"Untitled" : PathFindFileName(filePath);
+        auto name = (filePath[0] == 0) ? L"Untitled" : PathFindFileName(filePath);
         TCHAR buf[256];
         _stprintf(buf, L"Save changes to %s?", name);
         switch (MessageBox(wnd, buf, APP_NAME, MB_YESNOCANCEL)) {
@@ -446,7 +448,7 @@ BOOL MainWindow::onCreate(HWND, LPCREATESTRUCT) {
         {TIMG_FLIP,         IDM_FLIP_NORMALS,   TBSTATE_ENABLED, BTNS_BUTTON},
         {TIMG_SNAP,         IDM_SNAP,           TBSTATE_ENABLED, BTNS_BUTTON},
     };
-    let toolbarBmp = LoadBitmap(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_TOOLBAR));
+    auto toolbarBmp = LoadBitmap(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_TOOLBAR));
     toolbarWnd = CreateToolbarEx(wnd,
         WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | CCS_TOP | TBSTYLE_TOOLTIPS,
         1, NUM_TOOLBAR_IMAGES, NULL, UINT(size_t(toolbarBmp)), buttons, _countof(buttons),
@@ -486,8 +488,8 @@ void MainWindow::onActivate(HWND, UINT state, HWND, BOOL minimized) {
 
 void MainWindow::onSize(HWND, UINT, int cx, int cy) {
     SendMessage(toolbarWnd, TB_AUTOSIZE, 0, 0);
-    let toolbarHeight = rectHeight(windowRect(toolbarWnd));
-    let statusHeight = rectHeight(windowRect(statusWnd));
+    auto toolbarHeight = rectHeight(windowRect(toolbarWnd));
+    auto statusHeight = rectHeight(windowRect(statusWnd));
     MoveWindow(statusWnd, 0, cy - statusHeight, cx, statusHeight, true);
     MoveWindow(mainViewport.wnd, 0, toolbarHeight, cx, cy - toolbarHeight - statusHeight, true);
 }
@@ -512,7 +514,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                 break;
             case IDM_OPEN: {
                 TCHAR newFile[MAX_PATH] = L"";
-                let filters = L"WingEd File (.wing)\0*.wing\0\0";
+                auto filters = L"WingEd File (.wing)\0*.wing\0\0";
                 if (GetOpenFileName(tempPtr(makeOpenFileName(newFile, wnd, filters, L"wing")))) {
                     if (promptSaveChanges())
                         open(newFile);
@@ -531,7 +533,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                     lstrcpy(PathFindExtension(objFilePath), L".obj");
                 }
                 TCHAR mtlFile[MAX_PATH] = L"";
-                let filters = L"OBJ file (.obj)\0*.obj\0All Files\0*.*\0\0";
+                auto filters = L"OBJ file (.obj)\0*.obj\0All Files\0*.*\0\0";
                 auto saveFile = makeOpenFileName(objFilePath, wnd, filters, L"obj");
                 saveFile.lpstrFileTitle = mtlFile;
                 saveFile.nMaxFileTitle = _countof(mtlFile);
@@ -545,12 +547,12 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
             case IDM_ADD_TEXTURE: {
                 TCHAR texFile[MAX_PATH] = L"";
                 // https://learn.microsoft.com/en-us/windows/win32/gdiplus/-gdiplus-types-of-bitmaps-about
-                let filters =
+                auto filters =
                     L"Supported Images (.png, .jpg, .jpeg, .bmp, .gif, .tif, .tiff)\0"
                     "*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.tif;*.tiff\0"
                     "All Files\0*.*\0\0";
                 if (GetOpenFileName(tempPtr(makeOpenFileName(texFile, wnd, filters)))) {
-                    let texFileStr = std::wstring(texFile);
+                    auto texFileStr = std::wstring(texFile);
                     id_t texId = g_library.pathIds[texFileStr];
                     if (texId == id_t{}) {
                         texId = genId();
@@ -565,7 +567,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
             }
             case IDM_RELOAD_ASSETS:
                 mainViewport.clearTextureCache();
-                for (let &viewport : extraViewports)
+                for (const auto &viewport : extraViewports)
                     viewport->clearTextureCache();
                 break;
             /* Tool */
@@ -615,7 +617,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
 #endif
             /* View */
             case IDM_NEW_VIEWPORT: {
-                let &newViewport = *extraViewports.emplace(new ViewportWindow).first;
+                const auto &newViewport = *extraViewports.emplace(new ViewportWindow).first;
                 newViewport->view = activeViewport->view;
                 RECT rect = defaultWindowRect(clientSize(activeViewport->wnd),
                     false, WS_OVERLAPPEDWINDOW, WS_EX_TOOLWINDOW);
@@ -658,18 +660,18 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                 EditorState newState = g_state;
                 newState.selVerts = {};
                 newState.selEdges = {};
-                for (let &f : g_state.selFaces) {
+                for (const auto &f : g_state.selFaces) {
                     immer::set_transient<edge_id> extEdges;
-                    for (let &e : g_state.selEdges) {
-                        let &edge = e.in(newState.surf);
+                    for (const auto &e : g_state.selEdges) {
+                        const auto &edge = e.in(newState.surf);
                         if (edge.face == f)
                             extEdges.insert(e);
                         else if (edge.twin.in(newState.surf).face == f)
                             extEdges.insert(edge.twin);
                     }
                     newState.surf = extrudeFace(newState.surf, f, extEdges.persistent());
-                    for (let &e : extEdges) {
-                        let primary = primaryEdge(e.pair(newState.surf));
+                    for (const auto &e : extEdges) {
+                        auto primary = primaryEdge(e.pair(newState.surf));
                         newState.selEdges = std::move(newState.selEdges).insert(primary);
                     }
                 }
@@ -678,12 +680,12 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                 break;
             }
             case IDM_SPLIT_LOOP: {
-                let loop = sortEdgeLoop(g_state.surf, g_state.selEdges);
+                auto loop = sortEdgeLoop(g_state.surf, g_state.selEdges);
                 EditorState newState = g_state;
                 newState.surf = splitEdgeLoop(g_state.surf, loop);
                 newState.selVerts = {};
                 newState.selEdges = {};
-                for (let &e : loop) {
+                for (const auto &e : loop) {
                     edge_id primary = primaryEdge(e.pair(newState.surf));
                     newState.selEdges = std::move(newState.selEdges).insert(primary);
                 }
@@ -718,31 +720,31 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
             case IDM_TRANSFORM_MATRIX:
                 if (DialogBoxParam(GetModuleHandle(NULL), L"IDD_MATRIX", wnd, matrixDlgProc,
                         LPARAM(&userMatrix)) == IDOK) {
-                    let verts = selAttachedVerts(g_state);
-                    let center = vertsCenter(g_state.surf, verts);
+                    auto verts = selAttachedVerts(g_state);
+                    auto center = vertsCenter(g_state.surf, verts);
                     EditorState newState = g_state;
                     newState.surf = transformVertices(g_state.surf, verts, glm::translate(
                         glm::translate(glm::mat4(1), center) * glm::mat4(userMatrix), -center));
                     pushUndo(std::move(newState));
                 }
                 break;
-            case IDM_PAINT_MATRIX: 
+            case IDM_PAINT_MATRIX:
                 if (DialogBoxParam(GetModuleHandle(NULL), L"IDD_MATRIX", wnd, matrixDlgProc,
                         LPARAM(&userPaintMatrix)) == IDOK) {
                     EditorState newState = g_state;
-                    let mat = glm::inverse(userPaintMatrix);
+                    auto mat = glm::inverse(userPaintMatrix);
                     newState.surf = transformPaint(g_state.surf, g_state.selFaces, mat);
                     pushUndo(std::move(newState));
                 }
                 break;
             case IDM_MARK_HOLE:
                 EditorState newState = g_state;
-                let paint = Paint{Paint::HOLE_MATERIAL};
+                auto paint = Paint{Paint::HOLE_MATERIAL};
                 newState.surf = assignPaint(g_state.surf, g_state.selFaces, paint);
                 pushUndo(std::move(newState));
                 break;
         }
-    } catch (winged_error err) {
+    } catch (winged_error const& err) {
         showError(err);
 #ifndef CHROMA_DEBUG
     } catch (std::exception e) {
@@ -754,9 +756,9 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
 }
 
 void MainWindow::onInitMenu(HWND, HMENU menu) {
-    let hasSel = hasSelection(g_state);
-    let selElem = (g_state.selMode == SEL_ELEMENTS);
-    let selSolid = (g_state.selMode == SEL_SOLIDS);
+    auto hasSel = hasSelection(g_state);
+    auto selElem = (g_state.selMode == SEL_ELEMENTS);
+    auto selSolid = (g_state.selMode == SEL_SOLIDS);
     EnableMenuItem(menu, IDM_CLEAR_SELECT, (hasSel || numDrawPoints() > 0) ?
         MF_ENABLED : MF_GRAYED);
     EnableMenuItem(menu, IDM_UNDO, undoStack.empty() ? MF_GRAYED : MF_ENABLED);
@@ -802,7 +804,7 @@ void MainWindow::onMeasureItem(HWND, MEASUREITEMSTRUCT *measure) {
 
 LRESULT MainWindow::onNotify(HWND, int, NMHDR *nmHdr) {
     if (nmHdr->code == TTN_GETDISPINFO)
-        handleToolbarTip((NMTTDISPINFO *)nmHdr, GetMenu(wnd));
+        handleToolbarTip(reinterpret_cast<NMTTDISPINFO *>(nmHdr), GetMenu(wnd));
     return 0;
 }
 
@@ -833,11 +835,11 @@ int APIENTRY _tWinMain(HINSTANCE instance, HINSTANCE, LPTSTR, int showCmd) {
     WNDCLASSEX mainClass = makeClass(APP_NAME, windowImplProc);
     mainClass.lpszMenuName = APP_NAME;
     RegisterClassEx(&mainClass);
-    let wnd = g_mainWindow.create(APP_NAME, defaultWindowRect({640, 480}, true));
+    auto wnd = g_mainWindow.create(APP_NAME, defaultWindowRect({640, 480}, true));
     if (!wnd) return -1;
     ShowWindow(wnd, showCmd);
-    let mainAccel = LoadAccelerators(instance, L"Accel");
-    let viewAccel = LoadAccelerators(instance, L"ViewAccel");
+    auto mainAccel = LoadAccelerators(instance, L"Accel");
+    auto viewAccel = LoadAccelerators(instance, L"ViewAccel");
     MSG msg;
     while (GetMessage(&msg, NULL, 0, 0)) {
         if (TranslateAccelerator(wnd, mainAccel, &msg)
