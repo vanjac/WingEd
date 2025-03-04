@@ -13,7 +13,6 @@
 #include "glutil.h"
 #include "stdutil.h"
 #include "resource.h"
-#include "macros.h"
 
 using namespace chroma;
 
@@ -49,10 +48,10 @@ const GLfloat
 #define COLOR_Y_AXIS        0xff##00ff00
 #define COLOR_Z_AXIS        0xff##0000ff
 
-let CAM_MOVE_SCALE = 600.0f;
-let FOV = 60.0f, NEAR_CLIP = 0.5f, FAR_CLIP = 500.0f;
-let FLY_FOV = 90.0f, FLY_NEAR_CLIP = 0.2f, FLY_FAR_CLIP = 200.0f;
-let GRID_SIZE = 128;
+const auto CAM_MOVE_SCALE = 600.0f;
+const auto FOV = 60.0f, NEAR_CLIP = 0.5f, FAR_CLIP = 500.0f;
+const auto FLY_FOV = 90.0f, FLY_NEAR_CLIP = 0.2f, FLY_FAR_CLIP = 200.0f;
+const auto GRID_SIZE = 128;
 
 enum VertexAttribute {
     ATTR_VERTEX, ATTR_NORMAL, ATTR_COLOR, ATTR_TEXCOORD,
@@ -70,8 +69,8 @@ const GLchar * const UNIFORM_NAMES[] = {
     "uNormalMatrix", // UNIF_NORMAL_MATRIX
 };
 
-let knifeCur = LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_KNIFE));
-let drawCur = LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_DRAW));
+const auto knifeCur = LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_KNIFE));
+const auto drawCur = LoadCursor(GetModuleHandle(NULL), MAKEINTRESOURCE(IDC_DRAW));
 
 static PIXELFORMATDESCRIPTOR g_formatDesc;
 static HMODULE g_libGL;
@@ -99,11 +98,11 @@ static void initGL() {
     WNDCLASSEX tempClass = SCRATCH_CLASS;
     tempClass.style |= CS_OWNDC;
     RegisterClassEx(&tempClass);
-    let tempWnd = CHECKERR(createWindow(SCRATCH_CLASS.lpszClassName));
-    let dc = GetDC(tempWnd);
-    let pixelFormat = ChoosePixelFormat(dc, &g_formatDesc);
+    auto tempWnd = CHECKERR(createWindow(SCRATCH_CLASS.lpszClassName));
+    auto dc = GetDC(tempWnd);
+    auto pixelFormat = ChoosePixelFormat(dc, &g_formatDesc);
     SetPixelFormat(dc, pixelFormat, &g_formatDesc);
-    let dummyCtx = CHECKERR(wglCreateContext(dc));
+    auto dummyCtx = CHECKERR(wglCreateContext(dc));
     if (!dummyCtx)
         throw winged_error(L"Couldn't create OpenGL context");
     CHECKERR(wglMakeCurrent(dc, dummyCtx));
@@ -141,7 +140,7 @@ bool initViewport() {
 
 static edge_pair edgeOnHoverFace(const Surface &surf, vert_id v) {
     // TODO: what if there are multiple?
-    for (let edge : VertEdges(surf, v.in(surf))) {
+    for (auto edge : VertEdges(surf, v.in(surf))) {
         if (edge.second.face == g_hoverFace)
             return edge;
     }
@@ -152,10 +151,10 @@ static std::pair<edge_id, edge_id> findClosestOpposingEdges(
         const Surface &surf, Face face1, Face face2) {
     float closestDist = FLT_MAX;
     edge_id e1 = face1.edge, e2 = face2.edge;
-    for (let f1Edge : FaceEdges(surf, face1)) {
-        let v1 = f1Edge.second.vert.in(surf).pos;
-        for (let f2Edge : FaceEdges(surf, face2)) {
-            let dist = glm::distance(v1, f2Edge.second.vert.in(surf).pos);
+    for (auto f1Edge : FaceEdges(surf, face1)) {
+        auto v1 = f1Edge.second.vert.in(surf).pos;
+        for (auto f2Edge : FaceEdges(surf, face2)) {
+            auto dist = glm::distance(v1, f2Edge.second.vert.in(surf).pos);
             if (dist < closestDist) {
                 e1 = f1Edge.first;
                 e2 = f2Edge.second.prev;
@@ -187,7 +186,7 @@ static EditorState select(EditorState state, const PickResult pick, bool toggle)
                 }
                 break;
             case PICK_FACE:
-                if (let face = pick.face.find(state.surf)) {
+                if (auto face = pick.face.find(state.surf)) {
                     if (toggle && state.selFaces.count(pick.face)) {
                         state.selFaces = std::move(state.selFaces).erase(pick.face);
                     } else {
@@ -197,7 +196,7 @@ static EditorState select(EditorState state, const PickResult pick, bool toggle)
                 }
                 break;
             case PICK_EDGE:
-                if (let edge = pick.edge.find(state.surf)) {
+                if (auto edge = pick.edge.find(state.surf)) {
                     edge_id e = primaryEdge({pick.edge, *edge});
                     if (toggle && state.selEdges.count(pick.edge))
                         state.selEdges = std::move(state.selEdges).erase(e);
@@ -207,8 +206,8 @@ static EditorState select(EditorState state, const PickResult pick, bool toggle)
                 break;
         }
     } else if (state.selMode == SEL_SOLIDS) {
-        if (let face = pick.face.find(state.surf)) {
-            let erase = toggle && state.selFaces.count(pick.face);
+        if (auto face = pick.face.find(state.surf)) {
+            auto erase = toggle && state.selFaces.count(pick.face);
             auto verts = state.selVerts.transient();
             auto faces = state.selFaces.transient();
             auto edges = state.selEdges.transient();
@@ -217,10 +216,10 @@ static EditorState select(EditorState state, const PickResult pick, bool toggle)
             std::queue<edge_id> toSelect;
             toSelect.push(face->edge);
             while (!toSelect.empty()) {
-                let e = toSelect.front();
+                auto e = toSelect.front();
                 toSelect.pop();
                 if (!visited.count(e)) {
-                    let edge = e.pair(state.surf);
+                    auto edge = e.pair(state.surf);
                     visited.insert(e);
                     if (erase) {
                         if (isPrimary(edge)) edges.erase(e);
@@ -245,20 +244,20 @@ static EditorState select(EditorState state, const PickResult pick, bool toggle)
 
 static EditorState knifeToVert(EditorState state, vert_id vert) {
     if (state.selVerts.size() == 1 && g_hoverFace.find(state.surf)) {
-        let e1 = edgeOnHoverFace(state.surf, *state.selVerts.begin());
-        let e2 = edgeOnHoverFace(state.surf, vert);
+        auto e1 = edgeOnHoverFace(state.surf, *state.selVerts.begin());
+        auto e2 = edgeOnHoverFace(state.surf, vert);
 
         if (e1.first == e2.first) {
             if (g_drawVerts.empty())
                 return state; // clicked same vertex twice, nothing to do
             // loop must be clockwise in this case
-            let start = vert.in(state.surf).pos;
+            auto start = vert.in(state.surf).pos;
             glm::vec3 loopNorm = accumPolyNormal(start, g_drawVerts[0]);
             for (size_t i = 1; i < g_drawVerts.size(); i++)
                 loopNorm += accumPolyNormal(g_drawVerts[i - 1], g_drawVerts[i]);
             loopNorm += accumPolyNormal(g_drawVerts.back(), start);
 
-            let faceNorm = faceNormalNonUnit(state.surf, g_hoverFace.in(state.surf));
+            auto faceNorm = faceNormalNonUnit(state.surf, g_hoverFace.in(state.surf));
             if (glm::dot(loopNorm, faceNorm) > 0)
                 std::reverse(g_drawVerts.begin(), g_drawVerts.end());
         }
@@ -267,7 +266,7 @@ static EditorState knifeToVert(EditorState state, vert_id vert) {
         tie(state.surf, newEdge) = splitFace(std::move(state.surf),
             e1.first, e2.first, g_drawVerts);
         for (size_t i = 0; i < g_drawVerts.size() + 1; i++) {
-            let pair = newEdge.pair(state.surf);
+            auto pair = newEdge.pair(state.surf);
             state.selEdges = std::move(state.selEdges).insert(primaryEdge(pair));
             newEdge = pair.second.next;
         }
@@ -286,16 +285,16 @@ static EditorState knifeToDrawVert(EditorState state, int loopI) {
     glm::vec3 loopNorm = {};
     for (size_t i = loopI, j = g_drawVerts.size() - 1; i < g_drawVerts.size(); j = i++)
         loopNorm += accumPolyNormal(g_drawVerts[j], g_drawVerts[i]);
-    let faceNorm = faceNormalNonUnit(state.surf, g_hoverFace.in(state.surf));
+    auto faceNorm = faceNormalNonUnit(state.surf, g_hoverFace.in(state.surf));
     if (glm::dot(loopNorm, faceNorm) > 0)
         std::reverse(g_drawVerts.begin() + loopI + 1, g_drawVerts.end());
 
-    let e = edgeOnHoverFace(state.surf, *state.selVerts.begin());
+    auto e = edgeOnHoverFace(state.surf, *state.selVerts.begin());
     edge_id newEdge;
     tie(state.surf, newEdge) = splitFace(std::move(state.surf),
         e.first, e.first, g_drawVerts, loopI);
     for (size_t i = 0; i < g_drawVerts.size() + 1; i++) {
-        let pair = newEdge.pair(state.surf);
+        auto pair = newEdge.pair(state.surf);
         state.selEdges = std::move(state.selEdges).insert(primaryEdge(pair));
         if (int(i) == loopI + 1)
             state.selVerts = immer::set<vert_id>{}.insert(pair.second.vert);
@@ -308,10 +307,10 @@ static EditorState knifeToDrawVert(EditorState state, int loopI) {
 
 static EditorState join(EditorState state) {
     if (g_hover.vert.find(state.surf) && state.selVerts.size() == 1) {
-        let e1 = edgeOnHoverFace(state.surf, *state.selVerts.begin()).first;
-        let e2 = edgeOnHoverFace(state.surf, g_hover.vert).first;
+        auto e1 = edgeOnHoverFace(state.surf, *state.selVerts.begin()).first;
+        auto e2 = edgeOnHoverFace(state.surf, g_hover.vert).first;
         state.surf = joinVerts(std::move(state.surf), e1, e2);
-    } else if (let hovEdge = g_hover.edge.find(state.surf)) {
+    } else if (auto hovEdge = g_hover.edge.find(state.surf)) {
         if (state.selEdges.size() != 1) throw winged_error();
         edge_pair edge1 = state.selEdges.begin()->pair(state.surf);
         edge_pair twin1 = edge1.second.twin.pair(state.surf);
@@ -326,10 +325,10 @@ static EditorState join(EditorState state) {
             std::swap(edge1, twin1); std::swap(edge2, twin2);
         }
         state.surf = joinEdges(state.surf, edge1.first, edge2.first);
-    } else if (let face2 = g_hover.face.find(state.surf)) {
+    } else if (auto face2 = g_hover.face.find(state.surf)) {
         if (state.selFaces.size() != 1) throw winged_error();
-        let &face1 = state.selFaces.begin()->in(state.surf);
-        let [e1, e2] = findClosestOpposingEdges(state.surf, face1, *face2);
+        const auto &face1 = state.selFaces.begin()->in(state.surf);
+        auto [e1, e2] = findClosestOpposingEdges(state.surf, face1, *face2);
         state.surf = joinEdgeLoops(std::move(state.surf), e1, e2);
         // TODO: select edge loop
     } else {
@@ -351,7 +350,7 @@ void ViewportWindow::refreshImmediate() {
 }
 
 void ViewportWindow::clearTextureCache() {
-    for (let &pair : loadedTextures)
+    for (const auto &pair : loadedTextures)
         glDeleteTextures(1, &pair.second);
     loadedTextures.clear();
 }
@@ -373,10 +372,10 @@ void ViewportWindow::setViewMode(ViewMode mode) {
 }
 
 void ViewportWindow::updateProjMat() {
-    let dc = GetDC(wnd);
+    auto dc = GetDC(wnd);
     CHECKERR(wglMakeCurrent(dc, context));
     glViewport(0, 0, GLsizei(viewportDim.x), GLsizei(viewportDim.y));
-    let aspect = viewportDim.x / viewportDim.y;
+    auto aspect = viewportDim.x / viewportDim.y;
     if (view.mode == VIEW_ORTHO) {
         projMat = glm::ortho(-aspect, aspect, -1.0f, 1.0f, -FAR_CLIP / 2, FAR_CLIP / 2);
     } else if (view.mode == VIEW_FLY) {
@@ -395,22 +394,22 @@ void ViewportWindow::updateProjMat() {
 }
 
 glm::vec3 ViewportWindow::forwardAxis() {
-    let forward = glm::vec3(glm::inverse(mvMat)[2]);
-    let axis = maxAxis(glm::abs(forward));
+    auto forward = glm::vec3(glm::inverse(mvMat)[2]);
+    auto axis = maxAxis(glm::abs(forward));
     glm::vec3 v = {};
     v[axis] = glm::sign(forward[axis]);
     return v;
 }
 
 void ViewportWindow::updateHover(POINT pos) {
-    let normCur = screenPosToNDC({pos.x, pos.y}, viewportDim);
-    let project = projMat * mvMat;
-    let grid = g_state.gridOn ? g_state.gridSize : 0;
+    auto normCur = screenPosToNDC({pos.x, pos.y}, viewportDim);
+    auto project = projMat * mvMat;
+    auto grid = g_state.gridOn ? g_state.gridSize : 0;
     PickResult result = {};
 
     if (TOOL_FLAGS[g_tool] & TOOLF_DRAW) {
         for (size_t i = 0; i < g_drawVerts.size(); i++) {
-            let pickDepth = pickVert(g_drawVerts[i], normCur, viewportDim, project);
+            auto pickDepth = pickVert(g_drawVerts[i], normCur, viewportDim, project);
             if (pickDepth && *pickDepth < result.depth) {
                 result.type = PICK_DRAWVERT;
                 result.val = i;
@@ -421,8 +420,8 @@ void ViewportWindow::updateHover(POINT pos) {
     }
     if (g_tool == TOOL_POLY) {
         if (!result.type) {
-            let ray = viewPosToRay(normCur, project);
-            if (let planePoint = intersectRayPlane(ray, g_state.workPlane)) {
+            auto ray = viewPosToRay(normCur, project);
+            if (auto planePoint = intersectRayPlane(ray, g_state.workPlane)) {
                 result.point = snapPlanePoint(*planePoint, g_state.workPlane, grid);
                 result.type = PICK_WORKPLANE;
             }
@@ -469,16 +468,16 @@ void ViewportWindow::startToolAdjust(POINT pos) {
         } else {
             g_state.workPlane.norm = forwardAxis();
             float closestDist = -FLT_MAX;
-            for (let &vert : selAttachedVerts(g_state)) {
-                let point = vert.in(g_state.surf).pos;
-                let dist = glm::dot(point, g_state.workPlane.norm);
+            for (const auto &vert : selAttachedVerts(g_state)) {
+                auto point = vert.in(g_state.surf).pos;
+                auto dist = glm::dot(point, g_state.workPlane.norm);
                 if (dist > closestDist) {
                     g_state.workPlane.org = point;
                     closestDist = dist;
                 }
             }
         }
-        let ray = viewPosToRay(screenPosToNDC({pos.x, pos.y}, viewportDim), projMat * mvMat);
+        auto ray = viewPosToRay(screenPosToNDC({pos.x, pos.y}, viewportDim), projMat * mvMat);
         startPlanePos = intersectRayPlane(ray, g_state.workPlane).value_or(g_state.workPlane.org);
         moved = {};
         snapAccum = 0;
@@ -490,19 +489,19 @@ void ViewportWindow::startToolAdjust(POINT pos) {
 void ViewportWindow::toolAdjust(POINT pos, SIZE delta, UINT keyFlags) {
     switch (g_tool) {
         case TOOL_SELECT: {
-            let ray = viewPosToRay(screenPosToNDC({pos.x, pos.y}, viewportDim), projMat * mvMat);
-            let planePos = intersectRayPlane(ray, g_state.workPlane)
+            auto ray = viewPosToRay(screenPosToNDC({pos.x, pos.y}, viewportDim), projMat * mvMat);
+            auto planePos = intersectRayPlane(ray, g_state.workPlane)
                 .value_or(g_state.workPlane.org);
-            let absNorm = glm::abs(g_state.workPlane.norm);
-            let normAxis = maxAxis(absNorm);
-            let ortho = bool(keyFlags & MK_CONTROL);
+            auto absNorm = glm::abs(g_state.workPlane.norm);
+            auto normAxis = maxAxis(absNorm);
+            auto ortho = bool(keyFlags & MK_CONTROL);
             glm::vec3 amount;
             if (ortho) {
                 float push = float(delta.cy) * view.zoom / CAM_MOVE_SCALE;
                 if (g_state.gridOn) {
-                    let snap = g_state.gridSize / absNorm[normAxis];
+                    auto snap = g_state.gridSize / absNorm[normAxis];
                     snapAccum += push / snap;
-                    let steps = int(glm::floor(snapAccum));
+                    auto steps = int(glm::floor(snapAccum));
                     snapAccum -= steps;
                     push = steps * snap;
                 }
@@ -512,7 +511,7 @@ void ViewportWindow::toolAdjust(POINT pos, SIZE delta, UINT keyFlags) {
             } else {
                 glm::vec3 diff = planePos - startPlanePos;
                 if (keyFlags & MK_SHIFT) {
-                    let a = (normAxis + 1) % 3, b = (normAxis + 2) % 3;
+                    auto a = (normAxis + 1) % 3, b = (normAxis + 2) % 3;
                     if (abs(diff[a]) < abs(diff[b]))
                         diff[a] = 0;
                     else
@@ -528,7 +527,7 @@ void ViewportWindow::toolAdjust(POINT pos, SIZE delta, UINT keyFlags) {
                 moved = diff;
             }
             if (amount != glm::vec3(0)) {
-                let verts = selAttachedVerts(g_state);
+                auto verts = selAttachedVerts(g_state);
                 g_state.surf = transformVertices(std::move(g_state.surf), verts,
                     glm::translate(glm::mat4(1), amount));
                 g_mainWindow.updateStatus();
@@ -547,9 +546,9 @@ void APIENTRY debugGLCallback(GLenum, GLenum, GLuint, GLenum, GLsizei, const GLc
 #endif
 
 static GLuint shaderFromResource(GLenum type, WORD id) {
-    let shader = glCreateShader(type);
+    auto shader = glCreateShader(type);
     DWORD sourceSize;
-    let source = (const GLchar *)getResource(MAKEINTRESOURCE(id), RT_RCDATA, NULL, &sourceSize);
+    auto source = (const GLchar *)getResource(MAKEINTRESOURCE(id), RT_RCDATA, NULL, &sourceSize);
     glShaderSource(shader, 1, &source, (GLint *)&sourceSize);
     glCompileShader(shader);
     return shader;
@@ -588,8 +587,8 @@ static void writeSizedBuffer(SizedBuffer *buf, GLenum target, size_t dataSize, v
 }
 
 BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
-    let dc = GetDC(wnd);
-    let pixelFormat = ChoosePixelFormat(dc, &g_formatDesc);
+    auto dc = GetDC(wnd);
+    auto pixelFormat = ChoosePixelFormat(dc, &g_formatDesc);
     SetPixelFormat(dc, pixelFormat, &g_formatDesc);
     const int attribs[] = {
         WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
@@ -677,11 +676,11 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-    let vertUnlit = shaderFromResource(GL_VERTEX_SHADER, IDR_VERT_UNLIT);
-    let vertFace = shaderFromResource(GL_VERTEX_SHADER, IDR_VERT_FACE);
-    let fragSolid = shaderFromResource(GL_FRAGMENT_SHADER, IDR_FRAG_SOLID);
-    let fragFace = shaderFromResource(GL_FRAGMENT_SHADER, IDR_FRAG_FACE);
-    let fragHole = shaderFromResource(GL_FRAGMENT_SHADER, IDR_FRAG_HOLE);
+    auto vertUnlit = shaderFromResource(GL_VERTEX_SHADER, IDR_VERT_UNLIT);
+    auto vertFace = shaderFromResource(GL_VERTEX_SHADER, IDR_VERT_FACE);
+    auto fragSolid = shaderFromResource(GL_FRAGMENT_SHADER, IDR_FRAG_SOLID);
+    auto fragFace = shaderFromResource(GL_FRAGMENT_SHADER, IDR_FRAG_FACE);
+    auto fragHole = shaderFromResource(GL_FRAGMENT_SHADER, IDR_FRAG_HOLE);
 
     programs[PROG_UNLIT] = programFromShaders(vertUnlit, fragSolid);
     programs[PROG_FACE] = programFromShaders(vertFace, fragFace);
@@ -699,7 +698,7 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    let defHBmp = LoadImage(GetModuleHandle(NULL),
+    auto defHBmp = LoadImage(GetModuleHandle(NULL),
         MAKEINTRESOURCE(IDB_DEFAULT_TEXTURE), IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION);
     BITMAP defBmp;
     GetObject(defHBmp, sizeof(defBmp), (void *)&defBmp);
@@ -716,7 +715,7 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
 }
 
 void ViewportWindow::destroy() {
-    let dc = GetDC(wnd);
+    auto dc = GetDC(wnd);
     CHECKERR(wglMakeCurrent(dc, context)); // doesn't work in WM_DESTROY
 
     glDeleteBuffers(1, &axisPoints);
@@ -727,7 +726,7 @@ void ViewportWindow::destroy() {
     glDeleteBuffers(1, &indicesBuffer.id);
 
     glDeleteTextures(1, &defTexture);
-    for (let &pair : loadedTextures)
+    for (const auto &pair : loadedTextures)
         glDeleteTextures(1, &pair.second);
 
     for (int i = 0; i < PROG_COUNT; i++)
@@ -776,7 +775,7 @@ void ViewportWindow::onLButtonDown(HWND, BOOL, int x, int y, UINT keyFlags) {
                 case PICK_EDGE: {
                     EditorState newState = g_state;
                     newState.surf = splitEdge(g_state.surf, g_hover.edge, g_hover.point);
-                    let newVert = g_hover.edge.in(newState.surf).next.in(newState.surf).vert;
+                    auto newVert = g_hover.edge.in(newState.surf).next.in(newState.surf).vert;
                     newState = knifeToVert(std::move(newState), newVert);
                     g_mainWindow.pushUndo(std::move(newState));
                     break;
@@ -817,8 +816,8 @@ void ViewportWindow::onLButtonDown(HWND, BOOL, int x, int y, UINT keyFlags) {
             if (!(keyFlags & MK_SHIFT))
                 g_tool = TOOL_SELECT;
         } else {
-            let toggle = bool(keyFlags & MK_SHIFT);
-            let alreadySelected = hasSelection(g_state);
+            auto toggle = bool(keyFlags & MK_SHIFT);
+            auto alreadySelected = hasSelection(g_state);
             if (!alreadySelected) {
                 g_state = select(std::move(g_state), g_hover, toggle);
                 g_mainWindow.refreshAllImmediate();
@@ -828,7 +827,7 @@ void ViewportWindow::onLButtonDown(HWND, BOOL, int x, int y, UINT keyFlags) {
                 g_hover = {};
             } else if (GetKeyState(VK_MENU) < 0 && !g_state.selFaces.empty()
                     && g_hoverFace.find(g_state.surf)) {
-                let paint = g_state.selFaces.begin()->in(g_state.surf).paint;
+                auto paint = g_state.selFaces.begin()->in(g_state.surf).paint;
                 EditorState newState = g_state;
                 newState.surf = assignPaint(g_state.surf, {g_hoverFace}, paint);
                 g_mainWindow.pushUndo(std::move(newState));
@@ -879,11 +878,11 @@ void ViewportWindow::onMouseMove(HWND, int x, int y, UINT keyFlags) {
         TrackMouseEvent(tempPtr(TRACKMOUSEEVENT{sizeof(TRACKMOUSEEVENT), TME_LEAVE, wnd}));
         trackMouse = true;
     }
-    let curPos = POINT{x, y};
+    auto curPos = POINT{x, y};
     if (mouseMode == MOUSE_NONE) {
         updateHover(curPos);
     } else if (curPos != lastCurPos) {
-        let delta = SIZE{curPos.x - lastCurPos.x, curPos.y - lastCurPos.y};
+        auto delta = SIZE{curPos.x - lastCurPos.x, curPos.y - lastCurPos.y};
         switch (mouseMode) {
             case MOUSE_NONE:
                 break;
@@ -898,7 +897,7 @@ void ViewportWindow::onMouseMove(HWND, int x, int y, UINT keyFlags) {
                 SetWindowText(wnd, APP_NAME);
                 break;
             case MOUSE_CAM_PAN: {
-                let shift = bool(keyFlags & MK_SHIFT);
+                auto shift = bool(keyFlags & MK_SHIFT);
                 glm::vec3 deltaPos;
                 if (view.mode == VIEW_FLY) {
                     deltaPos = shift ? glm::vec3(-delta.cx, delta.cy, 0)
@@ -906,9 +905,9 @@ void ViewportWindow::onMouseMove(HWND, int x, int y, UINT keyFlags) {
                 } else {
                     deltaPos = shift ? glm::vec3(0, 0, -delta.cy) : glm::vec3(delta.cx, -delta.cy, 0);
                 }
-                let invMV = glm::inverse(mvMat);
+                auto invMV = glm::inverse(mvMat);
                 // there's probably a better way to do this
-                let normInvMV = glm::mat3{
+                auto normInvMV = glm::mat3{
                     glm::normalize(invMV[0]), glm::normalize(invMV[1]), glm::normalize(invMV[2])};
                 view.camPivot += normInvMV * deltaPos * view.zoom / CAM_MOVE_SCALE;
                 refresh();
@@ -916,7 +915,7 @@ void ViewportWindow::onMouseMove(HWND, int x, int y, UINT keyFlags) {
             }
         }
         if (mouseMode != MOUSE_TOOL || (g_tool == TOOL_SELECT && (keyFlags & MK_CONTROL))) {
-            let screenPos = clientToScreen(wnd, lastCurPos);
+            auto screenPos = clientToScreen(wnd, lastCurPos);
             SetCursorPos(screenPos.x, screenPos.y);
         } else {
             lastCurPos = curPos;
@@ -996,13 +995,13 @@ void ViewportWindow::onDropFiles(HWND, HDROP drop) {
     try {
         TCHAR path[MAX_PATH];
         if (DragQueryFile(drop, 0, path, _countof(path))) {
-            let ext = PathFindExtension(path);
+            auto ext = PathFindExtension(path);
             if (ext[0] == 0) { // folder
                 g_library.rootPath = path;
             } else if (lstrcmpi(ext, L".wing") == 0) {
                 g_mainWindow.open(path);
             } else { // assume image
-                let texFileStr = std::wstring(path);
+                auto texFileStr = std::wstring(path);
                 id_t texId = g_library.pathIds[texFileStr];
                 if (texId == id_t{}) {
                     texId = genId();
@@ -1080,7 +1079,7 @@ void ViewportWindow::onPaint(HWND) {
     mvMat = glm::rotate(mvMat, view.rotX, glm::vec3(1, 0, 0));
     mvMat = glm::rotate(mvMat, view.rotY, glm::vec3(0, 1, 0));
     mvMat = glm::translate(mvMat, view.camPivot);
-    let normalMat = glm::mat3(glm::transpose(glm::inverse(mvMat)));
+    auto normalMat = glm::mat3(glm::transpose(glm::inverse(mvMat)));
 
     for (int i = 0; i < PROG_COUNT; i++) {
         glUseProgram(programs[i].id);
@@ -1107,7 +1106,7 @@ void ViewportWindow::onPaint(HWND) {
     drawMesh(g_renderMesh);
 
     // work plane grid
-    let workPlaneActive = ((TOOL_FLAGS[g_tool] & TOOLF_DRAW)
+    auto workPlaneActive = ((TOOL_FLAGS[g_tool] & TOOLF_DRAW)
         && ((g_state.gridOn && g_hover.type) || !(TOOL_FLAGS[g_tool] & TOOLF_HOVFACE)))
         || (g_tool == TOOL_SELECT && mouseMode == MOUSE_TOOL);
     if (workPlaneActive || (view.mode == VIEW_ORTHO && g_state.gridOn)) {
@@ -1116,8 +1115,8 @@ void ViewportWindow::onPaint(HWND) {
             p.norm = forwardAxis();
             glDisable(GL_DEPTH_TEST);
         }
-        let axis = maxAxis(glm::abs(p.norm));
-        let u = (axis + 1) % 3, v = (axis + 2) % 3;
+        auto axis = maxAxis(glm::abs(p.norm));
+        auto u = (axis + 1) % 3, v = (axis + 2) % 3;
         glm::vec3 uVec = {}, vVec = {};
         uVec[u] = g_state.gridSize; vVec[v] = g_state.gridSize;
         uVec[axis] = solvePlane(uVec, p.norm, axis);
@@ -1222,10 +1221,10 @@ void ViewportWindow::drawMesh(const RenderMesh &mesh) {
         glEnableVertexAttribArray(ATTR_NORMAL);
         glEnableVertexAttribArray(ATTR_TEXCOORD);
         glUseProgram(programs[PROG_FACE].id);
-        for (let &faceMesh : mesh.faceMeshes) {
+        for (const auto &faceMesh : mesh.faceMeshes) {
             // generate color from GUID
-            let mat = faceMesh.material;
-            let isHole = (mat == Paint::HOLE_MATERIAL);
+            auto mat = faceMesh.material;
+            auto isHole = (mat == Paint::HOLE_MATERIAL);
             if (isHole)
                 glUseProgram(programs[PROG_HOLE].id);
             else
@@ -1272,8 +1271,8 @@ void ViewportWindow::bindTexture(id_t texture) {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        if (let path = tryGet(g_library.idPaths, texture)) {
-            let image = loadImage(path->c_str());
+        if (auto path = tryGet(g_library.idPaths, texture)) {
+            auto image = loadImage(path->c_str());
             if (image.data) {
                 texImageMipmaps(GL_TEXTURE_2D, GL_RGBA, image.width, image.height,
                     GL_BGRA, GL_UNSIGNED_BYTE, image.data.get());
