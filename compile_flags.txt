@@ -1,0 +1,10 @@
+--target=x86_64-w64-mingw32
+-xc++
+-std=c++17
+-I/usr/lib/gcc/x86_64-w64-mingw32/12-posix/include/c++
+-I/usr/lib/gcc/x86_64-w64-mingw32/12-posix/include/c++/x86_64-w64-mingw32
+-I./lib/winchroma
+-I./lib/glm
+-I./lib/immer
+-I./lib/glad
+-DBOOL=int
