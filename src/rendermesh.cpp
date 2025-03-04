@@ -57,7 +57,7 @@ bool tesselateFace(std::vector<index_t> &faceIsOut, const Surface &surf, const F
     gluTessBeginContour(g_tess);
     for (let ep : FaceEdges(surf, face)) {
         glm::dvec3 dPos = ep.second.vert.in(surf).pos;
-        gluTessVertex(g_tess, glm::value_ptr(dPos), (void *)vertI++);
+        gluTessVertex(g_tess, glm::value_ptr(dPos), (void *)(size_t)vertI++);
     }
     gluTessEndContour(g_tess);
     gluTessEndPolygon(g_tess);

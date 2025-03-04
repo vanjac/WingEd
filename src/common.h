@@ -11,10 +11,12 @@ using std::tuple;
 // win32
 #define STRICT
 #define WIN32_LEAN_AND_MEAN
+#undef NOMINMAX
 #define NOMINMAX
 #define UNICODE
 #define _UNICODE
 #define WINVER          0x0501 // Windows XP
+#undef _WIN32_WINNT
 #define _WIN32_WINNT    0x0501
 
 #pragma warning(disable: 4996) // :3

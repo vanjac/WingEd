@@ -200,7 +200,7 @@ static Surface joinVertsSharedEdge(Surface surf, edge_pair edge, edge_pair next)
 Surface joinVerts(Surface surf, edge_id e1, edge_id e2) {
     // BEFORE:   ╮
     //           │prev1
-    //   keepVert╰          edge2 
+    //   keepVert╰          edge2
     //   ╭──────╯X        X╭──────╯
     //     edge1          ╮delVert
     //               prev2│
@@ -682,7 +682,7 @@ Surface transformPaint(Surface surf, const immer::set<face_id> &faces, const glm
     return surf;
 }
 
-Surface duplicate(Surface surf, const immer::set<edge_id> &edges, 
+Surface duplicate(Surface surf, const immer::set<edge_id> &edges,
         const immer::set<vert_id> &verts, const immer::set<face_id> &faces) {
     std::unordered_map<edge_id, edge_id> edgeMap;
     std::unordered_map<vert_id, vert_id> vertMap;
@@ -758,7 +758,7 @@ void validateSurface(const Surface &surf) {
     let tooMany = winged_error(L"Too many geometry errors (see log)");
     #define CHECK_VALID(cond, message, ...)     \
         if (!(cond)) {                          \
-            LOG(message, __VA_ARGS__);          \
+            LOG_FORMAT(message, __VA_ARGS__);   \
             if (++invalid > 100) throw tooMany; \
         }
 
