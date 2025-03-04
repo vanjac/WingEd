@@ -786,7 +786,7 @@ void ViewportWindow::onLButtonDown(HWND, BOOL, int x, int y, UINT keyFlags) {
                     g_mainWindow.pushUndo(knifeToDrawVert(g_state, int(g_hover.val)));
                     break;
                 case PICK_FACE:
-                    if (!g_state.selVerts.size() == 1)
+                    if (g_state.selVerts.size() != 1)
                         throw winged_error(); // TODO
                     g_drawVerts.push_back(g_hover.point);
                     break;
