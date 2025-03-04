@@ -85,8 +85,8 @@ static void writeString(HANDLE handle, const wchar_t *str) {
     auto bufSize = WideCharToMultiByte(CP_UTF8, 0, str, -1, NULL, 0, NULL, NULL);
     if (bufSize > 0) {
         std::vector<char> utf8(bufSize);
-        auto len = (uint16_t)WideCharToMultiByte(CP_UTF8, 0, str, -1,
-                                                 utf8.data(), utf8.size(), NULL, NULL);
+        auto len = uint16_t(WideCharToMultiByte(CP_UTF8, 0, str, -1,
+                                                utf8.data(), utf8.size(), NULL, NULL));
         write(handle, &len, 2);
         write(handle, utf8.data(), len);
     }
@@ -116,12 +116,12 @@ void writeFile(const wchar_t *file, const EditorState &state, const ViewState &v
         if (auto paintIndex = tryGet(paintIndices, *face.second.paint)) {
             facePaintIndices.push_back(*paintIndex);
         } else {
-            paintIndices[face.second.paint] = (uint32_t)paints.size();
-            facePaintIndices.push_back((uint32_t)paints.size());
+            paintIndices[face.second.paint] = uint32_t(paints.size());
+            facePaintIndices.push_back(uint32_t(paints.size()));
             paints.push_back(face.second.paint);
             usedFiles.insert(face.second.paint->material);
         }
-        faceIndices[face.first] = (uint32_t)faceIndices.size();
+        faceIndices[face.first] = uint32_t(faceIndices.size());
     }
     write(handle, tempPtr(paints.size()), 4);
     write(handle, tempPtr(state.surf.faces.size()), 4);
@@ -133,12 +133,12 @@ void writeFile(const wchar_t *file, const EditorState &state, const ViewState &v
 
     for (const auto &vert : state.surf.verts) {
         write(handle, &vert.second.pos, sizeof(vert.second.pos));
-        vertIndices[vert.first] = (uint32_t)vertIndices.size();
+        vertIndices[vert.first] = uint32_t(vertIndices.size());
     }
     for (const auto &face : state.surf.faces) {
         for (auto edge : FaceEdges(state.surf, face.second)) {
             write(handle, &vertIndices[edge.second.vert], 4);
-            edgeIndices[edge.first] = (uint32_t)edgeIndices.size();
+            edgeIndices[edge.first] = uint32_t(edgeIndices.size());
         }
         write(handle, tempPtr(-1), 4);
     }
@@ -241,7 +241,7 @@ std::tuple<EditorState, ViewState, Library> readFile(const wchar_t *file,
     for (uint32_t f = 0; f < numFaces; f++) {
         auto faceEdgeStart = edges.size();
         uint32_t v;
-        while ((v = readVal<uint32_t>(handle)) != (uint32_t)-1) {
+        while ((v = readVal<uint32_t>(handle)) != uint32_t(-1)) {
             edge_pair edge = {genId(), {}};
             edge.second.face = faces[f].first;
             edge.second.vert = verts[v].first;
@@ -264,7 +264,7 @@ std::tuple<EditorState, ViewState, Library> readFile(const wchar_t *file,
                 edge->second.twin = edges[*twinI].first;
                 edges[*twinI].second.twin = edge->first;
             } else {
-                vertPairEdges[{next.second.vert, edge->second.vert}] = (uint32_t)i;
+                vertPairEdges[{next.second.vert, edge->second.vert}] = uint32_t(i);
             }
         }
     }

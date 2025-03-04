@@ -77,8 +77,8 @@ static HMODULE g_libGL;
 
 static void * loadGLProc(const char *name) {
     void *p = (void *)wglGetProcAddress(name);
-    if ((size_t)p <= (size_t)3 || (size_t)p == (size_t)-1) {
-	  p = (void *)CHECKERR(GetProcAddress(g_libGL, name));
+    if (size_t(p) <= size_t(3) || size_t(p) == size_t(-1)) {
+        p = (void *)CHECKERR(GetProcAddress(g_libGL, name));
     }
     return p;
 }
