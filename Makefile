@@ -1,6 +1,6 @@
 all: build/resource.coff
 	x86_64-w64-mingw32-g++-win32 -o build/winged.exe \
-		-std=c++17 -pedantic -Wall -Wextra \
+		-std=c++17 -pedantic -Wall -Wextra -Wmultiple-inheritance \
 		-Wno-multichar -Wno-unknown-pragmas -Wno-format \
 		-Wno-missing-field-initializers -Wno-cast-function-type \
 		-DCHROMA_DEBUG \
