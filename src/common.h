@@ -19,6 +19,9 @@ using std::tuple;
 #undef _WIN32_WINNT
 #define _WIN32_WINNT    0x0501
 
+#undef __USE_MINGW_ANSI_STDIO
+#define __USE_MINGW_ANSI_STDIO 0
+
 #pragma warning(disable: 4996) // :3
 
 namespace winged {
