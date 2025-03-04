@@ -130,7 +130,7 @@ bool initViewport() {
 
     try {
         initGL();
-    } catch (winged_error err) {
+    } catch (winged_error const& err) {
         MessageBox(nullptr, err.message, APP_NAME, MB_ICONERROR);
         return false;
     }
@@ -535,6 +535,8 @@ void ViewportWindow::toolAdjust(POINT pos, SIZE delta, UINT keyFlags) {
             }
             break;
         }
+        default:
+            break;
     }
 }
 
@@ -836,7 +838,7 @@ void ViewportWindow::onLButtonDown(HWND, BOOL, int x, int y, UINT keyFlags) {
                 g_state = select(std::move(g_state), g_hover, toggle);
             }
         }
-    } catch (winged_error err) {
+    } catch (winged_error const& err) {
         g_mainWindow.showError(err);
 #ifndef CHROMA_DEBUG
     } catch (std::exception e) {
@@ -883,6 +885,8 @@ void ViewportWindow::onMouseMove(HWND, int x, int y, UINT keyFlags) {
     } else if (curPos != lastCurPos) {
         let delta = SIZE{curPos.x - lastCurPos.x, curPos.y - lastCurPos.y};
         switch (mouseMode) {
+            case MOUSE_NONE:
+                break;
             case MOUSE_TOOL:
                 toolAdjust(curPos, delta, keyFlags);
                 g_mainWindow.refreshAll();
@@ -1010,7 +1014,7 @@ void ViewportWindow::onDropFiles(HWND, HDROP drop) {
             }
         }
         DragFinish(drop);
-    } catch (winged_error err) {
+    } catch (winged_error const& err) {
         g_mainWindow.showError(err);
     }
     g_mainWindow.updateStatus();

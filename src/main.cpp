@@ -269,6 +269,8 @@ void MainWindow::updateStatus() {
                 else
                     helpText = L"Click: Select";
                 break;
+            default:
+                break;
         }
     }
     SendMessage(statusWnd, SB_SETTEXT, STATUS_HELP, LPARAM(helpText));
@@ -742,7 +744,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                 pushUndo(std::move(newState));
                 break;
         }
-    } catch (winged_error err) {
+    } catch (winged_error const& err) {
         showError(err);
 #ifndef CHROMA_DEBUG
     } catch (std::exception e) {

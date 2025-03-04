@@ -1,6 +1,7 @@
 all: build/resource.coff
 	x86_64-w64-mingw32-g++-win32 -o build/winged.exe \
-		-std=c++17 -pedantic -Wno-multichar \
+		-std=c++17 -pedantic -Wall \
+		-Wno-multichar -Wno-unknown-pragmas -Wno-format \
 		-DCHROMA_DEBUG \
 		-Isrc -Ilib/winchroma -Ilib/glm -Ilib/immer -Ilib/glad \
 		src/*.cpp lib/glad/glad.c lib/glad/glad_wgl.c build/resource.coff \
