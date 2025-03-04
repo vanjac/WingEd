@@ -51,6 +51,7 @@ static std::vector<face_pair> makeFacePairs(size_t count) {
     return faces;
 }
 
+// TODO: use tuple
 static void linkTwins(edge_pair *p1, edge_pair *p2) {
     p1->second.twin = p2->first;
     p2->second.twin = p1->first;

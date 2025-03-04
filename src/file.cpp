@@ -86,7 +86,7 @@ static void writeString(HANDLE handle, const wchar_t *str) {
     if (bufSize > 0) {
         std::vector<char> utf8(bufSize);
         auto len = uint16_t(WideCharToMultiByte(CP_UTF8, 0, str, -1,
-                                                utf8.data(), utf8.size(), NULL, NULL));
+                                                utf8.data(), int(utf8.size()), NULL, NULL));
         write(handle, &len, 2);
         write(handle, utf8.data(), len);
     }

@@ -1,5 +1,6 @@
 #include "rendermesh.h"
 #include <memory>
+#include <unordered_map>
 #include "winchroma.h" // required for GLU
 #include <GL/glu.h>
 #include <glm/gtc/type_ptr.hpp>

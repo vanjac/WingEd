@@ -6,7 +6,6 @@
 
 #include "editor.h"
 #include <vector>
-#include <unordered_map>
 
 namespace winged {
 
