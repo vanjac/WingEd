@@ -13,10 +13,10 @@ all: build/glad.o build/glad_wgl.o build/resource.coff
 		-lrpcrt4 -lopengl32 -lglu32 -lgdiplus -lshlwapi \
 		-static
 
-build/glad.o: lib/glad/glad.c
+build/glad.o: lib/glad/glad.c lib/glad/glad.h
 	$(cxx) -c lib/glad/glad.c -o build/glad.o -Ilib/glad
 
-build/glad_wgl.o: lib/glad/glad_wgl.c
+build/glad_wgl.o: lib/glad/glad_wgl.c lib/glad/glad_wgl.h
 	$(cxx) -c lib/glad/glad_wgl.c -o build/glad_wgl.o -Ilib/glad
 
 build/resource.coff: src/resource.rc
