@@ -3,7 +3,7 @@ rc  := x86_64-w64-mingw32-windres
 
 all: build/glad.o build/glad_wgl.o build/resource.coff
 	$(cxx) -o build/winged.exe \
-		-std=c++17 -pedantic -Wall -Wextra -Wmultiple-inheritance \
+		-std=c++17 -pedantic -Wall -Wextra -Wmultiple-inheritance -Wold-style-cast \
 		-Wno-multichar -Wno-unknown-pragmas -Wno-format \
 		-Wno-missing-field-initializers -Wno-cast-function-type \
 		-DCHROMA_DEBUG \

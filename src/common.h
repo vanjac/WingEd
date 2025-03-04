@@ -22,6 +22,8 @@ using std::tuple;
 #pragma warning(disable: 4996) // :3
 
 namespace winged {
+using void_p = void *;
+
 struct winged_error : std::exception {
     const wchar_t *message = nullptr;
     winged_error() = default;

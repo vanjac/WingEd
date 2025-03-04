@@ -26,7 +26,7 @@ struct std::hash<GUID> {
         // https://stackoverflow.com/a/263416
         size_t hash = 17;
         for (int i = 0; i < 4; i++) {
-            uint32_t dword = ((uint32_t *)&key)[i];
+            uint32_t dword = reinterpret_cast<const uint32_t *>(&key)[i];
             hash = hash * 23 + std::hash<uint32_t>()(dword);
         }
         return hash;

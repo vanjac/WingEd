@@ -136,7 +136,7 @@ INT_PTR CALLBACK matrixDlgProc(HWND dlg, UINT msg, WPARAM wParam, LPARAM lParam)
     switch (msg) {
         case WM_INITDIALOG: {
             SetWindowLongPtr(dlg, DWLP_USER, lParam);
-            const auto &mat = *(glm::mat3 *)lParam;
+            const auto &mat = *reinterpret_cast<glm::mat3 *>(lParam);
             for (int i = 0; i < 9; i++) {
                 TCHAR buf[64];
                 _stprintf(buf, L"%g", mat[i % 3][i / 3]);
@@ -148,7 +148,8 @@ INT_PTR CALLBACK matrixDlgProc(HWND dlg, UINT msg, WPARAM wParam, LPARAM lParam)
             switch (LOWORD(wParam)) {
                 case IDOK:
                 case IDCANCEL: {
-                    glm::mat3 &mat = *(glm::mat3 *)GetWindowLongPtr(dlg, DWLP_USER);
+                    glm::mat3 &mat = *reinterpret_cast<glm::mat3 *>(
+                        GetWindowLongPtr(dlg, DWLP_USER));
                     for (int i = 0; i < 9; i++) {
                         TCHAR buf[64];
                         GetDlgItemText(dlg, 1000 + i, buf, _countof(buf));
@@ -803,7 +804,7 @@ void MainWindow::onMeasureItem(HWND, MEASUREITEMSTRUCT *measure) {
 
 LRESULT MainWindow::onNotify(HWND, int, NMHDR *nmHdr) {
     if (nmHdr->code == TTN_GETDISPINFO)
-        handleToolbarTip((NMTTDISPINFO *)nmHdr, GetMenu(wnd));
+        handleToolbarTip(reinterpret_cast<NMTTDISPINFO *>(nmHdr), GetMenu(wnd));
     return 0;
 }
 

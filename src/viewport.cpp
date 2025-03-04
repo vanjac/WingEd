@@ -76,9 +76,9 @@ static PIXELFORMATDESCRIPTOR g_formatDesc;
 static HMODULE g_libGL;
 
 static void * loadGLProc(const char *name) {
-    void *p = (void *)wglGetProcAddress(name);
+    auto p = void_p(wglGetProcAddress(name));
     if (size_t(p) <= size_t(3) || size_t(p) == size_t(-1)) {
-        p = (void *)CHECKERR(GetProcAddress(g_libGL, name));
+        p = void_p(CHECKERR(GetProcAddress(g_libGL, name)));
     }
     return p;
 }
@@ -548,8 +548,9 @@ void APIENTRY debugGLCallback(GLenum, GLenum, GLuint, GLenum, GLsizei, const GLc
 static GLuint shaderFromResource(GLenum type, WORD id) {
     auto shader = glCreateShader(type);
     DWORD sourceSize;
-    auto source = (const GLchar *)getResource(MAKEINTRESOURCE(id), RT_RCDATA, NULL, &sourceSize);
-    glShaderSource(shader, 1, &source, (GLint *)&sourceSize);
+    auto source = reinterpret_cast<const GLchar *>(
+        getResource(MAKEINTRESOURCE(id), RT_RCDATA, NULL, &sourceSize));
+    glShaderSource(shader, 1, &source, reinterpret_cast<GLint *>(&sourceSize));
     glCompileShader(shader);
     return shader;
 }
@@ -701,7 +702,7 @@ BOOL ViewportWindow::onCreate(HWND, LPCREATESTRUCT) {
     auto defHBmp = LoadImage(GetModuleHandle(NULL),
         MAKEINTRESOURCE(IDB_DEFAULT_TEXTURE), IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION);
     BITMAP defBmp;
-    GetObject(defHBmp, sizeof(defBmp), (void *)&defBmp);
+    GetObject(defHBmp, sizeof(defBmp), void_p(&defBmp));
     texImageMipmaps(GL_TEXTURE_2D, GL_RGBA, defBmp.bmWidth, defBmp.bmHeight,
         GL_BGR, GL_UNSIGNED_BYTE, defBmp.bmBits);
     DeleteObject(defHBmp);
@@ -1158,17 +1159,17 @@ void ViewportWindow::drawMesh(const RenderMesh &mesh) {
         renderMeshDirtyLocal = false;
         glBindBuffer(GL_ARRAY_BUFFER, verticesBuffer.id);
         writeSizedBuffer(&verticesBuffer, GL_ARRAY_BUFFER, mesh.vertices.size() * sizeof(glm::vec3),
-            (void *)mesh.vertices.data(), GL_DYNAMIC_DRAW);
+            void_p(mesh.vertices.data()), GL_DYNAMIC_DRAW);
         glBindBuffer(GL_ARRAY_BUFFER, normalsBuffer.id);
         writeSizedBuffer(&normalsBuffer, GL_ARRAY_BUFFER, mesh.normals.size() * sizeof(glm::vec3),
-            (void *)mesh.normals.data(), GL_DYNAMIC_DRAW);
+            void_p(mesh.normals.data()), GL_DYNAMIC_DRAW);
         glBindBuffer(GL_ARRAY_BUFFER, texCoordsBuffer.id);
         writeSizedBuffer(&texCoordsBuffer, GL_ARRAY_BUFFER,
-            mesh.texCoords.size() * sizeof(glm::vec2), (void *)mesh.texCoords.data(),
+            mesh.texCoords.size() * sizeof(glm::vec2), void_p(mesh.texCoords.data()),
             GL_DYNAMIC_DRAW);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indicesBuffer.id);
         writeSizedBuffer(&indicesBuffer, GL_ELEMENT_ARRAY_BUFFER,
-            mesh.indices.size() * sizeof(GLushort), (void *)mesh.indices.data(), GL_DYNAMIC_DRAW);
+            mesh.indices.size() * sizeof(GLushort), void_p(mesh.indices.data()), GL_DYNAMIC_DRAW);
     }
 
     glBindBuffer(GL_ARRAY_BUFFER, verticesBuffer.id);
@@ -1253,7 +1254,7 @@ void ViewportWindow::drawMesh(const RenderMesh &mesh) {
 
 void ViewportWindow::drawIndexRange(const IndexRange &range, GLenum mode) {
     glDrawElements(mode, GLsizei(range.count), GL_UNSIGNED_SHORT,
-        (void *)(range.start * sizeof(GLushort)));
+        void_p(range.start * sizeof(GLushort)));
 }
 
 void ViewportWindow::bindTexture(id_t texture) {

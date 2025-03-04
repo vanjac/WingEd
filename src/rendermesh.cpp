@@ -17,13 +17,13 @@ struct FaceTessState {
 static GLUtesselator *g_tess;
 
 static void CALLBACK tessBeginCallback(GLenum mode, void *data) {
-    auto state = (FaceTessState *)data;
+    auto state = reinterpret_cast<FaceTessState *>(data);
     state->mode = mode;
     state->startI = state->indices->size();
 }
 
 static void CALLBACK tessVertexCallback(void *vertex, void *data) {
-    auto state = (FaceTessState *)data;
+    auto state = reinterpret_cast<FaceTessState *>(data);
     auto index = index_t(size_t(vertex));
     auto numIndices = state->indices->size();
     if (state->mode == GL_TRIANGLE_STRIP && numIndices - state->startI >= 3) {
@@ -42,7 +42,7 @@ static void CALLBACK tessVertexCallback(void *vertex, void *data) {
 }
 
 static void CALLBACK tessErrorCallback(GLenum error, void *data) {
-    ((FaceTessState *)data)->error = error;
+    reinterpret_cast<FaceTessState *>(data)->error = error;
 }
 
 bool tesselateFace(std::vector<index_t> &faceIsOut, const Surface &surf, const Face &face,
@@ -56,7 +56,7 @@ bool tesselateFace(std::vector<index_t> &faceIsOut, const Surface &surf, const F
     gluTessBeginContour(g_tess);
     for (auto ep : FaceEdges(surf, face)) {
         glm::dvec3 dPos = ep.second.vert.in(surf).pos;
-        gluTessVertex(g_tess, glm::value_ptr(dPos), (void *)size_t(vertI++));
+        gluTessVertex(g_tess, glm::value_ptr(dPos), void_p(size_t(vertI++)));
     }
     gluTessEndContour(g_tess);
     gluTessEndPolygon(g_tess);
@@ -68,12 +68,13 @@ bool tesselateFace(std::vector<index_t> &faceIsOut, const Surface &surf, const F
 
 void initRenderMesh() {
     g_tess = gluNewTess();
-    gluTessCallback(g_tess, GLU_TESS_BEGIN_DATA, (GLvoid (CALLBACK*) ())tessBeginCallback);
-    // gluTessCallback(g_tess, GLU_TESS_END, (GLvoid (CALLBACK*) ())tessEndCallback);
-    gluTessCallback(g_tess, GLU_TESS_VERTEX_DATA, (GLvoid (CALLBACK*) ())tessVertexCallback);
-    gluTessCallback(g_tess, GLU_TESS_ERROR_DATA, (GLvoid (CALLBACK*) ())tessErrorCallback);
-    // gluTessCallback(g_tess, GLU_TESS_COMBINE_DATA, (GLvoid (*) ())tessCombineCallback);
-    // gluTessCallback(g_tess, GLU_TESS_EDGE_FLAG_DATA, (GLvoid (*) ())tessEdgeFlagCallback);
+    using callback_fn_t = GLvoid (CALLBACK*) ();
+    gluTessCallback(g_tess, GLU_TESS_BEGIN_DATA, callback_fn_t(tessBeginCallback));
+    // gluTessCallback(g_tess, GLU_TESS_END, callback_fn_t(tessEndCallback));
+    gluTessCallback(g_tess, GLU_TESS_VERTEX_DATA, callback_fn_t(tessVertexCallback));
+    gluTessCallback(g_tess, GLU_TESS_ERROR_DATA, callback_fn_t(tessErrorCallback));
+    // gluTessCallback(g_tess, GLU_TESS_COMBINE_DATA, callback_fn_t(tessCombineCallback));
+    // gluTessCallback(g_tess, GLU_TESS_EDGE_FLAG_DATA, callback_fn_t(tessEdgeFlagCallback));
 }
 
 void RenderMesh::clear() {
