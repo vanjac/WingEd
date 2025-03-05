@@ -5,7 +5,7 @@ all: build/glad.o build/glad_wgl.o build/resource.coff
 	$(cxx) -o build/winged.exe \
 		-std=c++17 -pedantic -Wall -Wextra -Wdeprecated \
 		-Wmultiple-inheritance -Wold-style-cast -Wsuggest-override -Wmissing-include-dirs \
-		-Wuseless-cast \
+		-Wconversion -Wshadow=local -Wuseless-cast \
 		-Wno-multichar -Wno-unknown-pragmas -Wno-format \
 		-Wno-missing-field-initializers -Wno-cast-function-type \
 		-DCHROMA_DEBUG \

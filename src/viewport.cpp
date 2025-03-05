@@ -502,8 +502,8 @@ void ViewportWindow::toolAdjust(POINT pos, SIZE delta, UINT keyFlags) {
                     auto snap = g_state.gridSize / absNorm[normAxis];
                     snapAccum += push / snap;
                     auto steps = int(glm::floor(snapAccum));
-                    snapAccum -= steps;
-                    push = steps * snap;
+                    snapAccum -= float(steps);
+                    push = float(steps) * snap;
                 }
                 amount = push * g_state.workPlane.norm;
                 moved += amount;
@@ -937,7 +937,7 @@ void ViewportWindow::onMouseLeave(HWND) {
 }
 
 void ViewportWindow::onMouseWheel(HWND, int, int, int delta, UINT) {
-    view.zoom *= glm::pow(1.0015f, (view.mode == VIEW_FLY) ? delta : -delta);
+    view.zoom *= glm::pow(1.0015f, float((view.mode == VIEW_FLY) ? delta : -delta));
     refresh();
 }
 
@@ -1030,10 +1030,10 @@ void ViewportWindow::onSize(HWND, UINT, int cx, int cy) {
 
 static constexpr glm::vec4 hexColor(uint32_t color) {
     return glm::vec4(
-        ((color >> 16) & 0xFF) / 255.0f,
-        ((color >> 8) & 0xFF) / 255.0f,
-        (color & 0xFF) / 255.0f,
-        ((color >> 24) & 0xFF) / 255.0f);
+        float((color >> 16) & 0xFF) / 255.0f,
+        float((color >> 8) & 0xFF) / 255.0f,
+        float(color & 0xFF) / 255.0f,
+        float((color >> 24) & 0xFF) / 255.0f);
 }
 
 static void setColor(glm::vec4 color) {
