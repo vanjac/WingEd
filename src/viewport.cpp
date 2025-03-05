@@ -841,7 +841,7 @@ void ViewportWindow::onLButtonDown(HWND, BOOL, int x, int y, UINT keyFlags) {
     } catch (winged_error const& err) {
         g_mainWindow.showError(err);
 #ifndef CHROMA_DEBUG
-    } catch (std::exception e) {
+    } catch (std::exception const& e) {
         g_mainWindow.showStdException(e);
 #endif
     }
@@ -1048,7 +1048,7 @@ void ViewportWindow::onPaint(HWND) {
 #endif
             generateRenderMesh(&g_renderMesh, g_state);
 #ifndef CHROMA_DEBUG
-        } catch (std::exception e) {
+        } catch (std::exception const& e) {
             g_renderMesh.clear();
             switch (MessageBoxA(NULL, e.what(), "Rendering Error",
                     MB_ICONERROR | MB_ABORTRETRYIGNORE | MB_TASKMODAL)) {

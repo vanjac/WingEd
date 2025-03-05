@@ -749,7 +749,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
     } catch (winged_error const& err) {
         showError(err);
 #ifndef CHROMA_DEBUG
-    } catch (std::exception e) {
+    } catch (std::exception const& e) {
         showStdException(e);
 #endif
     }

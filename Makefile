@@ -12,6 +12,12 @@ CXXFLAGS := -std=c++17 -pedantic -Wall -Wextra -Wdeprecated \
 	-Wno-multichar -Wno-unknown-pragmas -Wno-format \
 	-Wno-missing-field-initializers -Wno-cast-function-type
 
+debug: CXXFLAGS += -g -Og -DCHROMA_DEBUG
+debug: build/winged.exe
+
+release: CXXFLAGS += -Os
+release: clean build/winged.exe
+
 build/winged.exe: $(objects) build/glad.o build/glad_wgl.o build/resource.coff
 	@echo "Linking..."
 	$(CXX) -o build/winged.exe $(CXXFLAGS) \
@@ -22,7 +28,7 @@ build/winged.exe: $(objects) build/glad.o build/glad_wgl.o build/resource.coff
 
 $(objects): build/%.o: src/%.cpp $(headers)
 	@echo "Building $<..."
-	@$(CXX) -c $< -o $@ -DCHROMA_DEBUG $(CXXFLAGS) \
+	@$(CXX) -c $< -o $@ $(CXXFLAGS) \
 		-Isrc -Ilib/winchroma -isystem lib/glm -isystem lib/immer -isystem lib/glad
 
 build/glad.o: lib/glad/glad.c lib/glad/glad.h
