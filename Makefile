@@ -1,6 +1,6 @@
-CC  := x86_64-w64-mingw32-gcc-win32
-CXX := x86_64-w64-mingw32-g++-win32
-rc  := x86_64-w64-mingw32-windres
+CC  := i686-w64-mingw32-gcc-win32
+CXX := i686-w64-mingw32-g++-win32
+rc  := i686-w64-mingw32-windres
 
 headers := $(wildcard src/*.h) lib/winchroma/winchroma.h lib/glad/glad.h lib/glad/glad_wgl.h
 sources := $(wildcard src/*.cpp)
@@ -8,7 +8,7 @@ objects := $(sources:src/%.cpp=build/%.o)
 
 CXXFLAGS := -std=c++17 -pedantic -Wall -Wextra -Wdeprecated \
 	-Wmultiple-inheritance -Wold-style-cast -Wsuggest-override -Wmissing-include-dirs \
-	-Wconversion -Wshadow=local -Wuseless-cast \
+	-Wconversion -Wshadow=local \
 	-Wno-multichar -Wno-unknown-pragmas -Wno-format \
 	-Wno-missing-field-initializers -Wno-cast-function-type
 
