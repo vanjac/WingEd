@@ -15,7 +15,7 @@ CXXFLAGS := -std=c++17 -pedantic -Wall -Wextra -Wdeprecated \
 debug: CXXFLAGS += -g -Og -DCHROMA_DEBUG
 debug: build/winged.exe
 
-release: CXXFLAGS += -Os -flto=auto
+release: CXXFLAGS += -Os -s -flto=auto
 release: CXXFLAGS += -fno-declone-ctor-dtor # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=106103
 release: clean build/winged.exe
 
