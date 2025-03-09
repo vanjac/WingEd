@@ -8,3 +8,9 @@ defaults:
         -
           title: GitHub
           url: https://github.com/vanjac/winged
+  -
+    scope:
+      path: "*.html"
+    values:
+      layout: default
+      navigation: "/WingEd/navigation.html"
