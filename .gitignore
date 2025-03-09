@@ -1,2 +1,8 @@
+# Dotfiles
+/.*
+!/.editorconfig
+!/.gitignore
+!/.gitmodules
+
 build/*
 !build/empty
