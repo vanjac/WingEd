@@ -54,8 +54,8 @@ public:
     void refreshAll();
     void refreshAllImmediate();
     void flashSel();
-    void showError(winged_error err);
-    void showStdException(std::exception e);
+    void showError(winged_error const& err);
+    void showStdException(std::exception const& e);
     bool removeViewport(ViewportWindow *viewport);
     void open(const TCHAR *path);
     bool promptSaveChanges();

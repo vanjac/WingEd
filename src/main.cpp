@@ -310,7 +310,7 @@ void MainWindow::flashSel() {
     refreshAll();
 }
 
-void MainWindow::showError(winged_error err) {
+void MainWindow::showError(winged_error const& err) {
     if (err.message) {
         MessageBox(wnd, err.message, APP_NAME, MB_ICONERROR);
     } else {
@@ -321,7 +321,7 @@ void MainWindow::showError(winged_error err) {
     }
 }
 
-void MainWindow::showStdException(std::exception e) {
+void MainWindow::showStdException(std::exception const& e) {
     MessageBoxA(wnd, e.what(), "Unexpected Error", MB_ICONERROR);
 }
 
