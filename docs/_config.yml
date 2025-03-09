@@ -2,7 +2,7 @@ remote_theme: vanjac/theme
 defaults:
   -
     scope:
-      path: ""
+      path: "README.md"
     values:
       links:
         -
