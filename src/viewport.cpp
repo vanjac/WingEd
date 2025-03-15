@@ -147,7 +147,7 @@ static edge_pair edgeOnHoverFace(const Surface &surf, vert_id v) {
     throw winged_error();
 }
 
-static std::pair<edge_id, edge_id> findClosestOpposingEdges(
+static tuple<edge_id, edge_id> findClosestOpposingEdges(
         const Surface &surf, Face face1, Face face2) {
     float closestDist = FLT_MAX;
     edge_id e1 = face1.edge, e2 = face2.edge;

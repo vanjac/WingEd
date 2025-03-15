@@ -16,9 +16,9 @@ inline std::size_t hashCombine(std::size_t seed, const T& v) {
 }
 
 template<>
-struct std::hash<std::pair<winged::vert_id, winged::vert_id>> {
-    std::size_t operator() (const std::pair<winged::vert_id, winged::vert_id> &key) const {
-        return hashCombine(hashCombine(0, key.first), key.second);
+struct std::hash<tuple<winged::vert_id, winged::vert_id>> {
+    std::size_t operator() (const tuple<winged::vert_id, winged::vert_id> &key) const {
+        return hashCombine(hashCombine(0, get<0>(key)), get<1>(key));
     }
 };
 
@@ -236,7 +236,7 @@ std::tuple<EditorState, ViewState, Library> readFile(const wchar_t *file,
         pair.second.pos = readVal<glm::vec3>(handle);
         verts.push_back(pair);
     }
-    std::unordered_map<std::pair<vert_id, vert_id>, uint32_t> vertPairEdges;
+    std::unordered_map<tuple<vert_id, vert_id>, uint32_t> vertPairEdges;
     vertPairEdges.reserve(numEdges);
     for (uint32_t f = 0; f < numFaces; f++) {
         auto faceEdgeStart = edges.size();
