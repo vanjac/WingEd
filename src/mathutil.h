@@ -17,7 +17,7 @@ struct Plane {
 
 int maxAxis(glm::vec3 v);
 glm::vec3 accumPolyNormal(glm::vec3 v1, glm::vec3 v2); // single step of calculating polygon normal
-std::optional<glm::vec3> intersectRayPlane(const Ray &ray, const Plane &plane);
+tuple<bool, glm::vec3> intersectRayPlane(const Ray &ray, const Plane &plane);
 float solvePlane(glm::vec3 vec, glm::vec3 norm, int axis);
 
 inline float fixZero(float f) { return (f == 0) ? 0 : f; } // fix negative zero

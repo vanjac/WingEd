@@ -41,7 +41,7 @@ Ray viewPosToRay(glm::vec2 normPos, const glm::mat4 &project);
 
 glm::vec3 snapPlanePoint(glm::vec3 point, const Plane &plane, float grid);
 
-std::optional<float> pickVert(glm::vec3 vertPos,
+tuple<bool, float> pickVert(glm::vec3 vertPos,
     glm::vec2 normCur, glm::vec2 windowDim, const glm::mat4 &project);
 
 PickResult pickElement(const Surface &surf, PickType types,

@@ -7,6 +7,7 @@
 #include <tuple>
 using std::tie;
 using std::tuple;
+using std::get;
 
 // win32
 #define STRICT

@@ -328,8 +328,8 @@ static EditorState join(EditorState state) {
     } else if (auto face2 = g_hover.face.find(state.surf)) {
         if (state.selFaces.size() != 1) throw winged_error();
         const auto &face1 = state.selFaces.begin()->in(state.surf);
-        auto [e1, e2] = findClosestOpposingEdges(state.surf, face1, *face2);
-        state.surf = joinEdgeLoops(std::move(state.surf), e1, e2);
+        auto edges = findClosestOpposingEdges(state.surf, face1, *face2);
+        state.surf = joinEdgeLoops(std::move(state.surf), get<0>(edges), get<1>(edges));
         // TODO: select edge loop
     } else {
         throw winged_error();
@@ -409,20 +409,21 @@ void ViewportWindow::updateHover(POINT pos) {
 
     if (TOOL_FLAGS[g_tool] & TOOLF_DRAW) {
         for (size_t i = 0; i < g_drawVerts.size(); i++) {
-            auto pickDepth = pickVert(g_drawVerts[i], normCur, viewportDim, project);
-            if (pickDepth && *pickDepth < result.depth) {
+            auto pickRes = pickVert(g_drawVerts[i], normCur, viewportDim, project);
+            if (get<0>(pickRes) && get<1>(pickRes) < result.depth) {
                 result.type = PICK_DRAWVERT;
                 result.val = i;
                 result.point = g_drawVerts[i];
-                result.depth = *pickDepth;
+                result.depth = get<1>(pickRes);
             }
         }
     }
     if (g_tool == TOOL_POLY) {
         if (!result.type) {
             auto ray = viewPosToRay(normCur, project);
-            if (auto planePoint = intersectRayPlane(ray, g_state.workPlane)) {
-                result.point = snapPlanePoint(*planePoint, g_state.workPlane, grid);
+            auto res = intersectRayPlane(ray, g_state.workPlane);
+            if (get<0>(res)) {
+                result.point = snapPlanePoint(get<1>(res), g_state.workPlane, grid);
                 result.type = PICK_WORKPLANE;
             }
         }
@@ -478,7 +479,8 @@ void ViewportWindow::startToolAdjust(POINT pos) {
             }
         }
         auto ray = viewPosToRay(screenPosToNDC({pos.x, pos.y}, viewportDim), projMat * mvMat);
-        startPlanePos = intersectRayPlane(ray, g_state.workPlane).value_or(g_state.workPlane.org);
+        auto res = intersectRayPlane(ray, g_state.workPlane);
+        startPlanePos = get<0>(res) ? get<1>(res) : g_state.workPlane.org;
         moved = {};
         snapAccum = 0;
         lockMouse(pos, MOUSE_TOOL);
@@ -490,8 +492,8 @@ void ViewportWindow::toolAdjust(POINT pos, SIZE delta, UINT keyFlags) {
     switch (g_tool) {
         case TOOL_SELECT: {
             auto ray = viewPosToRay(screenPosToNDC({pos.x, pos.y}, viewportDim), projMat * mvMat);
-            auto planePos = intersectRayPlane(ray, g_state.workPlane)
-                .value_or(g_state.workPlane.org);
+            auto res = intersectRayPlane(ray, g_state.workPlane);
+            auto planePos = get<0>(res) ? get<1>(res) : g_state.workPlane.org;
             auto absNorm = glm::abs(g_state.workPlane.norm);
             auto normAxis = maxAxis(absNorm);
             auto ortho = bool(keyFlags & MK_CONTROL);

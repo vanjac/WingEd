@@ -39,25 +39,25 @@ glm::vec3 snapPlanePoint(glm::vec3 point, const Plane &plane, float grid) {
     return snapped;
 }
 
-std::optional<float> pickVert(glm::vec3 vertPos,
+tuple<bool, float> pickVert(glm::vec3 vertPos,
         glm::vec2 normCur, glm::vec2 windowDim, const glm::mat4 &project) {
     auto normPointDist = PICK_POINT_SIZE / windowDim;
     glm::vec3 normVert = projectPoint(vertPos, project);
     normVert.z += VERT_Z_OFFSET;
     if (glm::all(glm::lessThanEqual(glm::abs(glm::vec2(normVert) - normCur), normPointDist))
             && glm::abs(normVert.z) <= 1) {
-        return normVert.z;
+        return {true, normVert.z};
     }
-    return std::nullopt;
+    return {false, {}};
 }
 
 PickResult pickElement(const Surface &surf, PickType types, glm::vec2 normCur,
         glm::vec2 windowDim, const glm::mat4 &project, float grid, PickResult result) {
     if (types & PICK_VERT) {
         for (const auto &vert : surf.verts) {
-            auto pickDepth = pickVert(vert.second.pos, normCur, windowDim, project);
-            if (pickDepth && *pickDepth < result.depth)
-                result = PickResult(PICK_VERT, vert.first, vert.second.pos, *pickDepth);
+            auto pickRes = pickVert(vert.second.pos, normCur, windowDim, project);
+            if (get<0>(pickRes) && get<1>(pickRes) < result.depth)
+                result = PickResult(PICK_VERT, vert.first, vert.second.pos, get<1>(pickRes));
         }
         if (types == PICK_VERT)
             return result; // skip extra matrix calculations
@@ -113,9 +113,9 @@ PickResult pickElement(const Surface &surf, PickType types, glm::vec2 normCur,
             glm::vec3 last = face.second.edge.in(surf).prev.in(surf).vert.in(surf).pos;
             auto plane = Plane{last, normal}; // not normalized. should be fine
             auto intersect = intersectRayPlane(ray, plane);
-            if (!intersect)
+            if (!get<0>(intersect))
                 continue;
-            auto pt = *intersect;
+            auto pt = get<1>(intersect);
 
             auto axis = maxAxis(glm::abs(normal));
             auto a = (axis + 1) % 3, b = (axis + 2) % 3;
@@ -127,7 +127,7 @@ PickResult pickElement(const Surface &surf, PickType types, glm::vec2 normCur,
                 if (((vert[b] <= pt[b] && pt[b] < last[b])
                         || (last[b] <= pt[b] && pt[b] < vert[b]))
                         && (pt[a] < (last[a]-vert[a])*(pt[b]-vert[b])/(last[b]-vert[b])+vert[a]))
-			        inside = !inside;
+                    inside = !inside;
                 last = vert;
             }
             if (inside) {

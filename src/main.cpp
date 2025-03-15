@@ -385,7 +385,7 @@ void MainWindow::resetModel() {
 
 void MainWindow::open(const TCHAR *path) {
     auto res = readFile(path, g_library.rootPath.c_str());
-    validateSurface(std::get<0>(res).surf);
+    validateSurface(get<EditorState>(res).surf);
     tie(g_state, mainViewport.view, g_library) = std::move(res);
     memcpy(filePath, path, sizeof(filePath));
     resetModel();
