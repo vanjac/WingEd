@@ -10,7 +10,8 @@ CXXFLAGS := -std=c++14 -fno-rtti -pedantic -Wall -Wextra -Wdeprecated -Wconditio
 	-Wmultiple-inheritance -Wold-style-cast -Wsuggest-override -Wmissing-include-dirs \
 	-Wconversion -Wshadow=local -Wnon-virtual-dtor \
 	-Wno-multichar -Wno-unknown-pragmas -Wno-format \
-	-Wno-missing-field-initializers -Wno-cast-function-type
+	-Wno-missing-field-initializers -Wno-cast-function-type \
+	-DENTRY_APP_MAIN
 
 debug: CXXFLAGS += -g -Og -DCHROMA_DEBUG
 debug: build/winged.exe

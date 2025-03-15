@@ -828,6 +828,7 @@ LRESULT MainWindow::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
 
 } // namespace
 
+#ifdef ENTRY_APP_MAIN
 using namespace winged;
 
 int APIENTRY _tWinMain(HINSTANCE instance, HINSTANCE, LPTSTR, int showCmd) {
@@ -855,3 +856,4 @@ int APIENTRY _tWinMain(HINSTANCE instance, HINSTANCE, LPTSTR, int showCmd) {
 }
 
 CHROMA_MAIN
+#endif // ENTRY_APP_MAIN
