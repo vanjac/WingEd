@@ -9,7 +9,7 @@ objects := $(sources:src/%.cpp=build/%.o)
 CXXFLAGS := -std=c++14 -fno-rtti -pedantic -Wall -Wextra -Wdeprecated -Wconditionally-supported \
 	-Wmultiple-inheritance -Wold-style-cast -Wsuggest-override -Wmissing-include-dirs \
 	-Wconversion -Wshadow=local -Wnon-virtual-dtor \
-	-Wno-multichar -Wno-unknown-pragmas -Wno-format \
+	-Wno-unused-function -Wno-multichar -Wno-unknown-pragmas -Wno-format \
 	-Wno-missing-field-initializers -Wno-cast-function-type \
 	-DENTRY_APP_MAIN
 
