@@ -76,9 +76,9 @@ static PIXELFORMATDESCRIPTOR g_formatDesc;
 static HMODULE g_libGL;
 
 static void * loadGLProc(const char *name) {
-    auto p = void_p(wglGetProcAddress(name));
+    auto p = void_p(uintptr_t(wglGetProcAddress(name)));
     if (size_t(p) <= size_t(3) || size_t(p) == size_t(-1)) {
-        p = void_p(CHECKERR(GetProcAddress(g_libGL, name)));
+        p = void_p(uintptr_t(CHECKERR(GetProcAddress(g_libGL, name))));
     }
     return p;
 }
