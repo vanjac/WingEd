@@ -118,7 +118,7 @@ void writeFile(const wchar_t *file, const EditorState &state, const ViewState &v
             paints.push_back(face.second.paint);
             usedFiles.insert(face.second.paint->material);
         }
-        faceIndices[face.first] = uint32_t(faceIndices.size());
+        faceIndices.insert({face.first, uint32_t(faceIndices.size())});
     }
     write(handle, tempPtr(paints.size()), 4);
     write(handle, tempPtr(state.surf.faces.size()), 4);
@@ -130,12 +130,12 @@ void writeFile(const wchar_t *file, const EditorState &state, const ViewState &v
 
     for (const auto &vert : state.surf.verts) {
         write(handle, &vert.second.pos, sizeof(vert.second.pos));
-        vertIndices[vert.first] = uint32_t(vertIndices.size());
+        vertIndices.insert({vert.first, uint32_t(vertIndices.size())});
     }
     for (const auto &face : state.surf.faces) {
         for (auto edge : FaceEdges(state.surf, face.second)) {
             write(handle, &vertIndices[edge.second.vert], 4);
-            edgeIndices[edge.first] = uint32_t(edgeIndices.size());
+            edgeIndices.insert({edge.first, uint32_t(edgeIndices.size())});
         }
         write(handle, tempPtr(-1), 4);
     }
