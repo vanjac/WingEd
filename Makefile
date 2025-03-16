@@ -6,15 +6,17 @@ headers := $(wildcard src/*.h) lib/winchroma/winchroma.h lib/glad/glad.h lib/gla
 sources := $(wildcard src/*.cpp)
 objects := $(sources:src/%.cpp=build/%.o)
 
-CXXFLAGS := -std=c++14 -fno-rtti -fpermissive \
+entry := ENTRY_APP_MAIN
+
+CXXFLAGS := -std=c++14 -fstrong-eval-order -fno-rtti \
 	-Wpedantic -Wall -Wextra -Wdeprecated -Wconditionally-supported \
 	-Wmultiple-inheritance -Wold-style-cast -Wsuggest-override -Wmissing-include-dirs \
 	-Wconversion -Wshadow=local -Wnon-virtual-dtor \
 	-Wno-unused-function -Wno-multichar -Wno-unknown-pragmas -Wno-format \
 	-Wno-missing-field-initializers -Wno-cast-function-type \
-	-DENTRY_APP_MAIN
+	-D$(entry)
 
-debug: CXXFLAGS += -g -Og -DCHROMA_DEBUG
+debug: CXXFLAGS += -g -Og -fpermissive -DCHROMA_DEBUG
 debug: build/winged.exe
 
 release: CXXFLAGS += -mwindows -Os -s -flto=auto -DNDEBUG
