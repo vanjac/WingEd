@@ -6,7 +6,8 @@ headers := $(wildcard src/*.h) lib/winchroma/winchroma.h lib/glad/glad.h lib/gla
 sources := $(wildcard src/*.cpp)
 objects := $(sources:src/%.cpp=build/%.o)
 
-CXXFLAGS := -std=c++14 -fno-rtti -pedantic -Wall -Wextra -Wdeprecated -Wconditionally-supported \
+CXXFLAGS := -std=c++14 -fno-rtti -fpermissive \
+	-Wpedantic -Wall -Wextra -Wdeprecated -Wconditionally-supported \
 	-Wmultiple-inheritance -Wold-style-cast -Wsuggest-override -Wmissing-include-dirs \
 	-Wconversion -Wshadow=local -Wnon-virtual-dtor \
 	-Wno-unused-function -Wno-multichar -Wno-unknown-pragmas -Wno-format \
