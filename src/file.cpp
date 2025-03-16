@@ -6,6 +6,7 @@
 #include <shlwapi.h>
 #include "rendermesh.h"
 #include "stdutil.h"
+#include "strutil.h"
 
 using namespace chroma;
 
@@ -82,14 +83,10 @@ static void writeSet(HANDLE handle, const immer::set<T> &set, const std::unorder
 }
 
 static void writeString(HANDLE handle, const wchar_t *str) {
-    auto bufSize = WideCharToMultiByte(CP_UTF8, 0, str, -1, NULL, 0, NULL, NULL);
-    if (bufSize > 0) {
-        std::vector<char> utf8(bufSize);
-        auto len = uint16_t(WideCharToMultiByte(CP_UTF8, 0, str, -1,
-            utf8.data(), int(utf8.size()), NULL, NULL));
-        write(handle, &len, 2);
-        write(handle, utf8.data(), len);
-    }
+    auto utf8 = narrow(str);
+    auto len = uint16_t(utf8.size());
+    write(handle, &len, 2);
+    write(handle, utf8.data(), len);
 }
 
 void writeFile(const wchar_t *file, const EditorState &state, const ViewState &view,
@@ -190,12 +187,12 @@ static immer::set<T> readSet(HANDLE handle, const std::vector<std::pair<T, U>> &
     return set;
 }
 
-static void readString(HANDLE handle, wchar_t *str, size_t size) {
+static std::wstring readString(HANDLE handle) {
     auto len = readVal<uint16_t>(handle);
     std::unique_ptr<char[]> buf(new char[len + 1]);
     read(handle, buf.get(), len);
     buf[len] = 0;
-    MultiByteToWideChar(CP_UTF8, 0, buf.get(), -1, str, int(size));
+    return widen(buf.get());
 }
 
 std::tuple<EditorState, ViewState, Library> readFile(const wchar_t *file,
@@ -289,14 +286,14 @@ std::tuple<EditorState, ViewState, Library> readFile(const wchar_t *file,
         PathRemoveFileSpec(folder);
     }
     while (1) {
-        wchar_t relative[MAX_PATH] = L"", combined[MAX_PATH] = L"";
-        readString(handle, relative, _countof(relative));
-        if (relative[0] == 0)
+        wchar_t combined[MAX_PATH] = L"";
+        auto relative = readString(handle);
+        if (relative.empty())
             break;
         if (libraryPath[0] == 0)
-            PathCombine(combined, folder, relative);
+            PathCombine(combined, folder, relative.c_str());
         else
-            PathCombine(combined, libraryPath, relative);
+            PathCombine(combined, libraryPath, relative.c_str());
         auto id = readVal<id_t>(handle);
         if (combined[0])
             library.addFile(id, combined);
