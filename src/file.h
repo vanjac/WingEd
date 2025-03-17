@@ -6,14 +6,16 @@
 #include "editor.h"
 #include "library.h"
 
+#include <string>
+
 namespace winged {
 
-void writeFile(const wchar_t *file, const EditorState &state, const ViewState &view,
+void writeFile(const std::string &file, const EditorState &state, const ViewState &view,
     const Library &library);
-std::tuple<EditorState, ViewState, Library> readFile(const wchar_t *file,
-    const wchar_t *libraryPath);
+std::tuple<EditorState, ViewState, Library> readFile(const std::string &file,
+    const std::string &libraryPath);
 
-void writeObj(const wchar_t *file, const Surface &surf, const Library &library,
-    const wchar_t *mtlName, bool writeMtl);
+void writeObj(const std::string &file, const Surface &surf, const Library &library,
+    const std::string &mtlName, bool writeMtl);
 
 } // namespace

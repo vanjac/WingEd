@@ -9,14 +9,14 @@
 namespace winged {
 
 struct Library {
-    std::wstring rootPath; // if empty, use containing directory of file when saved
+    std::string rootPath; // if empty, use containing directory of file when saved
 
     // external file references (absolute paths)
-    std::unordered_map<id_t, std::wstring> idPaths;
-    std::unordered_map<std::wstring, id_t> pathIds;
+    std::unordered_map<id_t, std::string> idPaths;
+    std::unordered_map<std::string, id_t> pathIds;
 
     void clear();
-    void addFile(id_t id, std::wstring path);
+    void addFile(id_t id, std::string path);
 };
 
 } // namespace

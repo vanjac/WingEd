@@ -82,16 +82,16 @@ static void writeSet(HANDLE handle, const immer::set<T> &set, const std::unorder
         write(handle, &map.at(v), sizeof(U));
 }
 
-static void writeString(HANDLE handle, const wchar_t *str) {
-    auto utf8 = narrow(str);
-    auto len = uint16_t(utf8.size());
+static void writeString(HANDLE handle, const std::string &str) {
+    auto len = uint16_t(str.size());
     write(handle, &len, 2);
-    write(handle, utf8.data(), len);
+    write(handle, str.data(), len);
 }
 
-void writeFile(const wchar_t *file, const EditorState &state, const ViewState &view,
+void writeFile(const std::string &file, const EditorState &state, const ViewState &view,
         const Library &library) {
-    CHandle handle(CreateFile(file, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+    auto wfile = widen(file);
+    CHandle handle(CreateFile(wfile.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
         FILE_ATTRIBUTE_NORMAL, NULL));
     if (handle == INVALID_HANDLE_VALUE)
         throw winged_error(L"Error saving file");
@@ -149,21 +149,22 @@ void writeFile(const wchar_t *file, const EditorState &state, const ViewState &v
     for (const auto &id : usedFiles) {
         if (auto path = tryGet(library.idPaths, id)) {
             wchar_t relative[MAX_PATH] = L"";
+            auto wpath = widen(*path);
             if (library.rootPath.empty()) {
-                PathRelativePathTo(relative, file, 0, path->c_str(), 0);
+                PathRelativePathTo(relative, wfile.c_str(), 0, wpath.c_str(), 0);
             } else {
-                PathRelativePathTo(relative, library.rootPath.c_str(), FILE_ATTRIBUTE_DIRECTORY,
-                    path->c_str(), 0);
+                PathRelativePathTo(relative, widen(library.rootPath).c_str(),
+                    FILE_ATTRIBUTE_DIRECTORY, wpath.c_str(), 0);
             }
             if (relative[0]) {
-                writeString(handle, relative);
+                writeString(handle, narrow(relative));
             } else {
-                writeString(handle, path->c_str()); // absolute path
+                writeString(handle, *path); // absolute path
             }
             write(handle, &id, sizeof(id));
         }
     }
-    writeString(handle, L"");
+    writeString(handle, "");
 }
 
 static void read(HANDLE handle, void *buf, DWORD size) {
@@ -187,17 +188,18 @@ static immer::set<T> readSet(HANDLE handle, const std::vector<std::pair<T, U>> &
     return set;
 }
 
-static std::wstring readString(HANDLE handle) {
+static std::string readString(HANDLE handle) {
     auto len = readVal<uint16_t>(handle);
     std::unique_ptr<char[]> buf(new char[len + 1]);
     read(handle, buf.get(), len);
     buf[len] = 0;
-    return widen(buf.get());
+    return buf.get();
 }
 
-std::tuple<EditorState, ViewState, Library> readFile(const wchar_t *file,
-        const wchar_t *libraryPath) {
-    CHandle handle(CreateFile(file, GENERIC_READ, 0, NULL, OPEN_EXISTING,
+std::tuple<EditorState, ViewState, Library> readFile(const std::string &file,
+        const std::string &libraryPath) {
+    auto wfile = widen(file);
+    CHandle handle(CreateFile(wfile.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING,
         FILE_ATTRIBUTE_NORMAL, NULL));
     if (handle == INVALID_HANDLE_VALUE)
         throw winged_error(L"Error opening file");
@@ -282,7 +284,7 @@ std::tuple<EditorState, ViewState, Library> readFile(const wchar_t *file,
     library.rootPath = libraryPath;
     wchar_t folder[MAX_PATH];
     if (libraryPath[0] == 0) {
-        lstrcpy(folder, file);
+        lstrcpy(folder, wfile.c_str());
         PathRemoveFileSpec(folder);
     }
     while (1) {
@@ -291,12 +293,12 @@ std::tuple<EditorState, ViewState, Library> readFile(const wchar_t *file,
         if (relative.empty())
             break;
         if (libraryPath[0] == 0)
-            PathCombine(combined, folder, relative.c_str());
+            PathCombine(combined, folder, widen(relative).c_str());
         else
-            PathCombine(combined, libraryPath, relative.c_str());
+            PathCombine(combined, widen(libraryPath).c_str(), widen(relative).c_str());
         auto id = readVal<id_t>(handle);
         if (combined[0])
-            library.addFile(id, combined);
+            library.addFile(id, narrow(combined));
     }
 
     return {state, view, library};
@@ -307,19 +309,20 @@ struct ObjFaceVert {
     int v, vt;
 };
 
-void writeObj(const wchar_t *file, const Surface &surf, const Library &library,
-        const wchar_t *mtlName, bool writeMtl) {
-    std::unordered_map<std::wstring, id_t> matNames;
+void writeObj(const std::string &file, const Surface &surf, const Library &library,
+        const std::string &mtlName, bool writeMtl) {
+    auto wfile = widen(file);
+    std::unordered_map<std::string, id_t> matNames;
 
     {
-        CHandle handle(CreateFile(file, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+        CHandle handle(CreateFile(wfile.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
             FILE_ATTRIBUTE_NORMAL, NULL));
         if (handle == INVALID_HANDLE_VALUE)
             throw winged_error(L"Error saving OBJ file");
         char buf[256];
 
-        if (mtlName && mtlName[0])
-            write(handle, buf, sprintf(buf, "mtllib %S\n\n", mtlName));
+        if (!mtlName.empty())
+            write(handle, buf, sprintf(buf, "mtllib %s\n\n", mtlName.c_str()));
 
         std::unordered_map<vert_id, int> vertIndices;
         int v = 1;
@@ -340,19 +343,19 @@ void writeObj(const wchar_t *file, const Surface &surf, const Library &library,
         std::vector<ObjFaceVert> faceVerts;
         std::vector<index_t> faceIndices;
         for (const auto &pair : matFaces) {
-            std::wstring texFile;
+            std::string texFile;
             if (auto path = tryGet(library.idPaths, pair.first)) {
-                texFile = PathFindFileName(path->c_str());
+                texFile = PathFindFileNameA(path->c_str());
                 std::replace(texFile.begin(), texFile.end(), L' ', L'_');
             } else {
-                texFile = L"default";
+                texFile = "default";
             }
-            std::wstring matName = texFile;
+            std::string matName = texFile;
             int num = 1;
             while (matName.empty() || matNames.count(matName))
-                matName = texFile + std::to_wstring(num++);
+                matName = texFile + std::to_string(num++);
             matNames[matName] = pair.first;
-            write(handle, buf, sprintf(buf, "\nusemtl %S", matName.c_str()));
+            write(handle, buf, sprintf(buf, "\nusemtl %s", matName.c_str()));
 
             for (const auto &face : pair.second) {
                 auto normal = faceNormal(surf, face);
@@ -396,9 +399,9 @@ void writeObj(const wchar_t *file, const Surface &surf, const Library &library,
 
     if (writeMtl) {
         wchar_t folder[MAX_PATH], mtlPath[MAX_PATH];
-        lstrcpy(folder, file);
+        lstrcpy(folder, wfile.c_str());
         PathRemoveFileSpec(folder);
-        PathCombine(mtlPath, folder, mtlName);
+        PathCombine(mtlPath, folder, widen(mtlName).c_str());
 
         CHandle handle(CreateFile(mtlPath, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
             FILE_ATTRIBUTE_NORMAL, NULL));
@@ -407,10 +410,11 @@ void writeObj(const wchar_t *file, const Surface &surf, const Library &library,
         char buf[256];
 
         for (const auto &pair : matNames) {
-            write(handle, buf, sprintf(buf, "newmtl %S\n", pair.first.c_str()));
+            write(handle, buf, sprintf(buf, "newmtl %s\n", pair.first.c_str()));
             if (auto texPath = tryGet(library.idPaths, pair.second)) {
                 wchar_t relative[MAX_PATH] = L"";
-                PathRelativePathTo(relative, folder, FILE_ATTRIBUTE_DIRECTORY, texPath->c_str(), 0);
+                auto wpath = widen(*texPath);
+                PathRelativePathTo(relative, folder, FILE_ATTRIBUTE_DIRECTORY, wpath.c_str(), 0);
                 for (wchar_t *c = relative; *c; c++)
                     if (*c == L'\\') *c = L'/';
                 write(handle, buf, sprintf(buf, "map_Kd %S\n", relative));

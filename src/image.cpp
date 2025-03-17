@@ -1,6 +1,7 @@
 #include "image.h"
 
 #include "winchroma.h"
+#include "strutil.h"
 #include <objidl.h>
 #ifndef __MINGW32__
 // GDI+ requires min/max
@@ -40,9 +41,9 @@ void uninitImage() {
     Gdi::GdiplusShutdown(g_gdiplusToken);
 }
 
-ImageData loadImage(const wchar_t *path) {
+ImageData loadImage(const std::string &path) {
     ImageData image;
-    Gdi::Bitmap bitmap(path, FALSE);
+    Gdi::Bitmap bitmap(widen(path).c_str(), FALSE);
     if (!checkStatus(bitmap.GetLastStatus()))
         return image;
     Gdi::Rect rect(0, 0, bitmap.GetWidth(), bitmap.GetHeight());

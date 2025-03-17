@@ -4,6 +4,7 @@
 #include "common.h"
 
 #include <memory>
+#include <string>
 
 namespace winged {
 
@@ -15,6 +16,6 @@ struct ImageData {
 void initImage();
 void uninitImage();
 
-ImageData loadImage(const wchar_t *path);
+ImageData loadImage(const std::string &path);
 
 } // namespace

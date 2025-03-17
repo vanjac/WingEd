@@ -5,6 +5,7 @@
 #include "image.h"
 #include "mathutil.h"
 #include "resource.h"
+#include "strutil.h"
 #include <immer/set_transient.hpp>
 #include <shlwapi.h>
 
@@ -384,7 +385,7 @@ void MainWindow::resetModel() {
 }
 
 void MainWindow::open(const TCHAR *path) {
-    auto res = readFile(path, g_library.rootPath.c_str());
+    auto res = readFile(narrow(path), g_library.rootPath);
     validateSurface(get<EditorState>(res).surf);
     tie(g_state, mainViewport.view, g_library) = std::move(res);
     memcpy(filePath, path, sizeof(filePath));
@@ -394,7 +395,7 @@ void MainWindow::open(const TCHAR *path) {
 bool MainWindow::saveAs() {
     auto filters = L"WingEd File (.wing)\0*.wing\0All Files\0*.*\0\0";
     if (GetSaveFileName(tempPtr(makeOpenFileName(filePath, wnd, filters, L"wing")))) {
-        writeFile(filePath, g_state, mainViewport.view, g_library);
+        writeFile(narrow(filePath), g_state, mainViewport.view, g_library);
         unsavedCount = 0;
         return true;
     }
@@ -405,7 +406,7 @@ bool MainWindow::save() {
     if (!filePath[0]) {
         return saveAs();
     } else {
-        writeFile(filePath, g_state, mainViewport.view, g_library);
+        writeFile(narrow(filePath), g_state, mainViewport.view, g_library);
         unsavedCount = 0;
         return true;
     }
@@ -542,7 +543,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                 saveFile.lpstrTitle = L"Export OBJ";
                 if (GetSaveFileName(&saveFile)) {
                     lstrcpy(PathFindExtension(mtlFile), L".mtl");
-                    writeObj(objFilePath, g_state.surf, g_library, mtlFile, true);
+                    writeObj(narrow(objFilePath), g_state.surf, g_library, narrow(mtlFile), true);
                 }
                 break;
             }
@@ -554,7 +555,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                     "*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.tif;*.tiff\0"
                     "All Files\0*.*\0\0";
                 if (GetOpenFileName(tempPtr(makeOpenFileName(texFile, wnd, filters)))) {
-                    auto texFileStr = std::wstring(texFile);
+                    auto texFileStr = narrow(texFile);
                     id_t texId = g_library.pathIds[texFileStr];
                     if (texId == id_t{}) {
                         texId = genId();

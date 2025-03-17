@@ -13,6 +13,7 @@
 #include "glutil.h"
 #include "stdutil.h"
 #include "resource.h"
+#include "strutil.h"
 
 using namespace chroma;
 
@@ -1000,11 +1001,11 @@ void ViewportWindow::onDropFiles(HWND, HDROP drop) {
         if (DragQueryFile(drop, 0, path, _countof(path))) {
             auto ext = PathFindExtension(path);
             if (ext[0] == 0) { // folder
-                g_library.rootPath = path;
+                g_library.rootPath = narrow(path);
             } else if (lstrcmpi(ext, L".wing") == 0) {
                 g_mainWindow.open(path);
             } else { // assume image
-                auto texFileStr = std::wstring(path);
+                auto texFileStr = narrow(path);
                 id_t texId = g_library.pathIds[texFileStr];
                 if (texId == id_t{}) {
                     texId = genId();
@@ -1275,7 +1276,7 @@ void ViewportWindow::bindTexture(id_t texture) {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         if (auto path = tryGet(g_library.idPaths, texture)) {
-            auto image = loadImage(path->c_str());
+            auto image = loadImage(*path);
             if (image.data) {
                 texImageMipmaps(GL_TEXTURE_2D, GL_RGBA, image.width, image.height,
                     GL_BGRA, GL_UNSIGNED_BYTE, image.data.get());
