@@ -1,7 +1,6 @@
 #pragma once
 #include "common.h"
 
-#include <tchar.h>
 #include <string>
 #include <unordered_map>
 #include "id.h"

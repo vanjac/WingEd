@@ -41,9 +41,9 @@ struct SizedBuffer {
     size_t size;
 };
 
-const TCHAR VIEWPORT_CLASS[] = _T("WingEd Viewport");
+const wchar_t VIEWPORT_CLASS[] = L"WingEd Viewport";
 class ViewportWindow : public chroma::WindowImpl {
-    const TCHAR * className() const override { return VIEWPORT_CLASS; }
+    const wchar_t * className() const override { return VIEWPORT_CLASS; }
 
 public:
     ViewState view;

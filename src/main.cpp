@@ -141,8 +141,8 @@ INT_PTR CALLBACK matrixDlgProc(HWND dlg, UINT msg, WPARAM wParam, LPARAM lParam)
             SetWindowLongPtr(dlg, DWLP_USER, lParam);
             const auto &mat = *reinterpret_cast<glm::mat3 *>(lParam);
             for (int i = 0; i < 9; i++) {
-                TCHAR buf[64];
-                _stprintf(buf, L"%g", mat[i % 3][i / 3]);
+                wchar_t buf[64];
+                _swprintf(buf, L"%g", mat[i % 3][i / 3]);
                 SetDlgItemText(dlg, 1000 + i, buf);
             }
             return true;
@@ -154,9 +154,9 @@ INT_PTR CALLBACK matrixDlgProc(HWND dlg, UINT msg, WPARAM wParam, LPARAM lParam)
                     glm::mat3 &mat = *reinterpret_cast<glm::mat3 *>(
                         GetWindowLongPtr(dlg, DWLP_USER));
                     for (int i = 0; i < 9; i++) {
-                        TCHAR buf[64];
+                        wchar_t buf[64];
                         GetDlgItemText(dlg, 1000 + i, buf, _countof(buf));
-                        mat[i % 3][i / 3] = float(_tstof(buf));
+                        mat[i % 3][i / 3] = float(_wtof(buf));
                     }
                     EndDialog(dlg, LOWORD(wParam));
                     return true;
@@ -190,54 +190,54 @@ void MainWindow::undo() {
 }
 
 void MainWindow::updateStatus() {
-    TCHAR buf[256];
+    wchar_t buf[256];
 
-    TCHAR *str = buf;
+    wchar_t *str = buf;
     if (unsavedCount)
-        str += _stprintf(str, L"* ");
+        str += _swprintf(str, L"* ");
     if (filePath[0] == 0) {
-        str += _stprintf(str, L"Untitled");
+        str += _swprintf(str, L"Untitled");
     } else {
-        str += _stprintf(str, L"%s", PathFindFileName(filePath));
+        str += _swprintf(str, L"%s", PathFindFileName(filePath));
     }
-    str += _stprintf(str, L" - %s", APP_NAME);
+    str += _swprintf(str, L" - %s", APP_NAME);
     SendMessage(wnd, WM_SETTEXT, 0, LRESULT(buf));
 
-    _stprintf(buf, L"Grid:  %g", g_state.gridSize);
+    _swprintf(buf, L"Grid:  %g", g_state.gridSize);
     SendMessage(statusWnd, SB_SETTEXT, STATUS_GRID, LPARAM(buf));
 
     buf[0] = 0;
     str = buf;
     if (!g_state.selVerts.empty())
-        str += _stprintf(str, L"%zd vert ", g_state.selVerts.size());
+        str += _swprintf(str, L"%zd vert ", g_state.selVerts.size());
     if (!g_state.selEdges.empty())
-        str += _stprintf(str, L"%zd edge ", g_state.selEdges.size());
+        str += _swprintf(str, L"%zd edge ", g_state.selEdges.size());
     if (!g_state.selFaces.empty())
-        str += _stprintf(str, L"%zd face", g_state.selFaces.size());
+        str += _swprintf(str, L"%zd face", g_state.selFaces.size());
     SendMessage(statusWnd, SB_SETTEXT, STATUS_SELECT, LPARAM(buf));
 
     if (g_tool == TOOL_SELECT && activeViewport->mouseMode == MOUSE_TOOL) {
         auto moved = activeViewport->moved;
-        _stprintf(buf, L"Move  %.3g, %.3g, %.3g", VEC3_ARGS(moved));
+        _swprintf(buf, L"Move  %.3g, %.3g, %.3g", VEC3_ARGS(moved));
     } else if (numDrawPoints() > 0 && g_hover.type) {
         auto lastPos = g_drawVerts.empty()
             ? g_state.selVerts.begin()->in(g_state.surf).pos
             : g_drawVerts.back();
-        _stprintf(buf, L"Len:  %g", glm::distance(lastPos, g_hover.point));
+        _swprintf(buf, L"Len:  %g", glm::distance(lastPos, g_hover.point));
     } else if (g_state.selEdges.size() == 1) {
         const auto &edge = g_state.selEdges.begin()->in(g_state.surf);
         auto v1 = edge.vert.in(g_state.surf).pos;
         auto v2 = edge.twin.in(g_state.surf).vert.in(g_state.surf).pos;
-        _stprintf(buf, L"Len:  %g", glm::distance(v1, v2));
+        _swprintf(buf, L"Len:  %g", glm::distance(v1, v2));
     } else if (g_state.selVerts.size() == 1) {
         auto pos = g_state.selVerts.begin()->in(g_state.surf).pos;
-        _stprintf(buf, L"Pos:  %.3g, %.3g, %.3g", VEC3_ARGS(pos));
+        _swprintf(buf, L"Pos:  %.3g, %.3g, %.3g", VEC3_ARGS(pos));
     } else {
         buf[0] = 0;
     }
     SendMessage(statusWnd, SB_SETTEXT, STATUS_DIMEN, LPARAM(buf));
 
-    const TCHAR *helpText = L"";
+    const wchar_t *helpText = L"";
     if (activeViewport->mouseMode == MOUSE_CAM_ROTATE) {
         if (activeViewport->view.mode == VIEW_FLY)
             helpText = L"Drag: Look";
@@ -384,7 +384,7 @@ void MainWindow::resetModel() {
     mainViewport.updateProjMat();
 }
 
-void MainWindow::open(const TCHAR *path) {
+void MainWindow::open(const wchar_t *path) {
     auto res = readFile(narrow(path), g_library.rootPath);
     validateSurface(get<EditorState>(res).surf);
     tie(g_state, mainViewport.view, g_library) = std::move(res);
@@ -415,8 +415,8 @@ bool MainWindow::save() {
 bool MainWindow::promptSaveChanges() {
     if (unsavedCount) {
         auto name = (filePath[0] == 0) ? L"Untitled" : PathFindFileName(filePath);
-        TCHAR buf[256];
-        _stprintf(buf, L"Save changes to %s?", name);
+        wchar_t buf[256];
+        _swprintf(buf, L"Save changes to %s?", name);
         switch (MessageBox(wnd, buf, APP_NAME, MB_YESNOCANCEL)) {
             case IDYES:
                 return save();
@@ -516,7 +516,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                 }
                 break;
             case IDM_OPEN: {
-                TCHAR newFile[MAX_PATH] = L"";
+                wchar_t newFile[MAX_PATH] = L"";
                 auto filters = L"WingEd File (.wing)\0*.wing\0\0";
                 if (GetOpenFileName(tempPtr(makeOpenFileName(newFile, wnd, filters, L"wing")))) {
                     if (promptSaveChanges())
@@ -535,7 +535,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                     lstrcpy(objFilePath, filePath);
                     lstrcpy(PathFindExtension(objFilePath), L".obj");
                 }
-                TCHAR mtlFile[MAX_PATH] = L"";
+                wchar_t mtlFile[MAX_PATH] = L"";
                 auto filters = L"OBJ file (.obj)\0*.obj\0All Files\0*.*\0\0";
                 auto saveFile = makeOpenFileName(objFilePath, wnd, filters, L"obj");
                 saveFile.lpstrFileTitle = mtlFile;
@@ -548,7 +548,7 @@ void MainWindow::onCommand(HWND, int id, HWND ctl, UINT code) {
                 break;
             }
             case IDM_ADD_TEXTURE: {
-                TCHAR texFile[MAX_PATH] = L"";
+                wchar_t texFile[MAX_PATH] = L"";
                 // https://learn.microsoft.com/en-us/windows/win32/gdiplus/-gdiplus-types-of-bitmaps-about
                 auto filters =
                     L"Supported Images (.png, .jpg, .jpeg, .bmp, .gif, .tif, .tiff)\0"
@@ -832,7 +832,7 @@ LRESULT MainWindow::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
 #ifdef ENTRY_APP_MAIN
 using namespace winged;
 
-int APIENTRY _tWinMain(HINSTANCE instance, HINSTANCE, LPTSTR, int showCmd) {
+int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, LPWSTR, int showCmd) {
     if (!initViewport())
         return 0;
     initImage();

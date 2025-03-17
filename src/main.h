@@ -16,7 +16,7 @@
 
 namespace winged {
 
-const TCHAR APP_NAME[] = _T("WingEd");
+const wchar_t APP_NAME[] = L"WingEd";
 
 enum Tool {
     TOOL_SELECT, TOOL_POLY, TOOL_KNIFE, TOOL_JOIN, NUM_TOOLS
@@ -41,7 +41,7 @@ const PickType
     PICK_DRAWVERT = 0x10;
 
 class MainWindow : public chroma::WindowImpl {
-    const TCHAR * className() const override { return APP_NAME; }
+    const wchar_t * className() const override { return APP_NAME; }
 
 public:
     ViewportWindow *activeViewport, *hoveredViewport;
@@ -57,14 +57,14 @@ public:
     void showError(winged_error const& err);
     void showStdException(std::exception const& e);
     bool removeViewport(ViewportWindow *viewport);
-    void open(const TCHAR *path);
+    void open(const wchar_t *path);
     bool promptSaveChanges();
 
 private:
     std::stack<EditorState> undoStack;
     std::stack<EditorState> redoStack;
     int unsavedCount = 0;
-    TCHAR filePath[MAX_PATH] = L"", objFilePath[MAX_PATH] = L"";
+    wchar_t filePath[MAX_PATH] = L"", objFilePath[MAX_PATH] = L"";
 
     glm::mat3 userMatrix = glm::mat3(1);
     glm::mat3 userPaintMatrix = glm::mat3(1);

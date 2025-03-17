@@ -997,7 +997,7 @@ bool ViewportWindow::onCommand(HWND, int id, HWND, UINT) {
 
 void ViewportWindow::onDropFiles(HWND, HDROP drop) {
     try {
-        TCHAR path[MAX_PATH];
+        wchar_t path[MAX_PATH];
         if (DragQueryFile(drop, 0, path, _countof(path))) {
             auto ext = PathFindExtension(path);
             if (ext[0] == 0) { // folder
