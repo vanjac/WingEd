@@ -3,6 +3,7 @@
 !/.editorconfig
 !/.gitignore
 !/.gitmodules
+!/.github
 
 build/*
 !build/empty
