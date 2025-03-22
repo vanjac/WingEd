@@ -47,8 +47,12 @@ jobs:
         run: |
           cp -TR ./_site ./_build/${{ github.event.repository.name }}
       - name: Commit to build repo
+        continue-on-error: true
         run: |
           cd _build
           git add .
           git commit -m "Update ${{ github.event.repository.name }}"
+      - name: Push build repo
+        run: |
+          cd _build
           git push
