@@ -40,7 +40,7 @@ jobs:
           git config --global user.email "<>"
       - name: Copy build files
         run: |
-          cp -TR ./docs ./_build/${{ github.event.repository.name }}
+          rsync -a --delete ./docs/ ./_build/${{ github.event.repository.name }}
       - name: Commit to build repo
         continue-on-error: true
         run: |
