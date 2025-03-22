@@ -35,6 +35,10 @@ jobs:
         with:
           source: ./docs
           destination: ./_site
+      - name: Checkout build repo
+        uses: actions/checkout@v4
+        repository: 'vanjac/chroma-zone-build'
+        path: _build
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
 
