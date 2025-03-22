@@ -18,7 +18,7 @@ permissions:
 # Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
 # However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
 concurrency:
-  group: "pages"
+  group: "website"
   cancel-in-progress: false
 
 jobs:
@@ -28,8 +28,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
       - name: Build with Jekyll
         uses: actions/jekyll-build-pages@v1
         with:
@@ -47,24 +45,10 @@ jobs:
           git config --global user.email "<>"
       - name: Copy build files
         run: |
-          cp -TR ./_site ./_build/WingEd
+          cp -TR ./_site ./_build/${{ github.event.repository.name }}
       - name: Commit to build repo
         run: |
           cd _build
           git add .
-          git commit -m "Update WingEd"
+          git commit -m "Update ${{ github.event.repository.name }}"
           git push
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-
-  # Deployment job
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
