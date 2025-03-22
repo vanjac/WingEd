@@ -28,11 +28,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Build with Jekyll
-        uses: actions/jekyll-build-pages@v1
-        with:
-          source: ./docs
-          destination: ./_site
       - name: Checkout build repo
         uses: actions/checkout@v4
         with:
@@ -45,7 +40,7 @@ jobs:
           git config --global user.email "<>"
       - name: Copy build files
         run: |
-          cp -TR ./_site ./_build/${{ github.event.repository.name }}
+          cp -TR ./docs ./_build/${{ github.event.repository.name }}
       - name: Commit to build repo
         continue-on-error: true
         run: |
