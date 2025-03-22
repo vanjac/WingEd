@@ -41,6 +41,17 @@ jobs:
           repository: 'vanjac/chroma-zone-build'
           path: _build
           token: ${{ secrets.ACTIONS_GITHUB_TOKEN }}
+      - name: Configure Git
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "<>"
+      - name: Commit to build repo
+        run: |
+          cp -r ./_site ./_build/WingEd
+          cd _build
+          git add .
+          git commit -m "Update WingEd"
+          git push
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
 
