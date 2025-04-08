@@ -3,7 +3,7 @@ package require Tcl 8.6
 package require sqlite3
 namespace import ::tcl::mathop::*
 
-proc read_sel_list {ch elem_ids db sql} {
+proc convert_sel_list {ch elem_ids db sql} {
 	binary scan [read $ch 4] iu num_sel
 	for {set i 0} {$i < $num_sel} {incr i} {
 		binary scan [read $ch 4] iu elem
@@ -35,8 +35,7 @@ proc convert_winged_file {ch db} {
 
 	$db eval {
 		BEGIN TRANSACTION;
-		PRAGMA application_id = 0x57494e47;
-		PRAGMA user_version = 3;
+
 		CREATE TABLE library(rowid INTEGER PRIMARY KEY, path TEXT UNIQUE);
 		CREATE TABLE paints(
 			rowid INTEGER PRIMARY KEY,
@@ -73,6 +72,9 @@ proc convert_winged_file {ch db} {
 			rot_x REAL, rot_y REAL, zoom REAL,
 			view_mode INTEGER, pick_type INTEGER
 		);
+
+		PRAGMA application_id = 0x57494e47;
+		PRAGMA user_version = 3;
 	}
 
 	binary scan [read $ch 4] iu num_paints
@@ -151,9 +153,9 @@ proc convert_winged_file {ch db} {
 		}
 	}
 
-	read_sel_list $ch $face_ids $db {INSERT INTO sel_faces VALUES($id)}
-	read_sel_list $ch $vert_ids $db {INSERT INTO sel_verts VALUES($id)}
-	read_sel_list $ch $edge_ids $db {INSERT INTO sel_edges VALUES($id)}
+	convert_sel_list $ch $face_ids $db {INSERT INTO sel_faces VALUES($id)}
+	convert_sel_list $ch $vert_ids $db {INSERT INTO sel_verts VALUES($id)}
+	convert_sel_list $ch $edge_ids $db {INSERT INTO sel_edges VALUES($id)}
 
 	binary scan [read $ch 4] iu sel_mode
 	binary scan [read $ch 4] iu grid_on
