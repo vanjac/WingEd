@@ -14,9 +14,9 @@ jobs:
       - uses: vanjac/chroma-zone-publish@main
         with:
           token: ${{ secrets.ACTIONS_GITHUB_TOKEN }}
-        src-dir: '.'
-        dst-dir: winged
-        filter: |
-          + README.md
-          + docs/***
-          - *
+          src-dir: '.'
+          dst-dir: winged
+          filter: |
+            + README.md
+            + docs/***
+            - *
