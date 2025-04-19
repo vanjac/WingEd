@@ -8,7 +8,7 @@ WingEd works on Windows only. [Download latest build](https://github.com/vanjac/
 
 ## Using WingEd
 
-See [WingEd interface documentation](http://chroma.zone/WingEd/interface)
+See [WingEd interface documentation](http://chroma.zone/winged/docs/interface)
 
 ## Technical Details
 
