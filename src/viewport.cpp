@@ -112,8 +112,7 @@ static void initGL() {
         throw winged_error(L"Couldn't find opengl32.dll");
     if (!CHECKERR(gladLoadGLLoader(loadGLProc)))
         throw winged_error(L"Failed to load OpenGL");
-    if (!CHECKERR(gladLoadWGLLoader(loadGLProc, dc)))
-        throw winged_error(L"Failed to load WGL extensions\n");
+    CHECKERR(gladLoadWGLLoader(loadGLProc, dc));
     if (!GLAD_GL_VERSION_2_0)
         throw winged_error(L"OpenGL 2.0 not available");
     CHECKERR(wglMakeCurrent(NULL, NULL));
