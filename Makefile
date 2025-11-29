@@ -8,7 +8,7 @@ objects := $(sources:src/%.cpp=build/%.o)
 
 entry := ENTRY_APP_MAIN
 
-CXXFLAGS := -std=c++14 -fno-rtti \
+CXXFLAGS := -std=c++14 -fno-rtti -fno-threadsafe-statics \
 	-Wpedantic -Wall -Wextra -Wdeprecated -Wconditionally-supported \
 	-Wmultiple-inheritance -Wold-style-cast -Wsuggest-override -Wmissing-include-dirs \
 	-Wconversion -Wshadow=local -Wnon-virtual-dtor \
