@@ -16,9 +16,6 @@ using std::get;
 #define NOMINMAX
 #define UNICODE
 #define _UNICODE
-#define WINVER          0x0501 // Windows XP
-#undef _WIN32_WINNT
-#define _WIN32_WINNT    0x0501
 
 #undef __USE_MINGW_ANSI_STDIO
 #define __USE_MINGW_ANSI_STDIO 0
